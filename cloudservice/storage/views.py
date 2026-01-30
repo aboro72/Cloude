@@ -92,24 +92,17 @@ class FileDetailView(LoginRequiredMixin, DetailView):
         image_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
         text_types = ['text/plain', 'text/html', 'text/css', 'application/json', 'text/csv']
 
-        # Determine if we can preview this file
-        context['can_preview'] = True
+        # Initialize preview variables
         context['is_image'] = file_obj.mime_type in image_types
         context['is_pdf'] = file_obj.mime_type == 'application/pdf'
         context['is_text'] = file_obj.mime_type in text_types
         context['is_word'] = file_obj.mime_type in word_types
         context['is_excel'] = file_obj.mime_type in excel_types
         context['is_ppt'] = file_obj.mime_type in ppt_types
-
-        # If not previewable, show download button
-        if not any([context['is_image'], context['is_pdf'], context['is_text'],
-                    context['is_word'], context['is_excel'], context['is_ppt']]):
-            context['can_preview'] = False
-
-        # Check for plugin preview providers (MVP: file preview plugins)
         context['plugin_preview'] = False
         context['plugin_preview_html'] = ''
 
+        # Check for plugin preview providers FIRST (MVP: file preview plugins)
         try:
             from plugins.hooks import hook_registry, FILE_PREVIEW_PROVIDER
 
@@ -142,6 +135,11 @@ class FileDetailView(LoginRequiredMixin, DetailView):
             logger.debug(f"Plugin system not available: {e}")
         except Exception as e:
             logger.error(f"Error loading plugin preview: {e}", exc_info=True)
+
+        # Determine if we can preview this file (standard types OR plugin preview)
+        standard_previewable = any([context['is_image'], context['is_pdf'], context['is_text'],
+                                    context['is_word'], context['is_excel'], context['is_ppt']])
+        context['can_preview'] = standard_previewable or context['plugin_preview']
 
         return context
 
