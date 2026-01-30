@@ -3,15 +3,18 @@ Views for Storage app.
 File and folder management UI views.
 """
 
-from django.views.generic import ListView, DetailView, CreateView, DeleteView, TemplateView
+from django.views.generic import ListView, DetailView, CreateView, DeleteView, TemplateView, FormView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import redirect, get_object_or_404
 from django.urls import reverse_lazy
 from django.http import FileResponse, JsonResponse
 from django.db.models import Q, Sum
+from django.core.files.base import ContentFile
+from django import forms
 
 from core.models import StorageFile, StorageFolder
 import logging
+import mimetypes
 
 logger = logging.getLogger(__name__)
 
@@ -104,6 +107,9 @@ class FileDetailView(LoginRequiredMixin, DetailView):
             context['can_preview'] = False
 
         # Check for plugin preview providers (MVP: file preview plugins)
+        context['plugin_preview'] = False
+        context['plugin_preview_html'] = ''
+
         try:
             from plugins.hooks import hook_registry, FILE_PREVIEW_PROVIDER
 
@@ -112,24 +118,103 @@ class FileDetailView(LoginRequiredMixin, DetailView):
                 mime_type=file_obj.mime_type
             )
 
+            logger.debug(f"Looking for handlers for mime_type={file_obj.mime_type}, found {len(handlers)} handlers")
+
             if handlers:
                 try:
                     # Instantiate the preview provider and generate preview
                     provider = handlers[0]()
+                    logger.debug(f"Instantiated provider: {provider.__class__.__name__}")
+
                     if provider.can_preview(file_obj):
                         context['plugin_preview'] = True
                         context['plugin_preview_html'] = provider.get_preview_html(file_obj)
-                        logger.debug(f"Plugin preview enabled for {file_obj.name}")
+                        logger.info(f"Plugin preview enabled for {file_obj.name} (mime_type={file_obj.mime_type})")
+                    else:
+                        logger.debug(f"Provider cannot preview file: {file_obj.name}")
                 except Exception as e:
-                    logger.error(f"Plugin preview failed for {file_obj.name}: {e}")
+                    logger.error(f"Plugin preview failed for {file_obj.name}: {e}", exc_info=True)
                     context['plugin_preview'] = False
+            else:
+                logger.debug(f"No handlers found for mime_type={file_obj.mime_type}")
 
-        except ImportError:
-            # Plugin system not available
-            pass
+        except ImportError as e:
+            logger.debug(f"Plugin system not available: {e}")
         except Exception as e:
-            logger.error(f"Error loading plugin preview: {e}")
+            logger.error(f"Error loading plugin preview: {e}", exc_info=True)
 
+        return context
+
+
+class CreateFileForm(forms.Form):
+    """Form for creating new files"""
+    filename = forms.CharField(
+        max_length=255,
+        label='Dateiname',
+        help_text='z.B. test.txt, notes.md, clock.clock'
+    )
+    content = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={'rows': 5}),
+        label='Inhalt (optional)',
+        help_text='Leer lassen für leere Datei'
+    )
+
+
+class CreateFileView(LoginRequiredMixin, FormView):
+    """Create new file (empty or with content)"""
+    template_name = 'storage/create_file.html'
+    form_class = CreateFileForm
+    success_url = reverse_lazy('storage:file_list')
+
+    def form_valid(self, form):
+        """Create file with content"""
+        try:
+            # Get or create root folder
+            root_folder, _ = StorageFolder.objects.get_or_create(
+                owner=self.request.user,
+                parent=None,
+                defaults={'name': 'Root', 'description': 'Root folder'}
+            )
+
+            filename = form.cleaned_data['filename']
+            content = form.cleaned_data.get('content', '')
+
+            # Create file content
+            file_content = ContentFile(content.encode('utf-8'))
+
+            # Detect MIME type
+            mime_type, _ = mimetypes.guess_type(filename)
+            if not mime_type:
+                mime_type = 'application/octet-stream'
+
+            # Create storage file
+            storage_file = StorageFile(
+                owner=self.request.user,
+                folder=root_folder,
+                name=filename,
+                size=file_content.size,
+                mime_type=mime_type
+            )
+            storage_file.file.save(filename, file_content)
+            storage_file.save()
+
+            logger.info(f"File created: {filename} by {self.request.user.username}")
+
+            from django.contrib import messages
+            messages.success(self.request, f'✅ Datei "{filename}" erstellt')
+
+            return super().form_valid(form)
+
+        except Exception as e:
+            logger.error(f"Error creating file: {e}")
+            from django.contrib import messages
+            messages.error(self.request, f'❌ Fehler beim Erstellen: {e}')
+            return redirect('storage:file_list')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = 'Neue Datei erstellen'
         return context
 
 

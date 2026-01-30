@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}Plugin Debugging - CloudService{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>🐛 Plugin Debugging</h1>
+    <hr>
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">📦 Installed Plugins</h5>
+                </div>
+                <div class="card-body">
+                    {% if plugins %}
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Status</th>
+                                    <th>Enabled</th>
+                                    <th>Module Name</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for plugin in plugins %}
+                                <tr>
+                                    <td><strong>{{ plugin.name }}</strong></td>
+                                    <td>
+                                        {% if plugin.status == 'active' %}
+                                            <span class="badge badge-success">✅ Active</span>
+                                        {% elif plugin.status == 'inactive' %}
+                                            <span class="badge badge-secondary">⭕ Inactive</span>
+                                        {% elif plugin.status == 'error' %}
+                                            <span class="badge badge-danger">❌ Error: {{ plugin.error_message }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ plugin.enabled|yesno:"Yes,No" }}</td>
+                                    <td><code>{{ plugin.module_name }}</code></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% else %}
+                        <p class="text-muted">No plugins installed</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">🎣 Registered Hooks</h5>
+                </div>
+                <div class="card-body">
+                    <pre style="max-height: 400px; overflow-y: auto; background-color: #f5f5f5; padding: 15px; border-radius: 5px;">{{ hooks_info }}</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card mb-4">
+                <div class="card-header bg-warning">
+                    <h5 class="mb-0">📝 Test MIME Type Detection</h5>
+                </div>
+                <div class="card-body">
+                    <p>Create a file with these extensions to test:</p>
+                    <ul>
+                        <li><code>.clock</code> → Should detect as <code>application/clock</code></li>
+                        <li><code>.md</code> → Should detect as <code>text/markdown</code></li>
+                        <li><code>.txt</code> → Should detect as <code>text/plain</code></li>
+                    </ul>
+                    <p class="text-muted">Check server logs (console) for MIME type detection messages</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0">🔧 What To Check</h5>
+                </div>
+                <div class="card-body">
+                    <ol>
+                        <li><strong>Is plugin Active?</strong> Check status above - should be ✅ Active</li>
+                        <li><strong>Is hook registered?</strong> Check "Registered Hooks" - should show FILE_PREVIEW_PROVIDER</li>
+                        <li><strong>Is MIME type correct?</strong> Check file details page - mime_type should be <code>application/clock</code></li>
+                        <li><strong>Check server logs</strong> - Look for debug messages about plugin preview</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

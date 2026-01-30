@@ -196,3 +196,65 @@ def settings(request):
         return redirect('accounts:login')
 
     return SettingsView.as_view()(request)
+
+
+class DebugPluginsView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
+    """Debug plugins view - for development/troubleshooting"""
+    template_name = 'core/debug_plugins.html'
+
+    def test_func(self):
+        """Only allow superusers"""
+        return self.request.user.is_superuser
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Get plugins
+        try:
+            from plugins.models import Plugin
+            context['plugins'] = Plugin.objects.all().order_by('-uploaded_at')
+        except Exception as e:
+            context['plugins'] = []
+            context['error'] = str(e)
+
+        # Get hook information
+        try:
+            from plugins.hooks import hook_registry, FILE_PREVIEW_PROVIDER
+
+            hooks_info = "=== HOOK REGISTRY DEBUG ===\n\n"
+
+            # Get all registered hooks
+            handlers = hook_registry.get_handlers(FILE_PREVIEW_PROVIDER)
+            hooks_info += f"FILE_PREVIEW_PROVIDER handlers: {len(handlers)}\n"
+
+            if handlers:
+                for i, handler in enumerate(handlers):
+                    hooks_info += f"  [{i}] {handler.__name__} (class: {handler})\n"
+            else:
+                hooks_info += "  (No handlers registered)\n"
+
+            # Show internal hook structure
+            hooks_info += f"\nInternal _hooks dict:\n"
+            if hasattr(hook_registry, '_hooks'):
+                for hook_name, hook_list in hook_registry._hooks.items():
+                    hooks_info += f"  {hook_name}:\n"
+                    for hook_info in hook_list:
+                        hooks_info += f"    - Handler: {hook_info['handler']}\n"
+                        hooks_info += f"      Priority: {hook_info['priority']}\n"
+                        hooks_info += f"      Metadata: {hook_info['metadata']}\n"
+
+        except Exception as e:
+            hooks_info = f"Error loading hooks: {e}"
+            logger.error(f"Debug hooks error: {e}", exc_info=True)
+
+        context['hooks_info'] = hooks_info
+
+        return context
+
+
+def debug_plugins(request):
+    """Debug plugins view function"""
+    if not request.user.is_authenticated:
+        return redirect('accounts:login')
+
+    return DebugPluginsView.as_view()(request)

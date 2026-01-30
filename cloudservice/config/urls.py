@@ -40,6 +40,7 @@ urlpatterns = [
 
     # Settings (Admin only)
     path('settings/', core_views.settings, name='settings'),
+    path('debug/plugins/', core_views.debug_plugins, name='debug_plugins'),
 
     # App URLs
     path('api/', include('api.urls', namespace='api')),

@@ -14,6 +14,7 @@ urlpatterns = [
     path('file/<int:file_id>/', views.FileDetailView.as_view(), name='file_detail'),
 
     # File operations
+    path('create/', views.CreateFileView.as_view(), name='create_file'),
     path('upload/', views.FileUploadView.as_view(), name='upload'),
     path('file/<int:file_id>/download/', views.FileDownloadView.as_view(), name='download'),
     path('file/<int:file_id>/rename/', views.FileRenameView.as_view(), name='rename'),
