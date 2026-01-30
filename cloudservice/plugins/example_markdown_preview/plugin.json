@@ -1,0 +1,27 @@
+{
+  "name": "Markdown File Preview",
+  "slug": "markdown-preview",
+  "version": "1.0.0",
+  "author": "CloudService Team",
+  "description": "Adds Markdown file preview support to CloudService. Preview .md files with proper formatting, syntax highlighting, and styled HTML rendering.",
+
+  "django_app": {
+    "app_config": "markdown_preview.apps.MarkdownPreviewConfig"
+  },
+
+  "requirements": {
+    "django": ">=5.0,<6.0",
+    "python": ">=3.10",
+    "python_packages": [
+      "markdown==3.5.2"
+    ]
+  },
+
+  "hooks": {
+    "file_preview_provider": {
+      "handler": "markdown_preview.handlers.MarkdownPreviewProvider",
+      "priority": 10,
+      "mime_types": ["text/markdown", "text/x-markdown"]
+    }
+  }
+}

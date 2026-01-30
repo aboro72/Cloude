@@ -103,6 +103,33 @@ class FileDetailView(LoginRequiredMixin, DetailView):
                     context['is_word'], context['is_excel'], context['is_ppt']]):
             context['can_preview'] = False
 
+        # Check for plugin preview providers (MVP: file preview plugins)
+        try:
+            from plugins.hooks import hook_registry, FILE_PREVIEW_PROVIDER
+
+            handlers = hook_registry.get_handlers(
+                FILE_PREVIEW_PROVIDER,
+                mime_type=file_obj.mime_type
+            )
+
+            if handlers:
+                try:
+                    # Instantiate the preview provider and generate preview
+                    provider = handlers[0]()
+                    if provider.can_preview(file_obj):
+                        context['plugin_preview'] = True
+                        context['plugin_preview_html'] = provider.get_preview_html(file_obj)
+                        logger.debug(f"Plugin preview enabled for {file_obj.name}")
+                except Exception as e:
+                    logger.error(f"Plugin preview failed for {file_obj.name}: {e}")
+                    context['plugin_preview'] = False
+
+        except ImportError:
+            # Plugin system not available
+            pass
+        except Exception as e:
+            logger.error(f"Error loading plugin preview: {e}")
+
         return context
 
 

@@ -59,6 +59,7 @@ LOCAL_APPS = [
     'storage.apps.StorageConfig',
     'sharing.apps.SharingConfig',
     'api.apps.ApiConfig',
+    'plugins.apps.PluginsConfig',  # Plugin system for extensibility
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS

@@ -1,0 +1,25 @@
+{
+  "name": "Analog Clock Preview",
+  "slug": "clock-preview",
+  "version": "1.0.0",
+  "author": "CloudService Team",
+  "description": "Displays an animated analog clock for file preview. Perfect for testing the plugin system - immediate visual feedback with moving second hand.",
+
+  "django_app": {
+    "app_config": "clock_preview.apps.ClockPreviewConfig"
+  },
+
+  "requirements": {
+    "django": ">=5.0,<6.0",
+    "python": ">=3.10",
+    "python_packages": []
+  },
+
+  "hooks": {
+    "file_preview_provider": {
+      "handler": "clock_preview.handlers.ClockPreviewProvider",
+      "priority": 10,
+      "mime_types": ["application/clock", "text/clock"]
+    }
+  }
+}

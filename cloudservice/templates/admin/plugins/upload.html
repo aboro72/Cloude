@@ -1,0 +1,213 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrahead %}
+<style>
+    .plugin-upload-container {
+        max-width: 600px;
+        margin: 20px auto;
+    }
+
+    .upload-form {
+        background-color: #f9f9f9;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+
+    .upload-form h3 {
+        margin-top: 0;
+        color: #333;
+    }
+
+    .form-group {
+        margin-bottom: 15px;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+        color: #333;
+    }
+
+    .form-group input[type="file"] {
+        display: block;
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 3px;
+        font-size: 14px;
+    }
+
+    .form-group input[type="file"]:focus {
+        outline: none;
+        border-color: #417690;
+        box-shadow: 0 0 4px rgba(65, 118, 144, 0.3);
+    }
+
+    .button-group {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+    }
+
+    .button-group input[type="submit"],
+    .button-group a.button {
+        flex: 1;
+        padding: 10px 15px;
+        text-align: center;
+        text-decoration: none;
+    }
+
+    .button-group input[type="submit"] {
+        background-color: #417690;
+        color: white;
+        border: none;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: bold;
+    }
+
+    .button-group input[type="submit"]:hover {
+        background-color: #205067;
+    }
+
+    .button-group a.button {
+        background-color: #e0e0e0;
+        color: #333;
+        border: 1px solid #ccc;
+        border-radius: 3px;
+        display: inline-block;
+    }
+
+    .button-group a.button:hover {
+        background-color: #d0d0d0;
+    }
+
+    .help-text {
+        background-color: #e8f4f8;
+        border-left: 4px solid #417690;
+        padding: 15px;
+        margin-bottom: 20px;
+        border-radius: 3px;
+    }
+
+    .help-text h4 {
+        margin-top: 0;
+        color: #417690;
+    }
+
+    .help-text ul {
+        margin: 10px 0;
+        padding-left: 20px;
+    }
+
+    .help-text li {
+        margin: 5px 0;
+        color: #333;
+    }
+
+    .example-structure {
+        background-color: #f5f5f5;
+        border: 1px solid #ddd;
+        padding: 15px;
+        margin: 15px 0;
+        border-radius: 3px;
+        font-family: monospace;
+        font-size: 12px;
+        overflow-x: auto;
+    }
+
+    .example-structure pre {
+        margin: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="plugin-upload-container">
+    <h1>📦 Upload Plugin</h1>
+
+    <div class="help-text">
+        <h4>Plugin Upload Instructions</h4>
+        <p>Upload a plugin as a ZIP file to extend CloudService with new features.</p>
+        <ul>
+            <li>ZIP file must contain <code>plugin.json</code> manifest</li>
+            <li>Must contain valid Python Django app code</li>
+            <li>After upload, click "Activate" to enable the plugin</li>
+            <li>No server restart needed (hot-loading)</li>
+        </ul>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" class="upload-form">
+        {% csrf_token %}
+
+        <h3>Select Plugin ZIP File</h3>
+
+        <div class="form-group">
+            <label for="id_zip_file">Plugin ZIP File:</label>
+            <input
+                type="file"
+                name="zip_file"
+                id="id_zip_file"
+                accept=".zip"
+                required
+            >
+            <small style="color: #666; display: block; margin-top: 5px;">
+                Maximum file size: 100 MB
+            </small>
+        </div>
+
+        <div class="button-group">
+            <input type="submit" value="🚀 Upload Plugin" />
+            <a href="{% url 'admin:plugins_plugin_changelist' %}" class="button cancel-link">Cancel</a>
+        </div>
+    </form>
+
+    <div class="help-text">
+        <h4>📋 Plugin Structure</h4>
+        <p>Your plugin ZIP should have this structure:</p>
+
+        <div class="example-structure">
+my_plugin/
+├── __init__.py
+├── apps.py              (AppConfig)
+├── handlers.py          (Feature implementation)
+├── plugin.json          (Manifest)
+└── [optional files]
+        </div>
+
+        <h4>🔧 Minimum plugin.json</h4>
+
+        <div class="example-structure">
+{
+  "name": "My Plugin",
+  "slug": "my-plugin",
+  "version": "1.0.0",
+  "author": "Your Name",
+  "description": "What it does",
+  "django_app": {
+    "app_config": "my_plugin.apps.MyPluginConfig"
+  },
+  "requirements": {
+    "django": ">=5.0",
+    "python_packages": []
+  }
+}
+        </div>
+
+        <p><strong>Need help?</strong> Check the plugin development guide in the documentation.</p>
+    </div>
+
+    <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; color: #666; font-size: 12px;">
+        <p>
+            <strong>Security Note:</strong> Only upload plugins from trusted sources.
+            Plugins have access to your Django application and data.
+        </p>
+    </div>
+</div>
+
+{% endblock %}

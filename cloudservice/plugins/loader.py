@@ -1,0 +1,332 @@
+"""
+Plugin loader and lifecycle management.
+
+Handles ZIP validation, extraction, dynamic loading/unloading of plugins,
+and hot-loading (activation/deactivation without server restart).
+"""
+
+import os
+import sys
+import json
+import zipfile
+import shutil
+import importlib
+from pathlib import Path
+from typing import Dict, Any, Optional
+
+from django.conf import settings
+from django.apps import apps
+from django.utils import timezone
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+class PluginLoader:
+    """
+    Handles all plugin loading, validation, and lifecycle operations.
+
+    Supports:
+    - ZIP file validation and extraction
+    - Dynamic plugin importing
+    - Runtime INSTALLED_APPS modification
+    - Hot-loading (activate/deactivate without restart)
+    - Error handling and recovery
+    """
+
+    PLUGINS_DIR = Path(settings.BASE_DIR) / 'plugins' / 'installed'
+
+    def __init__(self):
+        """Initialize plugin loader and create plugins directory"""
+        self.PLUGINS_DIR.mkdir(parents=True, exist_ok=True)
+        logger.debug(f"PluginLoader initialized with PLUGINS_DIR: {self.PLUGINS_DIR}")
+
+    def validate_zip(self, zip_path: Path) -> Dict[str, Any]:
+        """
+        Validate plugin ZIP structure and manifest.
+
+        Args:
+            zip_path: Path to the ZIP file
+
+        Returns:
+            Parsed manifest dict from plugin.json
+
+        Raises:
+            ValueError: If ZIP is invalid or missing required files
+        """
+        logger.info(f"Validating ZIP: {zip_path}")
+
+        try:
+            with zipfile.ZipFile(zip_path, 'r') as zf:
+                # Check for plugin.json
+                if 'plugin.json' not in zf.namelist():
+                    raise ValueError("Missing plugin.json manifest")
+
+                logger.debug("Found plugin.json manifest")
+
+                # Parse manifest
+                with zf.open('plugin.json') as f:
+                    manifest = json.load(f)
+
+                # Validate required fields
+                required_fields = ['name', 'slug', 'version']
+                missing = [f for f in required_fields if f not in manifest]
+                if missing:
+                    raise ValueError(f"Missing required fields: {', '.join(missing)}")
+
+                logger.debug(f"Manifest valid: {manifest['name']} v{manifest['version']}")
+
+                # Check for dangerous file extensions
+                dangerous_patterns = ['.exe', '.dll', '.so', '.dylib', '.bat', '.cmd']
+                for name in zf.namelist():
+                    if any(name.lower().endswith(p) for p in dangerous_patterns):
+                        raise ValueError(f"Dangerous file detected: {name}")
+
+                logger.info(f"ZIP validation successful: {manifest['name']}")
+                return manifest
+
+        except zipfile.BadZipFile:
+            raise ValueError("Invalid ZIP file format")
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON in plugin.json: {e}")
+        except Exception as e:
+            logger.error(f"ZIP validation failed: {e}")
+            raise
+
+    def extract_plugin(self, plugin_id: str, zip_path: Path) -> Path:
+        """
+        Extract plugin ZIP to installed directory.
+
+        Args:
+            plugin_id: UUID of the plugin
+            zip_path: Path to the ZIP file
+
+        Returns:
+            Path to extracted plugin directory
+
+        Raises:
+            Exception: If extraction fails
+        """
+        from plugins.models import Plugin
+
+        logger.info(f"Extracting plugin {plugin_id} from {zip_path}")
+
+        try:
+            plugin = Plugin.objects.get(pk=plugin_id)
+            extract_dir = self.PLUGINS_DIR / plugin.slug
+
+            # Remove existing extraction
+            if extract_dir.exists():
+                logger.debug(f"Removing existing plugin directory: {extract_dir}")
+                shutil.rmtree(extract_dir)
+
+            # Extract ZIP
+            extract_dir.mkdir(parents=True)
+            with zipfile.ZipFile(zip_path, 'r') as zf:
+                zf.extractall(extract_dir)
+
+            logger.debug(f"Extracted to: {extract_dir}")
+
+            # Create __init__.py if missing
+            init_file = extract_dir / '__init__.py'
+            if not init_file.exists():
+                init_file.touch()
+                logger.debug("Created missing __init__.py")
+
+            logger.info(f"Plugin extraction successful: {extract_dir}")
+            return extract_dir
+
+        except Exception as e:
+            logger.error(f"Plugin extraction failed: {e}")
+            raise
+
+    def load_plugin(self, plugin_id: str) -> bool:
+        """
+        Load plugin into Django at runtime (hot-load).
+
+        Modifies INSTALLED_APPS, imports plugin module, registers AppConfig,
+        and calls ready() method.
+
+        Args:
+            plugin_id: UUID of the plugin to load
+
+        Returns:
+            True if successful
+
+        Raises:
+            Exception: If loading fails
+        """
+        from plugins.models import Plugin, PluginLog
+
+        logger.info(f"Loading plugin {plugin_id}")
+
+        try:
+            plugin = Plugin.objects.get(pk=plugin_id)
+
+            # Add to Python path
+            if str(self.PLUGINS_DIR) not in sys.path:
+                sys.path.insert(0, str(self.PLUGINS_DIR))
+                logger.debug(f"Added {self.PLUGINS_DIR} to sys.path")
+
+            # Determine module name
+            module_name = f"plugins.installed.{plugin.slug.replace('-', '_')}"
+            plugin.module_name = module_name
+            logger.debug(f"Module name: {module_name}")
+
+            # Import plugin module
+            plugin_module = importlib.import_module(module_name)
+            logger.debug(f"Imported plugin module: {module_name}")
+
+            # Get AppConfig path from manifest
+            app_config_path = plugin.manifest.get('django_app', {}).get('app_config')
+            if not app_config_path:
+                raise ValueError("No app_config specified in manifest")
+
+            # Import AppConfig
+            config_module_path, config_class_name = app_config_path.rsplit('.', 1)
+            config_module = importlib.import_module(config_module_path)
+            app_config_class = getattr(config_module, config_class_name)
+            logger.debug(f"Found AppConfig: {app_config_path}")
+
+            # Add to INSTALLED_APPS if not already there
+            if module_name not in settings.INSTALLED_APPS:
+                settings.INSTALLED_APPS = list(settings.INSTALLED_APPS) + [module_name]
+                logger.debug(f"Added {module_name} to INSTALLED_APPS")
+
+            # Create and register AppConfig instance
+            app_config_instance = app_config_class(module_name, plugin_module)
+            apps.app_configs[module_name] = app_config_instance
+            logger.debug(f"Registered AppConfig: {module_name}")
+
+            # Call ready() to initialize signals, hooks, etc.
+            app_config_instance.ready()
+            logger.debug(f"Called AppConfig.ready() for {module_name}")
+
+            # Update plugin status
+            plugin.status = 'active'
+            plugin.enabled = True
+            plugin.activated_at = timezone.now()
+            plugin.error_message = ''
+            plugin.save()
+
+            # Log the action
+            PluginLog.objects.create(
+                plugin=plugin,
+                action='activated',
+                message=f"Plugin activated successfully"
+            )
+
+            logger.info(f"Plugin loaded successfully: {plugin.name}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to load plugin {plugin_id}: {e}")
+            plugin.status = 'error'
+            plugin.error_message = str(e)
+            plugin.save()
+
+            PluginLog.objects.create(
+                plugin=plugin,
+                action='error',
+                message=f"Failed to activate: {str(e)}"
+            )
+            raise
+
+    def unload_plugin(self, plugin_id: str) -> bool:
+        """
+        Unload plugin from Django at runtime (hot-unload).
+
+        Removes from INSTALLED_APPS, removes from app registry,
+        and clears from sys.modules.
+
+        Args:
+            plugin_id: UUID of the plugin to unload
+
+        Returns:
+            True if successful
+
+        Raises:
+            Exception: If unloading fails
+        """
+        from plugins.models import Plugin, PluginLog
+        from plugins.hooks import hook_registry
+
+        logger.info(f"Unloading plugin {plugin_id}")
+
+        try:
+            plugin = Plugin.objects.get(pk=plugin_id)
+            module_name = plugin.module_name
+
+            if not module_name:
+                raise ValueError("Plugin has no module_name set")
+
+            # Clear plugin hooks
+            try:
+                hook_registry.clear_plugin_hooks(module_name)
+                logger.debug(f"Cleared hooks for {module_name}")
+            except Exception as e:
+                logger.warning(f"Failed to clear hooks: {e}")
+
+            # Remove from INSTALLED_APPS
+            if module_name in settings.INSTALLED_APPS:
+                installed = list(settings.INSTALLED_APPS)
+                installed.remove(module_name)
+                settings.INSTALLED_APPS = installed
+                logger.debug(f"Removed {module_name} from INSTALLED_APPS")
+
+            # Remove from app registry
+            if module_name in apps.app_configs:
+                del apps.app_configs[module_name]
+                logger.debug(f"Removed {module_name} from app registry")
+
+            # Remove from sys.modules
+            modules_to_remove = [k for k in list(sys.modules.keys()) if k.startswith(module_name)]
+            for mod_name in modules_to_remove:
+                del sys.modules[mod_name]
+            logger.debug(f"Removed {len(modules_to_remove)} modules from sys.modules")
+
+            # Update plugin status
+            plugin.enabled = False
+            plugin.status = 'inactive'
+            plugin.save()
+
+            # Log the action
+            PluginLog.objects.create(
+                plugin=plugin,
+                action='deactivated',
+                message=f"Plugin deactivated successfully"
+            )
+
+            logger.info(f"Plugin unloaded successfully: {plugin.name}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to unload plugin {plugin_id}: {e}")
+            raise
+
+    def load_all_enabled(self) -> None:
+        """
+        Load all enabled plugins from database.
+
+        Called on Django startup via AppConfig.ready().
+        Skips plugins with errors and logs them.
+        """
+        from plugins.models import Plugin
+
+        logger.info("Loading all enabled plugins...")
+
+        try:
+            enabled_plugins = Plugin.objects.filter(enabled=True)
+            logger.info(f"Found {enabled_plugins.count()} enabled plugins")
+
+            for plugin in enabled_plugins:
+                try:
+                    self.load_plugin(str(plugin.id))
+                except Exception as e:
+                    logger.error(f"Failed to load plugin {plugin.name}: {e}")
+                    # Status already updated in load_plugin()
+
+            logger.info("Finished loading enabled plugins")
+
+        except Exception as e:
+            logger.error(f"Error loading enabled plugins: {e}")
