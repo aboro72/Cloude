@@ -1,0 +1,156 @@
+================================================================================
+  QUICK TEST - Settings UI + Plugin System
+================================================================================
+
+STEP 1: Reload Django Server
+─────────────────────────────
+The Django server should automatically reload the URL changes.
+If it doesn't restart automatically, manually restart:
+  python manage.py runserver
+
+STEP 2: Access Settings Page
+─────────────────────────────
+Option A: Via Navigation Menu
+  1. Go to http://localhost:8000/
+  2. Click username dropdown (top right)
+  3. Look for "⚙️ Admin Settings"
+  4. Click it
+
+Option B: Direct URL
+  http://localhost:8000/settings/
+
+You should see a professional Settings page with:
+  - "📦 Plugin Management" header
+  - "📤 Upload New Plugin" section
+  - "📋 Installed Plugins" table
+  - "📜 Recent Plugin Activity" log
+
+STEP 3: Test Plugin Upload
+──────────────────────────
+1. On Settings page, find "Upload New Plugin" section
+2. Click "Choose file..." button
+3. Select: cloudservice/plugins/clock-preview.zip
+4. Click "Upload Plugin" button
+5. Success message should appear
+6. Plugin should appear in table with status "Inactive" ⭕
+
+STEP 4: Test Plugin Activation
+───────────────────────────────
+1. In "Installed Plugins" table, find "Analog Clock Preview"
+2. Click "🟢 Activate" button
+3. Page redirects, status changes to "Active" ✅
+4. Success message appears
+5. ⭐ NO SERVER RESTART! ⭐ This is hot-loading!
+
+STEP 5: Test Plugin in File Preview
+────────────────────────────────────
+1. Go to http://localhost:8000/storage/files/
+2. Create a new file:
+   - Name: test-clock.clock
+   - Description: Test clock file
+3. Go to file detail page
+4. Should see animated analog clock:
+   - Clock face with numbers 1-12 ✓
+   - Hour, minute, second hands ✓
+   - Moving second hand (updates every second) ✓
+   - Digital time display (HH:MM:SS) ✓
+   - Purple gradient background ✓
+
+STEP 6: Test Plugin Deactivation
+─────────────────────────────────
+1. Back to Settings page
+2. Find "Analog Clock Preview" plugin
+3. Click "🔴 Deactivate" button
+4. Page redirects, status changes to "Inactive" ⭕
+5. ⭐ NO SERVER RESTART! ⭐
+
+STEP 7: Verify Deactivation Works
+──────────────────────────────────
+1. Go back to test-clock.clock file page
+2. Clock should NO LONGER be visible
+3. Should see default file preview instead
+4. This proves plugin was actually unloaded!
+
+STEP 8: Check Activity Log
+───────────────────────────
+Back on Settings page, scroll to "📜 Recent Plugin Activity"
+Should see entries for:
+  - 📤 Uploaded (when you uploaded)
+  - 🟢 Activated (when you activated)
+  - ⭕ Deactivated (when you deactivated)
+
+================================================================================
+  SUCCESS CHECKLIST
+================================================================================
+
+✅ Settings page loads at /settings/
+✅ Upload form works
+✅ Plugin appears in list after upload
+✅ Activate button changes status to Active
+✅ NO SERVER RESTART NEEDED after activate
+✅ Clock displays on file preview when active
+✅ Clock hands move in real-time
+✅ Deactivate button works
+✅ NO SERVER RESTART NEEDED after deactivate
+✅ Clock disappears from file preview when deactivated
+✅ Activity log shows all operations
+
+If all checked: Plugin system is WORKING! ✅
+
+================================================================================
+  WHAT'S DIFFERENT FROM BEFORE
+================================================================================
+
+BEFORE:
+  ❌ Had to use Admin Dashboard (/admin/plugins/)
+  ❌ Looked like technical admin interface
+  ❌ Confusing to non-technical users
+  ❌ Had to switch between admin and main app
+
+NOW:
+  ✅ Use Settings page (/settings/)
+  ✅ Professional, modern interface
+  ✅ Clear, user-friendly design
+  ✅ Stays in main app - no switching
+
+================================================================================
+  ERROR TROUBLESHOOTING
+================================================================================
+
+ERROR: "Plugin Management not found"
+→ Make sure you're logged in as superuser/admin
+→ Check admin user exists: python manage.py create_demo_users
+
+ERROR: "No file selected" after upload
+→ Make sure clock-preview.zip file is selected
+→ File should be in: cloudservice/plugins/clock-preview.zip
+
+ERROR: "Invalid plugin" after upload
+→ ZIP file might be corrupted
+→ Recreate with: Compress-Archive -Path example_clock_preview -DestinationPath clock-preview.zip
+
+ERROR: Activate button doesn't work
+→ Check browser console (F12) for errors
+→ Check Django server console for error messages
+→ Check file permissions on plugins/installed/ directory
+
+ERROR: Clock doesn't appear after activation
+→ Make sure file MIME type is correct (application/clock or text/clock)
+→ Try hard refresh (Ctrl+F5) in browser
+→ Check browser console for JavaScript errors
+
+================================================================================
+  NEXT STEPS
+================================================================================
+
+After successful testing:
+
+1. Plugin system is MVP-complete ✅
+2. Can create more example plugins
+3. Can document plugin API
+4. Ready for production use
+5. Can share with community
+
+Good luck! 🚀
+
+================================================================================
