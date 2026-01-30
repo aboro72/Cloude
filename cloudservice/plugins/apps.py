@@ -1,7 +1,7 @@
 """
 Plugin app configuration.
 
-Handles plugin system initialization and loading of enabled plugins on startup.
+Handles plugin system initialization and management.
 """
 
 from django.apps import AppConfig
@@ -21,16 +21,11 @@ class PluginsConfig(AppConfig):
         """
         Called when the app is ready.
 
-        Loads all enabled plugins from the database.
+        Note: We don't auto-load plugins on startup to avoid interfering
+        with Django's app registry initialization. Plugins are loaded
+        on-demand when the admin clicks "Activate".
         """
-        logger.info("Initializing Plugin System")
-
-        try:
-            from plugins.loader import PluginLoader
-
-            loader = PluginLoader()
-            loader.load_all_enabled()
-            logger.info("Plugin System initialized successfully")
-
-        except Exception as e:
-            logger.error(f"Error initializing Plugin System: {e}")
+        logger.info("Plugin System ready (plugins loaded on-demand)")
+        # Plugins are not auto-loaded on startup - this prevents
+        # "dictionary changed size during iteration" errors during
+        # Django initialization. Plugins are loaded when admin activates them.

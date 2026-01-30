@@ -19,7 +19,7 @@
     "file_preview_provider": {
       "handler": "clock_preview.handlers.ClockPreviewProvider",
       "priority": 10,
-      "mime_types": ["application/clock", "text/clock"]
+      "mime_types": ["application/clock"]
     }
   }
 }

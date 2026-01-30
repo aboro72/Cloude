@@ -18,6 +18,9 @@ from datetime import timedelta
 
 logger = logging.getLogger(__name__)
 
+# Register custom MIME types for plugins
+mimetypes.add_type('application/clock', '.clock')
+
 
 class TimeStampedModel(models.Model):
     """

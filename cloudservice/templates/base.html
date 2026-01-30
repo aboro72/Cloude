@@ -163,6 +163,11 @@
                             <ul class="dropdown-menu dropdown-menu-end">
                                 <li><a class="dropdown-item" href="/accounts/profile/">Profil</a></li>
                                 <li><a class="dropdown-item" href="/accounts/settings/">Einstellungen</a></li>
+                                {% if user.is_superuser %}
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item" href="/settings/">⚙️ Admin Settings</a></li>
+                                    <li><a class="dropdown-item" href="/admin/">🔧 Django Admin</a></li>
+                                {% endif %}
                                 <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item" href="/accounts/logout/">Logout</a></li>
                             </ul>

@@ -40,4 +40,8 @@ urlpatterns = [
     # Share permissions
     path('shares/<int:share_id>/permissions/', views.UpdateSharePermissionView.as_view(), name='update_share_permission'),
     path('public-links/<int:link_id>/password/', views.SetPublicLinkPasswordView.as_view(), name='set_link_password'),
+
+    # Plugin management
+    path('plugins/<uuid:plugin_id>/activate/', views.PluginActivateView.as_view(), name='plugin_activate'),
+    path('plugins/<uuid:plugin_id>/deactivate/', views.PluginDeactivateView.as_view(), name='plugin_deactivate'),
 ]

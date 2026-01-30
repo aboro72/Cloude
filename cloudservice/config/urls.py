@@ -10,6 +10,7 @@ from django.views.generic import TemplateView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from django.views.decorators.cache import cache_page
+from core import views as core_views
 
 # Home view
 class HomeView(TemplateView):
@@ -36,6 +37,9 @@ urlpatterns = [
     # JWT Authentication
     path('api/auth/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+
+    # Settings (Admin only)
+    path('settings/', core_views.settings, name='settings'),
 
     # App URLs
     path('api/', include('api.urls', namespace='api')),

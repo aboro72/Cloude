@@ -58,14 +58,20 @@ class PluginLoader:
 
         try:
             with zipfile.ZipFile(zip_path, 'r') as zf:
-                # Check for plugin.json
-                if 'plugin.json' not in zf.namelist():
+                # Check for plugin.json (can be at root or in subfolder)
+                manifest_path = None
+                for name in zf.namelist():
+                    if name.endswith('plugin.json'):
+                        manifest_path = name
+                        break
+
+                if not manifest_path:
                     raise ValueError("Missing plugin.json manifest")
 
-                logger.debug("Found plugin.json manifest")
+                logger.debug(f"Found plugin.json manifest at: {manifest_path}")
 
                 # Parse manifest
-                with zf.open('plugin.json') as f:
+                with zf.open(manifest_path) as f:
                     manifest = json.load(f)
 
                 # Validate required fields
@@ -113,7 +119,9 @@ class PluginLoader:
 
         try:
             plugin = Plugin.objects.get(pk=plugin_id)
-            extract_dir = self.PLUGINS_DIR / plugin.slug
+            # Use underscore version for Python module compatibility
+            module_dir_name = plugin.slug.replace('-', '_')
+            extract_dir = self.PLUGINS_DIR / module_dir_name
 
             # Remove existing extraction
             if extract_dir.exists():
@@ -126,6 +134,18 @@ class PluginLoader:
                 zf.extractall(extract_dir)
 
             logger.debug(f"Extracted to: {extract_dir}")
+
+            # Check if there's a single top-level folder and flatten if needed
+            contents = list(extract_dir.iterdir())
+            if len(contents) == 1 and contents[0].is_dir():
+                # Single folder at root - this is the expected structure from compressed directory
+                top_folder = contents[0]
+                # Move all contents up one level
+                for item in top_folder.iterdir():
+                    shutil.move(str(item), str(extract_dir / item.name))
+                # Remove empty top folder
+                top_folder.rmdir()
+                logger.debug(f"Flattened directory structure")
 
             # Create __init__.py if missing
             init_file = extract_dir / '__init__.py'
@@ -169,7 +189,8 @@ class PluginLoader:
                 logger.debug(f"Added {self.PLUGINS_DIR} to sys.path")
 
             # Determine module name
-            module_name = f"plugins.installed.{plugin.slug.replace('-', '_')}"
+            # sys.path includes PLUGINS_DIR, so module is just the slug
+            module_name = plugin.slug.replace('-', '_')
             plugin.module_name = module_name
             logger.debug(f"Module name: {module_name}")
 

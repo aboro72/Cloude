@@ -21,7 +21,7 @@ class ClockPreviewProvider(FilePreviewProvider):
     @property
     def supported_mime_types(self):
         """MIME types supported by this provider"""
-        return ['application/clock', 'text/clock']
+        return ['application/clock']
 
     def can_preview(self, file_obj) -> bool:
         """Check if this provider can preview the given file"""
