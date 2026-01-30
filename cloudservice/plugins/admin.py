@@ -57,7 +57,7 @@ class PluginAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
         ('Status & Configuration', {
-            'fields': ('status', 'enabled', 'module_name'),
+            'fields': ('status', 'enabled', 'module_name', 'position'),
         }),
         ('Error Information', {
             'fields': ('error_message',),
@@ -74,6 +74,7 @@ class PluginAdmin(admin.ModelAdmin):
             'classes': ('collapse',),
         }),
     )
+
 
     def name_display(self, obj):
         """Display plugin name with icon"""

@@ -96,6 +96,19 @@ class Plugin(models.Model):
         help_text="Error message if plugin failed to load"
     )
 
+    # Position on file preview page
+    POSITION_CHOICES = [
+        ('left', _('Left')),
+        ('center', _('Center')),
+        ('right', _('Right')),
+    ]
+    position = models.CharField(
+        max_length=20,
+        choices=POSITION_CHOICES,
+        default='left',
+        help_text="Position on file preview page (left, center, or right)"
+    )
+
     # Metadata
     installed_by = models.ForeignKey(
         User,

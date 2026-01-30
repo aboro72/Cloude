@@ -26,12 +26,13 @@ class ClockPreviewConfig(AppConfig):
             from plugins.hooks import hook_registry, FILE_PREVIEW_PROVIDER
             from clock_preview.handlers import ClockPreviewProvider
 
-            # Register the handler for .clock files
+            # Register the handler for .plug files
             hook_registry.register(
                 FILE_PREVIEW_PROVIDER,
                 ClockPreviewProvider,
                 priority=10,
-                mime_type='application/clock'
+                plugin_type='file_preview',
+                mime_type='application/plugin'
             )
 
             logger.info("Clock Preview Provider registered")

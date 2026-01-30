@@ -103,10 +103,40 @@
                             <!-- Text preview -->
                             <pre style="max-height: 500px; overflow-y: auto; background-color: #f5f5f5; padding: 15px; border-radius: 5px;"><code id="textPreview">Laden...</code></pre>
 
-                        {% elif plugin_preview %}
-                            <!-- Plugin-provided preview (e.g., Markdown, CAD files, etc.) -->
-                            <div class="plugin-preview" style="padding: 20px; background-color: white; border: 1px solid #ddd; border-radius: 5px;">
-                                {{ plugin_preview_html|safe }}
+                        {% elif plugins_left or plugins_center or plugins_right %}
+                            <!-- Plugin layout: Left | Center | Right -->
+                            <div class="plugin-layout" style="display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 20px; min-height: 400px;">
+
+                                <!-- LEFT PLUGINS (vertical stack) -->
+                                <div class="plugins-left" style="display: flex; flex-direction: column; gap: 15px;">
+                                    {% for plugin in plugins_left %}
+                                        <div class="plugin-item" style="padding: 15px; background-color: white; border: 1px solid #ddd; border-radius: 5px; overflow: auto;">
+                                            <small class="text-muted">📦 {{ plugin.name }}</small>
+                                            {{ plugin.html|safe }}
+                                        </div>
+                                    {% endfor %}
+                                </div>
+
+                                <!-- CENTER PLUGINS (horizontal then vertical) -->
+                                <div class="plugins-center" style="display: flex; flex-direction: column; gap: 15px;">
+                                    {% for plugin in plugins_center %}
+                                        <div class="plugin-item" style="padding: 15px; background-color: white; border: 1px solid #ddd; border-radius: 5px; overflow: auto;">
+                                            <small class="text-muted">📦 {{ plugin.name }}</small>
+                                            {{ plugin.html|safe }}
+                                        </div>
+                                    {% endfor %}
+                                </div>
+
+                                <!-- RIGHT PLUGINS (vertical stack) -->
+                                <div class="plugins-right" style="display: flex; flex-direction: column; gap: 15px;">
+                                    {% for plugin in plugins_right %}
+                                        <div class="plugin-item" style="padding: 15px; background-color: white; border: 1px solid #ddd; border-radius: 5px; overflow: auto;">
+                                            <small class="text-muted">📦 {{ plugin.name }}</small>
+                                            {{ plugin.html|safe }}
+                                        </div>
+                                    {% endfor %}
+                                </div>
+
                             </div>
 
                         {% else %}

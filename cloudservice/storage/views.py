@@ -102,44 +102,57 @@ class FileDetailView(LoginRequiredMixin, DetailView):
         context['plugin_preview'] = False
         context['plugin_preview_html'] = ''
 
-        # Check for plugin preview providers FIRST (MVP: file preview plugins)
+        # Plugin positioning
+        context['plugins_left'] = []
+        context['plugins_center'] = []
+        context['plugins_right'] = []
+
+        # Check for active plugins (.plug files)
+        # These can be positioned on left, center, or right
         try:
-            from plugins.hooks import hook_registry, FILE_PREVIEW_PROVIDER
+            from plugins.models import Plugin
 
-            handlers = hook_registry.get_handlers(
-                FILE_PREVIEW_PROVIDER,
-                mime_type=file_obj.mime_type
-            )
+            active_plugins = Plugin.objects.filter(enabled=True, status='active')
 
-            logger.debug(f"Looking for handlers for mime_type={file_obj.mime_type}, found {len(handlers)} handlers")
-
-            if handlers:
+            for plugin in active_plugins:
                 try:
-                    # Instantiate the preview provider and generate preview
-                    provider = handlers[0]()
-                    logger.debug(f"Instantiated provider: {provider.__class__.__name__}")
+                    # Load plugin preview for .plug files
+                    from plugins.hooks import hook_registry, FILE_PREVIEW_PROVIDER
 
-                    if provider.can_preview(file_obj):
-                        context['plugin_preview'] = True
-                        context['plugin_preview_html'] = provider.get_preview_html(file_obj)
-                        logger.info(f"Plugin preview enabled for {file_obj.name} (mime_type={file_obj.mime_type})")
-                    else:
-                        logger.debug(f"Provider cannot preview file: {file_obj.name}")
+                    handlers = hook_registry.get_handlers(
+                        FILE_PREVIEW_PROVIDER,
+                        plugin_type='file_preview'
+                    )
+
+                    if handlers:
+                        provider = handlers[0]()
+                        if provider.can_preview(file_obj):
+                            plugin_html = provider.get_preview_html(file_obj)
+                            plugin_data = {
+                                'name': plugin.name,
+                                'html': plugin_html,
+                                'position': plugin.position
+                            }
+
+                            # Add to appropriate position list
+                            if plugin.position == 'left':
+                                context['plugins_left'].append(plugin_data)
+                            elif plugin.position == 'center':
+                                context['plugins_center'].append(plugin_data)
+                            elif plugin.position == 'right':
+                                context['plugins_right'].append(plugin_data)
+
+                            logger.info(f"[FileDetailView] ✅ Plugin '{plugin.name}' added to {plugin.position}")
                 except Exception as e:
-                    logger.error(f"Plugin preview failed for {file_obj.name}: {e}", exc_info=True)
-                    context['plugin_preview'] = False
-            else:
-                logger.debug(f"No handlers found for mime_type={file_obj.mime_type}")
-
-        except ImportError as e:
-            logger.debug(f"Plugin system not available: {e}")
+                    logger.error(f"[FileDetailView] Error processing plugin {plugin.name}: {e}", exc_info=True)
         except Exception as e:
-            logger.error(f"Error loading plugin preview: {e}", exc_info=True)
+            logger.warning(f"[FileDetailView] Could not load plugins: {e}")
 
-        # Determine if we can preview this file (standard types OR plugin preview)
+        # Determine if we can preview this file (standard types OR plugins)
         standard_previewable = any([context['is_image'], context['is_pdf'], context['is_text'],
                                     context['is_word'], context['is_excel'], context['is_ppt']])
-        context['can_preview'] = standard_previewable or context['plugin_preview']
+        has_plugins = any([context['plugins_left'], context['plugins_center'], context['plugins_right']])
+        context['can_preview'] = standard_previewable or has_plugins
 
         return context
 

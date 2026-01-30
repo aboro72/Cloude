@@ -19,7 +19,7 @@ from datetime import timedelta
 logger = logging.getLogger(__name__)
 
 # Register custom MIME types for plugins
-mimetypes.add_type('application/clock', '.clock')
+mimetypes.add_type('application/plugin', '.plug')  # Universal plugin format
 
 
 class TimeStampedModel(models.Model):
@@ -241,8 +241,16 @@ class StorageFile(TimeStampedModel):
             # Generate SHA256 hash
             if not self.file_hash:
                 hash_object = hashlib.sha256()
+
+                # For small/empty files, include filename and timestamp to ensure uniqueness
+                if self.size < 1024:  # Less than 1KB
+                    hash_object.update(self.name.encode('utf-8'))
+                    hash_object.update(str(timezone.now()).encode('utf-8'))
+
+                # Hash file content
                 for chunk in self.file.chunks():
                     hash_object.update(chunk)
+
                 self.file_hash = hash_object.hexdigest()
 
         super().save(*args, **kwargs)
