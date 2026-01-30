@@ -10,7 +10,7 @@ from django.contrib import admin
 from django.shortcuts import redirect
 from django.urls import path, reverse
 from django.contrib import messages
-from django.utils.html import format_html
+from django.utils.html import format_html, mark_safe
 from django.template.response import TemplateResponse
 
 from plugins.models import Plugin, PluginLog
@@ -110,15 +110,15 @@ class PluginAdmin(admin.ModelAdmin):
     def enabled_badge(self, obj):
         """Display enabled/disabled status"""
         if obj.enabled:
-            return format_html('🟢 <strong>Enabled</strong>')
+            return mark_safe('🟢 <strong>Enabled</strong>')
         else:
-            return format_html('⭕ <strong>Disabled</strong>')
+            return mark_safe('⭕ <strong>Disabled</strong>')
     enabled_badge.short_description = 'Enabled'
 
     def action_buttons(self, obj):
         """Display action buttons"""
         if obj.status == 'error':
-            return format_html(
+            return mark_safe(
                 '<span style="color: #dc3545;">⚠️ Error - Check details</span>'
             )
 
