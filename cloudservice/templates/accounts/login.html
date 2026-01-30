@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+
+{% block title %}Login - CloudService{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card" style="margin-top: 50px;">
+                <div class="card-body p-5">
+                    <h2 class="card-title text-center mb-4">🔐 Login</h2>
+
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger" role="alert">
+                            {% for error in form.non_field_errors %}
+                                <p>{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
+                    <form method="post" action="{% url 'accounts:login' %}" novalidate>
+                        {% csrf_token %}
+
+                        <div class="mb-3">
+                            <label for="id_username" class="form-label">
+                                📧 Benutzername
+                            </label>
+                            <input type="text"
+                                   class="form-control {% if form.username.errors %}is-invalid{% endif %}"
+                                   id="id_username"
+                                   name="username"
+                                   placeholder="admin oder demo"
+                                   required
+                                   autofocus>
+                            {% if form.username.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.username.errors.0 }}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="id_password" class="form-label">
+                                🔑 Passwort
+                            </label>
+                            <input type="password"
+                                   class="form-control {% if form.password.errors %}is-invalid{% endif %}"
+                                   id="id_password"
+                                   name="password"
+                                   placeholder="Passwort eingeben"
+                                   required>
+                            {% if form.password.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.password.errors.0 }}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100 mb-3">
+                            Anmelden
+                        </button>
+                    </form>
+
+                    <hr>
+
+                    <p class="text-center text-muted mb-0">
+                        Noch kein Konto?
+                        <a href="{% url 'accounts:register' %}" class="text-decoration-none">
+                            Hier registrieren
+                        </a>
+                    </p>
+                </div>
+            </div>
+
+            <div class="alert alert-info mt-4" role="alert">
+                <strong>Demo-Daten zum Testen:</strong><br>
+                <br>
+                <strong>Admin Account:</strong><br>
+                Benutzername: <code>admin</code><br>
+                Passwort: <code>admin</code><br>
+                <br>
+                <strong>Demo Account:</strong><br>
+                Benutzername: <code>demo</code><br>
+                Passwort: <code>demo</code>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Simple form validation and debugging
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form');
+    const submitBtn = document.querySelector('button[type="submit"]');
+
+    form.addEventListener('submit', function(e) {
+        const username = document.querySelector('input[name="username"]').value;
+        const password = document.querySelector('input[name="password"]').value;
+
+        console.log('Form submitted with:', { username, password });
+
+        // Show loading state
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = 'Anmelden...';
+    });
+});
+</script>
+{% endblock %}

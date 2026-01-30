@@ -1,0 +1,99 @@
+# Python
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Virtual Environment
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+/media/
+/staticfiles/
+/logs/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+
+# Testing
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.hypothesis/
+
+# Docker
+.docker/
+docker-compose.override.yml
+
+# SSL certificates
+*.pem
+*.crt
+*.key
+
+# Node (if frontend included)
+node_modules/
+npm-debug.log
+dist/
+
+# IDE config
+.editorconfig
+.prettierrc
+
+# Misc
+*.bak
+*.swp
+.tmp/
+.cache/
+
+# Project specific
+media/uploads/*
+!media/uploads/.gitkeep
+staticfiles/*
+!staticfiles/.gitkeep
+logs/*
+!logs/.gitkeep

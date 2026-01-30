@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+
+{% block title %}Öffentliche Links - CloudService{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2>🔗 Öffentliche Links</h2>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="/storage/" class="btn btn-primary">+ Neuer Link</a>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <p class="text-muted text-center py-5">
+                🔗 Öffentliche Links werden hier angezeigt.
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

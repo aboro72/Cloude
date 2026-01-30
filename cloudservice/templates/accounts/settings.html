@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+
+{% block title %}Einstellungen - CloudService{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-3">
+            <div class="sidebar">
+                <h5 class="mb-4">⚙️ Einstellungen</h5>
+                <a href="/accounts/profile/" class="sidebar-link">👤 Profil</a>
+                <a href="/accounts/profile/edit/" class="sidebar-link">✏️ Bearbeiten</a>
+                <a href="/accounts/profile/password/" class="sidebar-link">🔑 Passwort</a>
+                <a href="/accounts/settings/" class="sidebar-link active">⚙️ Einstellungen</a>
+            </div>
+        </div>
+
+        <div class="col-md-9">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">⚙️ Allgemeine Einstellungen</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">
+                        🚧 Einstellungsseite wird noch entwickelt.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

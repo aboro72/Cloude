@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+
+{% block title %}Sessions - CloudService{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-3">
+            <div class="sidebar">
+                <h5 class="mb-4">⚙️ Einstellungen</h5>
+                <a href="/accounts/profile/" class="sidebar-link">👤 Profil</a>
+                <a href="/accounts/settings/" class="sidebar-link">⚙️ Einstellungen</a>
+            </div>
+        </div>
+
+        <div class="col-md-9">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">🔐 Aktive Sessions</h5>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Gerät</th>
+                                <th>IP-Adresse</th>
+                                <th>Zuletzt aktiv</th>
+                                <th>Aktion</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if sessions %}
+                                {% for session in sessions %}
+                                <tr>
+                                    <td>{{ session.device_name|default:"Unbekannt" }}</td>
+                                    <td><code>{{ session.ip_address }}</code></td>
+                                    <td>{{ session.last_activity|date:"d.m.Y H:i" }}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-danger">Logout</button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted py-4">
+                                        Keine Sessions
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

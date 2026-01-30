@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+
+{% block title %}Speicher-Statistiken - CloudService{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <a href="/storage/" class="btn btn-outline-secondary mb-3">← Zurück</a>
+            <h2>📊 Speicher-Statistiken</h2>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Storage Overview -->
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">💾 Speicherplatz</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Verwendet</span>
+                            <strong>{% if storage_used_gb %}{{ storage_used_gb }}{% else %}0{% endif %} GB</strong>
+                        </div>
+                        <div class="progress" style="height: 25px;">
+                            <div class="progress-bar bg-primary" role="progressbar"
+                                 style="width: {% if storage_percentage %}{{ storage_percentage }}{% else %}0{% endif %}%"
+                                 aria-valuenow="{% if storage_percentage %}{{ storage_percentage|floatformat:0 }}{% else %}0{% endif %}"
+                                 aria-valuemin="0" aria-valuemax="100">
+                                <span class="d-flex align-items-center justify-content-center h-100" style="color: white; font-size: 12px; font-weight: bold;">
+                                    {% if storage_percentage %}{{ storage_percentage|floatformat:1 }}%{% else %}0%{% endif %}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <tr>
+                                <td>Gesamtquota:</td>
+                                <td><strong>{% if storage_quota_gb %}{{ storage_quota_gb }}{% else %}10{% endif %} GB</strong></td>
+                            </tr>
+                            <tr>
+                                <td>Verfügbar:</td>
+                                <td><strong>{% if storage_remaining_gb %}{{ storage_remaining_gb }}{% else %}10{% endif %} GB</strong></td>
+                            </tr>
+                            <tr>
+                                <td>Verbrauch:</td>
+                                <td><strong>{% if storage_percentage %}{{ storage_percentage|floatformat:1 }}%{% else %}0%{% endif %}</strong></td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- File Statistics -->
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">📁 Datei-Statistiken</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <tr>
+                                <td><i class="bi bi-file"></i> Dateien insgesamt:</td>
+                                <td><strong>{{ total_files|default:"0" }}</strong></td>
+                            </tr>
+                            <tr>
+                                <td><i class="bi bi-folder"></i> Ordner insgesamt:</td>
+                                <td><strong>{{ total_folders|default:"0" }}</strong></td>
+                            </tr>
+                            <tr>
+                                <td><i class="bi bi-download"></i> Gesamte Downloads:</td>
+                                <td><strong>{{ total_downloads|default:"0" }}</strong></td>
+                            </tr>
+                            <tr>
+                                <td><i class="bi bi-clock-history"></i> Zuletzt aktualisiert:</td>
+                                <td><strong>{{ last_updated|default:"Nie" }}</strong></td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- File Type Distribution -->
+    <div class="row">
+        <div class="col-md-12 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">📈 Dateitypen-Verteilung</h5>
+                </div>
+                <div class="card-body">
+                    {% if file_types %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Dateityp</th>
+                                        <th>Anzahl</th>
+                                        <th>Größe</th>
+                                        <th>Anteil</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for file_type, stats in file_types.items %}
+                                    <tr>
+                                        <td><i class="bi bi-file-earmark"></i> {{ file_type }}</td>
+                                        <td>{{ stats.count }}</td>
+                                        <td>
+                                            {% if stats.size >= 1048576 %}
+                                                {{ stats.size|floatformat:2|add:"0" }} MB
+                                            {% elif stats.size >= 1024 %}
+                                                {{ stats.size|floatformat:2|add:"0" }} KB
+                                            {% else %}
+                                                {{ stats.size }} B
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="progress" style="height: 20px;">
+                                                <div class="progress-bar" style="width: {{ stats.percentage }}%"></div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted text-center py-4">Keine Dateien vorhanden</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

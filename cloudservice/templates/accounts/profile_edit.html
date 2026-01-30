@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+
+{% block title %}Profil bearbeiten - CloudService{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-3">
+            <div class="sidebar">
+                <h5 class="mb-4">⚙️ Einstellungen</h5>
+                <a href="/accounts/profile/" class="sidebar-link">👤 Profil</a>
+                <a href="/accounts/profile/edit/" class="sidebar-link active">✏️ Bearbeiten</a>
+                <a href="/accounts/profile/password/" class="sidebar-link">🔑 Passwort</a>
+                <a href="/accounts/settings/" class="sidebar-link">⚙️ Einstellungen</a>
+                <a href="/accounts/logout/" class="sidebar-link">🚪 Logout</a>
+            </div>
+        </div>
+
+        <div class="col-md-9">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">✏️ Profil bearbeiten</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger" role="alert">
+                                {% for error in form.non_field_errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+
+                        {% for field in form %}
+                            <div class="mb-3">
+                                <label for="{{ field.id_for_label }}" class="form-label">
+                                    {{ field.label }}
+                                </label>
+                                {% if field.widget.input_type == "checkbox" %}
+                                    <div class="form-check">
+                                        {{ field }}
+                                    </div>
+                                {% else %}
+                                    {{ field }}
+                                {% endif %}
+                                {% if field.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ field.errors }}
+                                    </div>
+                                {% endif %}
+                                {% if field.help_text %}
+                                    <small class="form-text text-muted">{{ field.help_text|safe }}</small>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+
+                        <button type="submit" class="btn btn-primary">Speichern</button>
+                        <a href="/accounts/profile/" class="btn btn-secondary">Abbrechen</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

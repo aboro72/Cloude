@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python manage.py migrate:*)",
+      "Bash(python manage.py makemigrations:*)",
+      "Bash(python manage.py:*)",
+      "Bash(ls -la \"C:\\\\Users\\\\aborowczak\\\\PycharmProjects\\\\Cloude\\\\cloudservice\\\\accounts\\\\management\"\" 2>nul || echo \"Directory does not exist \")",
+      "Bash(python:*)",
+      "Bash(test:*)",
+      "Bash(timeout 5 curl:*)"
+    ]
+  }
+}

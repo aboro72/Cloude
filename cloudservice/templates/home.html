@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ app_name }} - Home</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .hero-container {
+            text-align: center;
+            color: white;
+            max-width: 800px;
+            padding: 40px 20px;
+        }
+        .hero-container h1 {
+            font-size: 3.5rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .hero-container p {
+            font-size: 1.3rem;
+            margin-bottom: 40px;
+            opacity: 0.95;
+        }
+        .btn-group-custom {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .btn-custom {
+            padding: 12px 30px;
+            font-size: 1.1rem;
+            border-radius: 50px;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+        .btn-primary-custom {
+            background: white;
+            color: #667eea;
+            border: 2px solid white;
+        }
+        .btn-primary-custom:hover {
+            background: transparent;
+            color: white;
+            transform: translateY(-2px);
+        }
+        .btn-secondary-custom {
+            background: transparent;
+            color: white;
+            border: 2px solid white;
+        }
+        .btn-secondary-custom:hover {
+            background: white;
+            color: #667eea;
+            transform: translateY(-2px);
+        }
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 30px;
+            margin-top: 60px;
+            padding-top: 60px;
+            border-top: 2px solid rgba(255,255,255,0.3);
+        }
+        .feature-card {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            padding: 30px;
+            border-radius: 15px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .feature-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+        }
+        .feature-card p {
+            margin: 0;
+            font-size: 0.95rem;
+        }
+        .icon {
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+        }
+        .links {
+            margin-top: 50px;
+            padding-top: 30px;
+            border-top: 1px solid rgba(255,255,255,0.2);
+        }
+        .links a {
+            color: white;
+            text-decoration: none;
+            margin: 0 15px;
+            font-size: 0.95rem;
+            transition: opacity 0.3s;
+        }
+        .links a:hover {
+            opacity: 0.8;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="hero-container">
+        <h1>☁️ {{ app_name }}</h1>
+        <p>{{ app_description }}</p>
+
+        <div class="btn-group-custom">
+            <a href="/api/docs/" class="btn btn-custom btn-primary-custom">📚 API Dokumentation</a>
+            <a href="/admin/" class="btn btn-custom btn-secondary-custom">⚙️ Admin Panel</a>
+            <a href="/accounts/login/" class="btn btn-custom btn-secondary-custom">🔐 Login</a>
+        </div>
+
+        <div class="features">
+            <div class="feature-card">
+                <div class="icon">📁</div>
+                <h3>Dateiverwaltung</h3>
+                <p>Upload, Download und Verwaltung von Dateien mit Versionskontrolle</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">👥</div>
+                <h3>Benutzer & Auth</h3>
+                <p>Sichere Authentifizierung mit JWT und rollenbasierter Zugriffskontrolle</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">🔗</div>
+                <h3>Sharing</h3>
+                <p>Dateien mit anderen Benutzern teilen und öffentliche Links erstellen</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">💾</div>
+                <h3>Storage</h3>
+                <p>Speicherquotas, Backups und Soft-Delete mit Papierkorb</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">⚡</div>
+                <h3>Async Tasks</h3>
+                <p>Celery Integration für asynchrone Hintergrund-Prozesse</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">🔄</div>
+                <h3>Real-time Updates</h3>
+                <p>WebSocket Support mit Django Channels für Live-Benachrichtigungen</p>
+            </div>
+        </div>
+
+        <div class="links">
+            <a href="/api/">REST API</a>
+            <a href="/api/redoc/">ReDoc</a>
+            <a href="https://github.com">GitHub</a>
+            <a href="#help">Hilfe</a>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

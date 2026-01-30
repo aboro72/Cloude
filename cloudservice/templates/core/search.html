@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+
+{% block title %}Suche - CloudService{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="mb-4">🔍 Suchergebnisse</h2>
+
+    {% if query %}
+        <p class="text-muted">
+            Ergebnisse für: <strong>"{{ query }}"</strong>
+        </p>
+    {% endif %}
+
+    <div class="row">
+        <div class="col-md-6">
+            <h5>📁 Ordner ({{ folders|length }})</h5>
+            {% if folders %}
+                <div class="card">
+                    <ul class="list-group list-group-flush">
+                        {% for folder in folders %}
+                        <li class="list-group-item">
+                            <a href="/storage/folder/{{ folder.id }}/">
+                                📁 {{ folder.name }}
+                            </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% else %}
+                <p class="text-muted">Keine Ordner gefunden.</p>
+            {% endif %}
+        </div>
+
+        <div class="col-md-6">
+            <h5>📄 Dateien ({{ files|length }})</h5>
+            {% if files %}
+                <div class="card">
+                    <ul class="list-group list-group-flush">
+                        {% for file in files %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <i class="bi {{ file.get_icon_class }}"></i>
+                                <a href="/storage/file/{{ file.id }}/">{{ file.name }}</a>
+                            </div>
+                            <small class="text-muted">
+                                {% if file.size >= 1048576 %}
+                                    {{ file.size|floatformat:2|add:"0" }} MB
+                                {% else %}
+                                    {{ file.size|floatformat:2|add:"0" }} KB
+                                {% endif %}
+                            </small>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% else %}
+                <p class="text-muted">Keine Dateien gefunden.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

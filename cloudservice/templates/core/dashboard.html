@@ -1,0 +1,146 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - CloudService{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <h1>👋 Willkommen, {{ user.get_full_name|default:user.username }}!</h1>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h6 class="card-title text-muted">📁 Dateien</h6>
+                    <h2>{{ total_files }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h6 class="card-title text-muted">📂 Ordner</h6>
+                    <h2>{{ total_folders }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h6 class="card-title text-muted">💾 Speicher</h6>
+                    <h2>{{ storage_used|floatformat:1 }} MB</h2>
+                    <small class="text-muted">von {{ storage_quota|floatformat:1 }} GB</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h6 class="card-title text-muted">📈 Auslastung</h6>
+                    <h2 id="percentage">0%</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Storage Progress -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">💾 Speicherplatz-Übersicht</h5>
+                    <div class="progress" style="height: 30px;">
+                        {% widthratio storage_used storage_quota 100 as percentage %}
+                        <div class="progress-bar" role="progressbar"
+                             style="width: {{ percentage }}%; background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);"
+                             aria-valuenow="{{ percentage }}" aria-valuemin="0" aria-valuemax="100">
+                            {{ percentage }}% verwendet
+                        </div>
+                    </div>
+                    <small class="text-muted mt-2 d-block">
+                        {{ storage_used|floatformat:1 }} MB / {{ storage_quota|floatformat:1 }} GB
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">⚡ Schnellaktionen</h5>
+                </div>
+                <div class="card-body">
+                    <a href="/storage/" class="btn btn-primary me-2">📁 Dateien ansehen</a>
+                    <a href="/sharing/shared-with-me/" class="btn btn-outline-primary me-2">📤 Mit mir geteilt</a>
+                    <a href="/accounts/profile/" class="btn btn-outline-primary me-2">👤 Profil</a>
+                    <a href="/storage/trash/" class="btn btn-outline-danger">🗑️ Papierkorb</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Files -->
+    {% if recent_files %}
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">📋 Aktuelle Dateien</h5>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Name</th>
+                                <th>Größe</th>
+                                <th>Erstellt</th>
+                                <th>Aktion</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for file in recent_files %}
+                            <tr>
+                                <td>
+                                    <i class="bi {{ file.get_icon_class }}"></i>
+                                    {{ file.name }}
+                                </td>
+                                <td>
+                                    {% if file.size >= 1048576 %}
+                                        {{ file.size|floatformat:2|add:"0" }} MB
+                                    {% else %}
+                                        {{ file.size|floatformat:2|add:"0" }} KB
+                                    {% endif %}
+                                </td>
+                                <td>{{ file.created_at|date:"d.m.Y H:i" }}</td>
+                                <td>
+                                    <a href="/storage/file/{{ file.id }}/download/" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-download"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+// Calculate percentage
+const usedMB = {{ storage_used|default:0 }};
+const quotaGB = {{ storage_quota|default:1 }};
+const quotaMB = quotaGB * 1024;
+const percentage = (usedMB / quotaMB) * 100;
+document.getElementById('percentage').textContent = Math.min(Math.round(percentage * 10) / 10, 100).toFixed(1) + '%';
+</script>
+{% endblock %}

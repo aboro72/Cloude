@@ -1,0 +1,77 @@
+# Django 5.x
+Django==5.2.10
+djangorestframework==3.15.2
+django-cors-headers
+django-filter==24.3
+django-extensions
+
+# Database
+psycopg2-binary==2.9.11
+django-db-geventpool==4.0.8
+
+# Caching & Sessions
+redis==7.1.0
+django-redis==6.0.0
+
+# Async & Tasks
+celery==5.6.2
+django-celery-beat==2.8.1
+django-celery-results==2.6.0
+channels==4.3.2
+channels-redis==4.3.0
+daphne==4.2.1
+
+# File handling
+Pillow==12.1.0
+python-magic-bin==0.4.14
+
+# API Documentation
+drf-spectacular==0.28.0
+drf-spectacular-sidecar==2024.1.1
+
+# Authentication & Security
+djangorestframework-simplejwt==5.5.1
+django-guardian==2.4.0
+cryptography==43.0.0
+
+# Frontend
+django-crispy-forms
+crispy-bootstrap5
+
+# Internationalization
+django-modeltranslation==0.19.9
+
+# Utilities
+python-decouple==3.8
+python-dateutil==2.8.2
+pytz==2024.1
+requests==2.32.4
+urllib3==2.2.3
+
+# Development & Testing
+pytest==8.0.2
+pytest-django==4.7.0
+pytest-cov==4.1.0
+pytest-xdist==3.6.1
+factory-boy==3.3.0
+faker==24.3.0
+black==24.1.1
+flake8==7.0.0
+isort==5.13.2
+
+# Monitoring & Logging
+sentry-sdk==3.0.0a7
+django-structlog==9.1.1
+python-json-logger==4.0.0
+
+# Server
+gunicorn==24.1.1
+whitenoise==6.11.0
+uvicorn==0.40.0
+
+# Environment
+python-dotenv==1.2.1
+
+# Admin enhancements
+django-admin-interface==0.32.0
+django-jazzmin==3.0.1

@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+
+{% block title %}Profil - CloudService{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-3">
+            <!-- Sidebar -->
+            <div class="sidebar">
+                <h5 class="mb-4">⚙️ Einstellungen</h5>
+                <a href="/accounts/profile/" class="sidebar-link active">👤 Profil</a>
+                <a href="/accounts/profile/edit/" class="sidebar-link">✏️ Bearbeiten</a>
+                <a href="/accounts/profile/password/" class="sidebar-link">🔑 Passwort</a>
+                <a href="/accounts/settings/" class="sidebar-link">⚙️ Einstellungen</a>
+                <a href="/accounts/logout/" class="sidebar-link">🚪 Logout</a>
+            </div>
+        </div>
+
+        <div class="col-md-9">
+            <!-- Profile Card -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-3 text-center">
+                            <div class="avatar-circle" style="width: 120px; height: 120px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 3rem; margin: 0 auto;">
+                                {{ user.username|upper|first }}
+                            </div>
+                        </div>
+                        <div class="col-md-9">
+                            <h2>{{ user.get_full_name|default:user.username }}</h2>
+                            <p class="text-muted">@{{ user.username }}</p>
+                            <div class="mt-3">
+                                <p><strong>📧 E-Mail:</strong> {{ user.email }}</p>
+                                <p><strong>👤 Rolle:</strong> <span class="badge-custom">{{ profile.get_role_display }}</span></p>
+                                <p><strong>📅 Seit:</strong> {{ user.date_joined|date:"d.m.Y" }}</p>
+                            </div>
+                            <a href="/accounts/profile/edit/" class="btn btn-primary">✏️ Bearbeiten</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Storage Info -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">💾 Speicherplatz</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Verwendet</span>
+                            <span>{{ profile.get_storage_used_mb|floatformat:2 }} MB / {{ profile.storage_quota|floatformat:1 }} GB</span>
+                        </div>
+                        {% widthratio profile.get_storage_used profile.storage_quota 100 as storage_percentage %}
+                        <div class="progress" style="height: 25px;">
+                            <div class="progress-bar" role="progressbar"
+                                 style="width: {{ storage_percentage }}%; background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);"
+                                 aria-valuenow="{{ storage_percentage }}" aria-valuemin="0" aria-valuemax="100">
+                                {{ storage_percentage }}%
+                            </div>
+                        </div>
+                    </div>
+                    {% if storage_percentage >= 80 %}
+                        <div class="alert alert-warning" role="alert">
+                            ⚠️ Sie haben mehr als 80% Ihres Speicherplatzes verwendet.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Account Info -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">🔒 Sicherheit</h5>
+                </div>
+                <div class="card-body">
+                    <p>
+                        <strong>Zwei-Faktor-Authentifizierung:</strong>
+                        {% if profile.is_two_factor_enabled %}
+                            <span class="badge bg-success">Aktiviert</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Deaktiviert</span>
+                        {% endif %}
+                    </p>
+                    <p>
+                        <strong>E-Mail verifiziert:</strong>
+                        {% if profile.is_email_verified %}
+                            <span class="badge bg-success">Ja</span>
+                        {% else %}
+                            <span class="badge bg-warning">Nein</span>
+                        {% endif %}
+                    </p>
+                    <a href="/accounts/settings/" class="btn btn-sm btn-primary">Ändern</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

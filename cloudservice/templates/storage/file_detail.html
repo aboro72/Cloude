@@ -1,0 +1,331 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ file.name }} - CloudService{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <a href="/storage/" class="btn btn-outline-secondary mb-3">← Zurück</a>
+            <h2>
+                <i class="bi {{ file.get_icon_class }}"></i>
+                {{ file.name }}
+            </h2>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">📄 Dateivorschau</h5>
+                </div>
+                <div class="card-body">
+                    {% if can_preview %}
+                        {% if is_image %}
+                            <!-- Image preview -->
+                            <img src="{{ file.file.url }}" class="img-fluid" style="max-height: 500px; object-fit: contain;" alt="{{ file.name }}">
+
+                        {% elif is_pdf %}
+                            <!-- PDF preview -->
+                            <div class="alert alert-info">
+                                PDF-Datei: <strong>{{ file.name }}</strong>
+                            </div>
+                            <iframe src="{{ file.file.url }}" width="100%" height="600" frameborder="0"></iframe>
+
+                        {% elif is_word %}
+                            <!-- Word document preview -->
+                            <div class="alert alert-info mb-3">
+                                <i class="bi bi-file-word"></i> Word-Dokument: <strong>{{ file.name }}</strong>
+                            </div>
+                            <div id="wordPreview" style="max-height: 600px; overflow-y: auto; background-color: white; padding: 20px; border: 1px solid #ddd; border-radius: 5px;">
+                                <div class="text-center">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                    <p class="mt-3">Dokument wird geladen...</p>
+                                </div>
+                            </div>
+
+                        {% elif is_excel %}
+                            <!-- Excel spreadsheet preview -->
+                            <div class="alert alert-info mb-3">
+                                <i class="bi bi-file-excel"></i> Excel-Tabelle: <strong>{{ file.name }}</strong>
+                            </div>
+                            <div id="excelPreview" style="max-height: 600px; overflow: auto;">
+                                <div class="text-center">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                    <p class="mt-3">Tabelle wird geladen...</p>
+                                </div>
+                            </div>
+
+                        {% elif is_ppt %}
+                            <!-- PowerPoint preview -->
+                            <div class="alert alert-info mb-3">
+                                <i class="bi bi-file-pptx"></i> PowerPoint-Präsentation: <strong>{{ file.name }}</strong>
+                            </div>
+                            <div class="text-center py-5">
+                                <p class="text-muted">PowerPoint-Vorschau wird in Kürze unterstützt</p>
+                                <a href="/storage/file/{{ file.id }}/download/" class="btn btn-primary">
+                                    📥 Download
+                                </a>
+                            </div>
+
+                        {% elif is_text %}
+                            <!-- Text preview -->
+                            <pre style="max-height: 500px; overflow-y: auto; background-color: #f5f5f5; padding: 15px; border-radius: 5px;"><code id="textPreview">Laden...</code></pre>
+
+                        {% else %}
+                            <!-- Other previewable files -->
+                            <div class="alert alert-info">
+                                <i class="bi bi-file-text"></i> {{ file.name }} ({{ file.mime_type }})
+                            </div>
+                        {% endif %}
+                    {% else %}
+                        <!-- Non-previewable file -->
+                        <div class="text-center py-5">
+                            <h3>{{ file.get_icon_class }}</h3>
+                            <p class="text-muted">Diese Dateitype kann nicht in der Vorschau angezeigt werden</p>
+                            <p>
+                                <strong>Dateityp:</strong> {{ file.mime_type }}<br>
+                                <strong>Größe:</strong>
+                                {% if file.size >= 1048576 %}
+                                    {{ file.size|floatformat:2|add:"0" }} MB
+                                {% elif file.size >= 1024 %}
+                                    {{ file.size|floatformat:2|add:"0" }} KB
+                                {% else %}
+                                    {{ file.size }} Bytes
+                                {% endif %}
+                            </p>
+                            <a href="/storage/file/{{ file.id }}/download/" class="btn btn-primary">
+                                📥 Download
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">📋 Details</h5>
+                </div>
+                <div class="card-body">
+                    <p>
+                        <strong>Größe:</strong><br>
+                        {% if file.size >= 1048576 %}
+                            {{ file.size|floatformat:2|add:"0" }} MB
+                        {% elif file.size >= 1024 %}
+                            {{ file.size|floatformat:2|add:"0" }} KB
+                        {% else %}
+                            {{ file.size }} Bytes
+                        {% endif %}
+                    </p>
+                    <p>
+                        <strong>Typ:</strong><br>
+                        <code>{{ file.mime_type }}</code>
+                    </p>
+                    <p>
+                        <strong>Erstellt:</strong><br>
+                        {{ file.created_at|date:"d.m.Y H:i" }}
+                    </p>
+                    <p>
+                        <strong>Geändert:</strong><br>
+                        {{ file.updated_at|date:"d.m.Y H:i" }}
+                    </p>
+                    <p>
+                        <strong>Versionen:</strong><br>
+                        {{ file.version_count }}
+                    </p>
+                    <p>
+                        <strong>Downloads:</strong><br>
+                        {{ file.download_count }}
+                    </p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">⚙️ Aktionen</h5>
+                </div>
+                <div class="card-body">
+                    <a href="/storage/file/{{ file.id }}/download/" class="btn btn-primary w-100 mb-2">
+                        📥 Download
+                    </a>
+                    {% if is_word or is_excel %}
+                    <button class="btn btn-warning w-100 mb-2" onclick="downloadForEdit({{ file.id }}, '{{ file.name }}')">
+                        ✏️ In Programm bearbeiten
+                    </button>
+                    {% endif %}
+                    <a href="/storage/file/{{ file.id }}/versions/" class="btn btn-outline-primary w-100 mb-2">
+                        📜 Versionen
+                    </a>
+                    <button class="btn btn-outline-secondary w-100 mb-2">
+                        🔗 Teilen
+                    </button>
+                    <button class="btn btn-outline-danger w-100" onclick="if(confirm('Diese Datei wirklich löschen?')) window.location.href='/storage/file/{{ file.id }}/delete/'">
+                        🗑️ Löschen
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Download file for editing
+function downloadForEdit(fileId, fileName) {
+    const link = document.createElement('a');
+    link.href = `/storage/file/${fileId}/download/`;
+    link.click();
+    alert('Datei wurde heruntergeladen.\n\nÖffnen Sie die Datei in Word oder Excel um zu bearbeiten.\nNachdem Sie die Änderungen gespeichert haben, können Sie die neue Version hier hochladen.');
+}
+</script>
+
+{% if is_text %}
+<script>
+// Load text file preview
+document.addEventListener('DOMContentLoaded', function() {
+    const fileUrl = '{{ file.file.url }}';
+    const previewElement = document.getElementById('textPreview');
+
+    fetch(fileUrl)
+        .then(response => response.text())
+        .then(text => {
+            // Limit preview to first 10000 characters
+            if (text.length > 10000) {
+                previewElement.textContent = text.substring(0, 10000) + '\n\n... [Datei gekürzt, Download für vollständige Datei]';
+            } else {
+                previewElement.textContent = text;
+            }
+        })
+        .catch(error => {
+            previewElement.textContent = 'Fehler beim Laden der Dateivorschau';
+            console.error('Error:', error);
+        });
+});
+</script>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- Load preview libraries first -->
+<script src="https://cdn.jsdelivr.net/npm/docx-preview@0.1.20/build/index.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+{% if is_word %}
+<script>
+// Wait for docx library to load
+function loadWordPreview() {
+    const fileUrl = '{{ file.file.url }}';
+    const previewElement = document.getElementById('wordPreview');
+
+    // Check if docx is loaded
+    if (typeof docx === 'undefined' || !docx.renderAsync) {
+        // Library not loaded yet, try again
+        setTimeout(loadWordPreview, 500);
+        return;
+    }
+
+    // Library is loaded, proceed with rendering
+    fetch(fileUrl)
+        .then(response => response.arrayBuffer())
+        .then(arrayBuffer => {
+            const blob = new Blob([arrayBuffer]);
+            docx.renderAsync(blob, previewElement)
+                .catch(error => {
+                    console.error('Error rendering Word document:', error);
+                    previewElement.innerHTML = '<div class="alert alert-warning">' +
+                        'Fehler beim Anzeigen des Dokuments. ' +
+                        '<a href="/storage/file/{{ file.id }}/download/" class="btn btn-sm btn-primary">Download</a>' +
+                        '</div>';
+                });
+        })
+        .catch(error => {
+            console.error('Error loading Word file:', error);
+            previewElement.innerHTML = '<div class="alert alert-danger">Fehler beim Herunterladen des Dokuments</div>';
+        });
+}
+
+// Start loading when DOM is ready
+document.addEventListener('DOMContentLoaded', loadWordPreview);
+</script>
+{% endif %}
+
+{% if is_excel %}
+<script>
+// Wait for XLSX library to load
+function loadExcelPreview() {
+    const fileUrl = '{{ file.file.url }}';
+    const previewElement = document.getElementById('excelPreview');
+
+    // Check if XLSX is loaded
+    if (typeof XLSX === 'undefined') {
+        // Library not loaded yet, try again
+        setTimeout(loadExcelPreview, 500);
+        return;
+    }
+
+    // Library is loaded, proceed with rendering
+    fetch(fileUrl)
+        .then(response => response.arrayBuffer())
+        .then(arrayBuffer => {
+            const data = new Uint8Array(arrayBuffer);
+            const workbook = XLSX.read(data, {type: 'array'});
+
+            let html = '<div>';
+
+            // Process each sheet
+            workbook.SheetNames.forEach((sheetName, index) => {
+                if (index > 0) html += '<hr class="my-4">';
+
+                html += '<h5 class="mt-4 mb-3">' + sheetName + '</h5>';
+                const worksheet = workbook.Sheets[sheetName];
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, {header: 1});
+
+                // Create styled HTML table
+                html += '<div class="table-responsive">';
+                html += '<table class="table table-sm table-bordered table-hover">';
+
+                if (jsonData.length > 0) {
+                    html += '<thead class="table-light">';
+                    html += '<tr>';
+                    jsonData[0].forEach(cell => {
+                        html += '<th style="background-color: #f8f9fa; font-weight: 600; padding: 10px;">' + (cell || '') + '</th>';
+                    });
+                    html += '</tr>';
+                    html += '</thead>';
+
+                    html += '<tbody>';
+                    for (let i = 1; i < jsonData.length; i++) {
+                        html += '<tr>';
+                        jsonData[i].forEach(cell => {
+                            html += '<td style="padding: 8px; vertical-align: top;">' + (cell || '') + '</td>';
+                        });
+                        html += '</tr>';
+                    }
+                    html += '</tbody>';
+                }
+
+                html += '</table>';
+                html += '</div>';
+            });
+
+            html += '</div>';
+            previewElement.innerHTML = html;
+        })
+        .catch(error => {
+            console.error('Error loading Excel file:', error);
+            previewElement.innerHTML = '<div class="alert alert-danger">Fehler beim Laden der Tabelle</div>';
+        });
+}
+
+// Start loading when DOM is ready
+document.addEventListener('DOMContentLoaded', loadExcelPreview);
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+
+{% block title %}Aktivitätslog - CloudService{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="mb-4">📋 Aktivitätslog</h2>
+
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Aktivität</th>
+                        <th>Datei/Ordner</th>
+                        <th>Beschreibung</th>
+                        <th>Zeitstempel</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if activities %}
+                        {% for activity in activities %}
+                        <tr>
+                            <td>
+                                <span class="badge bg-info">
+                                    {{ activity.get_activity_type_display }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if activity.file %}
+                                    📄 {{ activity.file.name }}
+                                {% elif activity.folder %}
+                                    📁 {{ activity.folder.name }}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+                            <td>{{ activity.description }}</td>
+                            <td>{{ activity.created_at|date:"d.m.Y H:i" }}</td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="4" class="text-center text-muted py-4">
+                                📭 Noch keine Aktivitäten
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

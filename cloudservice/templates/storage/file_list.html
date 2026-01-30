@@ -1,0 +1,362 @@
+{% extends 'base.html' %}
+
+{% block title %}Dateien - CloudService{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar -->
+        <div class="col-md-2">
+            <div class="sidebar">
+                <h5 class="mb-4">📁 Navigation</h5>
+                <a href="/storage/" class="sidebar-link active">📁 Meine Dateien</a>
+                <a href="/sharing/shared-with-me/" class="sidebar-link">📤 Mit mir geteilt</a>
+                <a href="/sharing/links/" class="sidebar-link">🔗 Öffentliche Links</a>
+                <a href="/storage/trash/" class="sidebar-link">🗑️ Papierkorb</a>
+                <a href="/storage/stats/" class="sidebar-link">📊 Statistiken</a>
+                <hr>
+                <h6 class="mb-3">⚙️ Aktionen</h6>
+                <button class="btn btn-primary btn-sm w-100 mb-2" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                    📤 Datei hochladen
+                </button>
+                <button class="btn btn-outline-primary btn-sm w-100" data-bs-toggle="modal" data-bs-target="#folderModal">
+                    📁 Ordner erstellen
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="col-md-10">
+            <!-- Breadcrumb -->
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="/storage/">Cloud</a></li>
+                    {% if current_folder %}
+                        {% for folder in current_folder.breadcrumb %}
+                            {% if forloop.last %}
+                                <li class="breadcrumb-item active">{{ folder.name }}</li>
+                            {% else %}
+                                <li class="breadcrumb-item"><a href="/storage/folder/{{ folder.id }}/">{{ folder.name }}</a></li>
+                            {% endif %}
+                        {% endfor %}
+                    {% endif %}
+                </ol>
+            </nav>
+
+            <!-- Files Table -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">📂 Dateien & Ordner</h5>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Name</th>
+                                <th>Größe</th>
+                                <th>Änderungsdatum</th>
+                                <th>Aktionen</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if files %}
+                                {% for file in files %}
+                                    <tr>
+                                        <td>
+                                            <i class="bi {{ file.get_icon_class }}"></i>
+                                            <a href="/storage/file/{{ file.id }}/">{{ file.name }}</a>
+                                        </td>
+                                        <td>
+                                            {% if file.size >= 1048576 %}
+                                                {{ file.size|floatformat:2|add:"0" }} MB
+                                            {% else %}
+                                                {{ file.size|floatformat:2|add:"0" }} KB
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ file.updated_at|date:"d.m.Y H:i" }}</td>
+                                        <td>
+                                            <a href="/storage/file/{{ file.id }}/download/" class="btn btn-sm btn-outline-primary" title="Download">
+                                                <i class="bi bi-download"></i>
+                                            </a>
+                                            <button class="btn btn-sm btn-outline-danger" title="Löschen" onclick="deleteFile({{ file.id }})">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted py-4">
+                                        📭 Keine Dateien vorhanden
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Pagination -->
+            {% if is_paginated %}
+                <nav aria-label="Page navigation" class="mt-4">
+                    <ul class="pagination">
+                        {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1">Erste</a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">← Vorherige</a>
+                            </li>
+                        {% endif %}
+
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ num }}</span>
+                                </li>
+                            {% else %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}">Nächste →</a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Letzte</a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Upload Modal -->
+<div class="modal fade" id="uploadModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">📤 Datei hochladen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="uploadProgress" style="display:none;" class="mb-3">
+                    <div class="progress">
+                        <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%"></div>
+                    </div>
+                    <small id="uploadStatus" class="text-muted">Hochladen...</small>
+                </div>
+                <div id="uploadArea" class="border rounded p-4 text-center" style="cursor: pointer; background-color: #f8f9fa;">
+                    <div class="mb-2">📁</div>
+                    <p class="mb-0"><strong>Dateien hier ablegen</strong></p>
+                    <small class="text-muted">oder klicken zum Auswählen</small>
+                    <input type="file" id="fileInput" class="form-control" multiple style="display:none;">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" id="uploadBtn" style="display:none;">Hochladen</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Folder Modal -->
+<div class="modal fade" id="folderModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">📁 Neuen Ordner erstellen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="folderForm" method="post" action="/storage/folder/create/">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div id="folderError" class="alert alert-danger" style="display:none;"></div>
+                    <div class="mb-3">
+                        <label for="folderName" class="form-label">Ordnername</label>
+                        <input type="text" class="form-control" id="folderName" name="name" placeholder="z.B. Dokumente" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="folderDescription" class="form-label">Beschreibung (optional)</label>
+                        <textarea class="form-control" id="folderDescription" name="description" rows="2" placeholder="Optionale Beschreibung"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary" id="folderSubmitBtn">Erstellen</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// CSRF-Token aus Cookie auslesen
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Datei-Upload Handling
+const uploadArea = document.getElementById('uploadArea');
+const fileInput = document.getElementById('fileInput');
+const uploadBtn = document.getElementById('uploadBtn');
+const uploadProgress = document.getElementById('uploadProgress');
+const progressBar = document.getElementById('progressBar');
+const uploadStatus = document.getElementById('uploadStatus');
+
+// Click zum Datei-Auswahl öffnen
+uploadArea.addEventListener('click', () => fileInput.click());
+
+// Datei auswählen
+fileInput.addEventListener('change', (e) => {
+    if (e.target.files.length > 0) {
+        uploadBtn.style.display = 'block';
+        uploadStatus.textContent = `${e.target.files.length} Datei(en) ausgewählt`;
+    }
+});
+
+// Drag & Drop
+uploadArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadArea.style.backgroundColor = '#e7f3ff';
+});
+
+uploadArea.addEventListener('dragleave', () => {
+    uploadArea.style.backgroundColor = '#f8f9fa';
+});
+
+uploadArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadArea.style.backgroundColor = '#f8f9fa';
+    fileInput.files = e.dataTransfer.files;
+    if (fileInput.files.length > 0) {
+        uploadBtn.style.display = 'block';
+        uploadStatus.textContent = `${fileInput.files.length} Datei(en) ausgewählt`;
+    }
+});
+
+// Upload-Button
+uploadBtn.addEventListener('click', () => {
+    const files = fileInput.files;
+    if (files.length === 0) return;
+
+    uploadProgress.style.display = 'block';
+    uploadBtn.disabled = true;
+    let completed = 0;
+    const csrfToken = getCookie('csrftoken');
+
+    // Upload jede Datei einzeln
+    Array.from(files).forEach((file, index) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('name', file.name);
+
+        fetch('/storage/upload/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            completed++;
+            const progress = (completed / files.length) * 100;
+            progressBar.style.width = progress + '%';
+            uploadStatus.textContent = `${completed}/${files.length} Datei(en) hochgeladen`;
+
+            if (completed === files.length) {
+                uploadStatus.textContent = 'Alle Dateien erfolgreich hochgeladen!';
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            }
+        })
+        .catch(error => {
+            console.error('Upload error:', error);
+            uploadStatus.textContent = 'Fehler beim Hochladen!';
+            uploadBtn.disabled = false;
+        });
+    });
+});
+
+// Folder erstellen
+const folderForm = document.getElementById('folderForm');
+if (folderForm) {
+    folderForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+
+        const csrfToken = getCookie('csrftoken');
+        const folderName = document.getElementById('folderName').value;
+        const folderDescription = document.getElementById('folderDescription').value;
+        const folderSubmitBtn = document.getElementById('folderSubmitBtn');
+        const folderError = document.getElementById('folderError');
+
+        folderSubmitBtn.disabled = true;
+        folderSubmitBtn.textContent = 'Erstelle...';
+
+        fetch('/storage/folder/create/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: new URLSearchParams({
+                'name': folderName,
+                'description': folderDescription
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                folderError.style.display = 'none';
+                window.location.reload();
+            } else {
+                folderError.style.display = 'block';
+                folderError.textContent = data.error || 'Fehler beim Erstellen des Ordners';
+                folderSubmitBtn.disabled = false;
+                folderSubmitBtn.textContent = 'Erstellen';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            folderError.style.display = 'block';
+            folderError.textContent = 'Fehler beim Erstellen des Ordners';
+            folderSubmitBtn.disabled = false;
+            folderSubmitBtn.textContent = 'Erstellen';
+        });
+    });
+}
+
+// Datei löschen
+function deleteFile(fileId) {
+    if (confirm('Sind Sie sicher, dass Sie diese Datei löschen möchten?')) {
+        const csrfToken = getCookie('csrftoken');
+        fetch(`/storage/file/${fileId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            }
+        }).then(() => window.location.reload());
+    }
+}
+</script>
+{% endblock %}
