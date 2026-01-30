@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ file.name }} - Versionen - CloudService{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <a href="/storage/file/{{ file.id }}/" class="btn btn-outline-secondary mb-3">← Zurück</a>
+            <h2>
+                <i class="bi bi-file"></i>
+                {{ file.name }} - Versionen
+            </h2>
+        </div>
+    </div>
+
+    {% if versions %}
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">📜 Versionsverlauf</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Version</th>
+                                    <th>Größe</th>
+                                    <th>Datum</th>
+                                    <th>Beschreibung</th>
+                                    <th>Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for version in versions %}
+                                <tr>
+                                    <td>
+                                        <strong>Version {{ version.version_number }}</strong>
+                                        {% if version.is_current %}<span class="badge bg-primary">Aktuell</span>{% endif %}
+                                    </td>
+                                    <td>
+                                        {% if version.size >= 1048576 %}
+                                            {{ version.size|floatformat:2|add:"0" }} MB
+                                        {% elif version.size >= 1024 %}
+                                            {{ version.size|floatformat:2|add:"0" }} KB
+                                        {% else %}
+                                            {{ version.size }} Bytes
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ version.created_at|date:"d.m.Y H:i" }}</td>
+                                    <td>
+                                        {% if version.change_description %}
+                                            {{ version.change_description }}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if not version.is_current %}
+                                        <form method="post" action="/storage/file/{{ file.id }}/restore-version/" style="display: inline;">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="version_id" value="{{ version.id }}">
+                                            <button type="submit" class="btn btn-sm btn-primary"
+                                                    onclick="return confirm('Version {{ version.version_number }} wiederherstellen?')">
+                                                🔄 Wiederherstellen
+                                            </button>
+                                        </form>
+                                        {% else %}
+                                        <span class="badge bg-success">Aktuelle Version</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="row">
+        <div class="col-md-12">
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i>
+                Es sind noch keine Versionen für diese Datei vorhanden.
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">ℹ️ Dateiinformationen</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p>
+                                <strong>Dateiname:</strong><br>
+                                {{ file.name }}
+                            </p>
+                            <p>
+                                <strong>Dateityp:</strong><br>
+                                <code>{{ file.mime_type }}</code>
+                            </p>
+                            <p>
+                                <strong>Größe:</strong><br>
+                                {% if file.size >= 1048576 %}
+                                    {{ file.size|floatformat:2|add:"0" }} MB
+                                {% elif file.size >= 1024 %}
+                                    {{ file.size|floatformat:2|add:"0" }} KB
+                                {% else %}
+                                    {{ file.size }} Bytes
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <p>
+                                <strong>Erstellt:</strong><br>
+                                {{ file.created_at|date:"d.m.Y H:i" }}
+                            </p>
+                            <p>
+                                <strong>Geändert:</strong><br>
+                                {{ file.updated_at|date:"d.m.Y H:i" }}
+                            </p>
+                            <p>
+                                <strong>Aktuelle Version:</strong><br>
+                                {{ file.version_count }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+{% endblock %}

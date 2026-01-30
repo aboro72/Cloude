@@ -2,6 +2,16 @@
 
 {% block title %}{{ file.name }} - CloudService{% endblock %}
 
+{% block extra_css %}
+<!-- Preload libraries for faster loading -->
+{% if is_word %}
+<link rel="preload" as="script" href="https://cdn.jsdelivr.net/npm/docx-preview@0.1.20/build/index.js">
+{% endif %}
+{% if is_excel %}
+<link rel="preload" as="script" href="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js">
+{% endif %}
+{% endblock %}
+
 {% block content %}
 <div class="container">
     <div class="row mb-4">
@@ -43,7 +53,15 @@
                                     <div class="spinner-border text-primary" role="status">
                                         <span class="visually-hidden">Loading...</span>
                                     </div>
-                                    <p class="mt-3">Dokument wird geladen...</p>
+                                    <p class="mt-3"><strong>Dokument wird geladen...</strong></p>
+                                    <p class="text-muted small">
+                                        {% if file.size >= 1048576 %}
+                                            Große Datei (~{{ file.size|floatformat:-1|add:"0" }} MB) - bitte warten...
+                                        {% else %}
+                                            (~{{ file.size|floatformat:-1|add:"0" }} KB) - bitte warten...
+                                        {% endif %}
+                                    </p>
+                                    <p class="text-muted small">Dies kann 5-10 Sekunden dauern</p>
                                 </div>
                             </div>
 
@@ -57,7 +75,15 @@
                                     <div class="spinner-border text-primary" role="status">
                                         <span class="visually-hidden">Loading...</span>
                                     </div>
-                                    <p class="mt-3">Tabelle wird geladen...</p>
+                                    <p class="mt-3"><strong>Tabelle wird geladen...</strong></p>
+                                    <p class="text-muted small">
+                                        {% if file.size >= 1048576 %}
+                                            Große Datei (~{{ file.size|floatformat:-1|add:"0" }} MB) - bitte warten...
+                                        {% else %}
+                                            (~{{ file.size|floatformat:-1|add:"0" }} KB) - bitte warten...
+                                        {% endif %}
+                                    </p>
+                                    <p class="text-muted small">Dies kann 3-5 Sekunden dauern</p>
                                 </div>
                             </div>
 
@@ -223,35 +249,50 @@ document.addEventListener('DOMContentLoaded', function() {
 function loadWordPreview() {
     const fileUrl = '{{ file.file.url }}';
     const previewElement = document.getElementById('wordPreview');
+    const startTime = Date.now();
+    const timeoutMs = 30000; // 30 second timeout
 
-    // Check if docx is loaded
-    if (typeof docx === 'undefined' || !docx.renderAsync) {
-        // Library not loaded yet, try again
-        setTimeout(loadWordPreview, 500);
-        return;
+    function tryLoadWord() {
+        // Check if docx is loaded
+        if (typeof docx === 'undefined' || !docx.renderAsync) {
+            // Check if we've exceeded timeout
+            if (Date.now() - startTime > timeoutMs) {
+                previewElement.innerHTML = '<div class="alert alert-warning">' +
+                    'Das Laden des Dokuments dauert länger als erwartet. ' +
+                    'Die Vorschau wird möglicherweise noch verarbeitet...<br><br>' +
+                    '<a href="/storage/file/{{ file.id }}/download/" class="btn btn-primary">Download stattdessen</a>' +
+                    '</div>';
+                return;
+            }
+            // Library not loaded yet, try again
+            setTimeout(tryLoadWord, 500);
+            return;
+        }
+
+        // Library is loaded, proceed with rendering
+        fetch(fileUrl)
+            .then(response => response.arrayBuffer())
+            .then(arrayBuffer => {
+                const blob = new Blob([arrayBuffer]);
+                docx.renderAsync(blob, previewElement)
+                    .catch(error => {
+                        console.error('Error rendering Word document:', error);
+                        previewElement.innerHTML = '<div class="alert alert-warning">' +
+                            'Fehler beim Anzeigen des Dokuments. ' +
+                            '<a href="/storage/file/{{ file.id }}/download/" class="btn btn-sm btn-primary">Download</a>' +
+                            '</div>';
+                    });
+            })
+            .catch(error => {
+                console.error('Error loading Word file:', error);
+                previewElement.innerHTML = '<div class="alert alert-danger">Fehler beim Herunterladen des Dokuments</div>';
+            });
     }
 
-    // Library is loaded, proceed with rendering
-    fetch(fileUrl)
-        .then(response => response.arrayBuffer())
-        .then(arrayBuffer => {
-            const blob = new Blob([arrayBuffer]);
-            docx.renderAsync(blob, previewElement)
-                .catch(error => {
-                    console.error('Error rendering Word document:', error);
-                    previewElement.innerHTML = '<div class="alert alert-warning">' +
-                        'Fehler beim Anzeigen des Dokuments. ' +
-                        '<a href="/storage/file/{{ file.id }}/download/" class="btn btn-sm btn-primary">Download</a>' +
-                        '</div>';
-                });
-        })
-        .catch(error => {
-            console.error('Error loading Word file:', error);
-            previewElement.innerHTML = '<div class="alert alert-danger">Fehler beim Herunterladen des Dokuments</div>';
-        });
+    // Start loading when DOM is ready
+    tryLoadWord();
 }
 
-// Start loading when DOM is ready
 document.addEventListener('DOMContentLoaded', loadWordPreview);
 </script>
 {% endif %}
@@ -262,69 +303,84 @@ document.addEventListener('DOMContentLoaded', loadWordPreview);
 function loadExcelPreview() {
     const fileUrl = '{{ file.file.url }}';
     const previewElement = document.getElementById('excelPreview');
+    const startTime = Date.now();
+    const timeoutMs = 30000; // 30 second timeout
 
-    // Check if XLSX is loaded
-    if (typeof XLSX === 'undefined') {
-        // Library not loaded yet, try again
-        setTimeout(loadExcelPreview, 500);
-        return;
-    }
+    function tryLoadExcel() {
+        // Check if XLSX is loaded
+        if (typeof XLSX === 'undefined') {
+            // Check if we've exceeded timeout
+            if (Date.now() - startTime > timeoutMs) {
+                previewElement.innerHTML = '<div class="alert alert-warning">' +
+                    'Das Laden der Tabelle dauert länger als erwartet. ' +
+                    'Die Vorschau wird möglicherweise noch verarbeitet...<br><br>' +
+                    '<a href="/storage/file/{{ file.id }}/download/" class="btn btn-primary">Download stattdessen</a>' +
+                    '</div>';
+                return;
+            }
+            // Library not loaded yet, try again
+            setTimeout(tryLoadExcel, 500);
+            return;
+        }
 
-    // Library is loaded, proceed with rendering
-    fetch(fileUrl)
-        .then(response => response.arrayBuffer())
-        .then(arrayBuffer => {
-            const data = new Uint8Array(arrayBuffer);
-            const workbook = XLSX.read(data, {type: 'array'});
+        // Library is loaded, proceed with rendering
+        fetch(fileUrl)
+            .then(response => response.arrayBuffer())
+            .then(arrayBuffer => {
+                const data = new Uint8Array(arrayBuffer);
+                const workbook = XLSX.read(data, {type: 'array'});
 
-            let html = '<div>';
+                let html = '<div>';
 
-            // Process each sheet
-            workbook.SheetNames.forEach((sheetName, index) => {
-                if (index > 0) html += '<hr class="my-4">';
+                // Process each sheet
+                workbook.SheetNames.forEach((sheetName, index) => {
+                    if (index > 0) html += '<hr class="my-4">';
 
-                html += '<h5 class="mt-4 mb-3">' + sheetName + '</h5>';
-                const worksheet = workbook.Sheets[sheetName];
-                const jsonData = XLSX.utils.sheet_to_json(worksheet, {header: 1});
+                    html += '<h5 class="mt-4 mb-3">' + sheetName + '</h5>';
+                    const worksheet = workbook.Sheets[sheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, {header: 1});
 
-                // Create styled HTML table
-                html += '<div class="table-responsive">';
-                html += '<table class="table table-sm table-bordered table-hover">';
+                    // Create styled HTML table
+                    html += '<div class="table-responsive">';
+                    html += '<table class="table table-sm table-bordered table-hover">';
 
-                if (jsonData.length > 0) {
-                    html += '<thead class="table-light">';
-                    html += '<tr>';
-                    jsonData[0].forEach(cell => {
-                        html += '<th style="background-color: #f8f9fa; font-weight: 600; padding: 10px;">' + (cell || '') + '</th>';
-                    });
-                    html += '</tr>';
-                    html += '</thead>';
-
-                    html += '<tbody>';
-                    for (let i = 1; i < jsonData.length; i++) {
+                    if (jsonData.length > 0) {
+                        html += '<thead class="table-light">';
                         html += '<tr>';
-                        jsonData[i].forEach(cell => {
-                            html += '<td style="padding: 8px; vertical-align: top;">' + (cell || '') + '</td>';
+                        jsonData[0].forEach(cell => {
+                            html += '<th style="background-color: #f8f9fa; font-weight: 600; padding: 10px;">' + (cell || '') + '</th>';
                         });
                         html += '</tr>';
+                        html += '</thead>';
+
+                        html += '<tbody>';
+                        for (let i = 1; i < jsonData.length; i++) {
+                            html += '<tr>';
+                            jsonData[i].forEach(cell => {
+                                html += '<td style="padding: 8px; vertical-align: top;">' + (cell || '') + '</td>';
+                            });
+                            html += '</tr>';
+                        }
+                        html += '</tbody>';
                     }
-                    html += '</tbody>';
-                }
 
-                html += '</table>';
+                    html += '</table>';
+                    html += '</div>';
+                });
+
                 html += '</div>';
+                previewElement.innerHTML = html;
+            })
+            .catch(error => {
+                console.error('Error loading Excel file:', error);
+                previewElement.innerHTML = '<div class="alert alert-danger">Fehler beim Laden der Tabelle</div>';
             });
+    }
 
-            html += '</div>';
-            previewElement.innerHTML = html;
-        })
-        .catch(error => {
-            console.error('Error loading Excel file:', error);
-            previewElement.innerHTML = '<div class="alert alert-danger">Fehler beim Laden der Tabelle</div>';
-        });
+    // Start loading when DOM is ready
+    tryLoadExcel();
 }
 
-// Start loading when DOM is ready
 document.addEventListener('DOMContentLoaded', loadExcelPreview);
 </script>
 {% endif %}
