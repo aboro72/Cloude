@@ -1,0 +1,62 @@
+{
+  "name": "Weather Widget",
+  "slug": "weather",
+  "version": "1.1.0",
+  "author": "CloudService Team",
+  "description": "Zeigt aktuelle Wetterdaten von OpenWeatherMap auf dem Dashboard an.",
+
+  "django_app": {
+    "app_config": "weather.apps.WeatherConfig"
+  },
+
+  "requirements": {
+    "django": ">=5.0,<6.0",
+    "python": ">=3.10",
+    "python_packages": []
+  },
+
+  "hooks": {
+    "ui_dashboard_widget": {
+      "handler": "weather.widget.WeatherWidgetProvider",
+      "priority": 15
+    }
+  },
+
+  "settings": {
+    "has_settings": true,
+    "schema": {
+      "api_key": {
+        "type": "password",
+        "label": "OpenWeatherMap API Key",
+        "help": "Kostenlos erhältlich auf openweathermap.org/api",
+        "required": true,
+        "placeholder": "Ihr API Key"
+      },
+      "city": {
+        "type": "text",
+        "label": "Stadt",
+        "help": "z.B. Berlin, Munich, Hamburg",
+        "required": true,
+        "default": "Berlin"
+      },
+      "units": {
+        "type": "select",
+        "label": "Einheiten",
+        "options": [
+          {"value": "metric", "label": "Celsius (°C)"},
+          {"value": "imperial", "label": "Fahrenheit (°F)"}
+        ],
+        "default": "metric"
+      },
+      "language": {
+        "type": "select",
+        "label": "Sprache",
+        "options": [
+          {"value": "de", "label": "Deutsch"},
+          {"value": "en", "label": "English"}
+        ],
+        "default": "de"
+      }
+    }
+  }
+}

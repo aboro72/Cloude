@@ -1,0 +1,126 @@
+<div class="clock-widget-container text-center">
+    <style>
+        .clock-widget-container .mini-clock {
+            width: 150px;
+            height: 150px;
+            border: 4px solid #667eea;
+            border-radius: 50%;
+            position: relative;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            margin: 0 auto;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1), inset 0 0 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .clock-widget-container .mini-clock::before {
+            content: '';
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: #667eea;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+        }
+
+        .clock-widget-container .mini-hand {
+            position: absolute;
+            bottom: 50%;
+            left: 50%;
+            transform-origin: bottom center;
+            border-radius: 4px;
+        }
+
+        .clock-widget-container .mini-hour-hand {
+            width: 4px;
+            height: 35px;
+            margin-left: -2px;
+            background: #333;
+        }
+
+        .clock-widget-container .mini-minute-hand {
+            width: 3px;
+            height: 50px;
+            margin-left: -1.5px;
+            background: #555;
+        }
+
+        .clock-widget-container .mini-second-hand {
+            width: 1px;
+            height: 55px;
+            margin-left: -0.5px;
+            background: #e74c3c;
+        }
+
+        .clock-widget-container .mini-digital {
+            margin-top: 15px;
+            font-size: 24px;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            color: #333;
+            letter-spacing: 2px;
+        }
+
+        .clock-widget-container .mini-date {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+
+    <div class="mini-clock" id="mini-clock-{{ widget_context.timezone|slugify }}">
+        <div class="mini-hand mini-hour-hand" id="mini-hour"></div>
+        <div class="mini-hand mini-minute-hand" id="mini-minute"></div>
+        <div class="mini-hand mini-second-hand" id="mini-second"></div>
+    </div>
+
+    {% if widget_context.show_digital %}
+    <div class="mini-digital" id="mini-digital-time">--:--:--</div>
+    <div class="mini-date" id="mini-date"></div>
+    {% endif %}
+</div>
+
+<script>
+(function() {
+    function updateMiniClock() {
+        const now = new Date();
+
+        const seconds = now.getSeconds();
+        const minutes = now.getMinutes();
+        const hours = now.getHours() % 12;
+
+        const secondDeg = (seconds / 60) * 360;
+        const minuteDeg = (minutes / 60) * 360 + (seconds / 60) * 6;
+        const hourDeg = (hours / 12) * 360 + (minutes / 60) * 30;
+
+        const secondHand = document.getElementById('mini-second');
+        const minuteHand = document.getElementById('mini-minute');
+        const hourHand = document.getElementById('mini-hour');
+
+        if (secondHand) secondHand.style.transform = `rotate(${secondDeg}deg)`;
+        if (minuteHand) minuteHand.style.transform = `rotate(${minuteDeg}deg)`;
+        if (hourHand) hourHand.style.transform = `rotate(${hourDeg}deg)`;
+
+        // Update digital time
+        const digitalTime = document.getElementById('mini-digital-time');
+        if (digitalTime) {
+            const hoursStr = String(now.getHours()).padStart(2, '0');
+            const minutesStr = String(now.getMinutes()).padStart(2, '0');
+            const secondsStr = String(now.getSeconds()).padStart(2, '0');
+            digitalTime.textContent = `${hoursStr}:${minutesStr}:${secondsStr}`;
+        }
+
+        // Update date
+        const dateEl = document.getElementById('mini-date');
+        if (dateEl) {
+            const options = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
+            dateEl.textContent = now.toLocaleDateString('de-DE', options);
+        }
+    }
+
+    // Start clock
+    updateMiniClock();
+    setInterval(updateMiniClock, 1000);
+})();
+</script>
