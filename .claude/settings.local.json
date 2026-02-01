@@ -10,7 +10,10 @@
       "Bash(timeout 5 curl:*)",
       "Bash(dir:*)",
       "Bash(powershell -Command \"Compress-Archive -Path example_clock_preview -DestinationPath clock-preview.zip -Force\")",
-      "Bash(powershell -Command:*)"
+      "Bash(powershell -Command:*)",
+      "Bash(DJANGO_SETTINGS_MODULE=config.settings python:*)",
+      "Bash(curl:*)",
+      "Bash(zip:*)"
     ]
   }
 }

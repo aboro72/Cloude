@@ -17,6 +17,8 @@ urlpatterns = [
     path('public/<str:token>/', views.PublicLinkView.as_view(), name='public_link'),
     path('public/<str:token>/download/', views.PublicDownloadView.as_view(), name='public_download'),
     path('links/', views.PublicLinksListView.as_view(), name='links_list'),
+    path('link/create/<str:content_type>/<int:object_id>/', views.CreatePublicLinkView.as_view(), name='create_link'),
+    path('link/<int:pk>/created/', views.LinkCreatedView.as_view(), name='link_created'),
     path('link/<int:link_id>/settings/', views.PublicLinkSettingsView.as_view(), name='link_settings'),
     path('link/<int:link_id>/delete/', views.DeletePublicLinkView.as_view(), name='delete_link'),
 

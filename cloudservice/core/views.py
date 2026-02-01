@@ -9,6 +9,7 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from pathlib import Path
 from core.models import ActivityLog
+from plugins.hooks import hook_registry, UI_DASHBOARD_WIDGET
 import logging
 
 logger = logging.getLogger(__name__)
@@ -258,3 +259,59 @@ def debug_plugins(request):
         return redirect('accounts:login')
 
     return DebugPluginsView.as_view()(request)
+
+
+class LandingView(LoginRequiredMixin, TemplateView):
+    """
+    Landing page with widget grid.
+    Shows widgets from plugins and built-in widgets.
+    """
+    template_name = 'core/landing.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Collect all widgets from hooks
+        widgets = []
+
+        # Get widget providers from hook registry
+        handlers = hook_registry.get_handlers(UI_DASHBOARD_WIDGET)
+        logger.debug(f"Found {len(handlers)} widget handlers")
+
+        for handler in handlers:
+            try:
+                # Instantiate the widget provider
+                provider = handler()
+
+                # Render the widget
+                widget_data = provider.render(self.request)
+                if widget_data:
+                    widgets.append(widget_data)
+                    logger.debug(f"Added widget: {widget_data['id']}")
+
+            except Exception as e:
+                logger.error(f"Failed to load widget from {handler}: {e}")
+
+        # Sort widgets by order
+        widgets.sort(key=lambda w: w['order'])
+
+        context['widgets'] = widgets
+        return context
+
+
+def landing(request):
+    """Landing page view function"""
+    if not request.user.is_authenticated:
+        return redirect('accounts:login')
+
+    return LandingView.as_view()(request)
+
+
+def help_page(request):
+    """Help page view"""
+    return render(request, 'core/help.html')
+
+
+def help_developer(request):
+    """Developer documentation view"""
+    return render(request, 'core/help_developer.html')

@@ -31,8 +31,9 @@ urlpatterns = [
 
     # Trash
     path('trash/', views.TrashView.as_view(), name='trash'),
-    path('trash/<int:trash_id>/restore/', views.RestoreFromTrashView.as_view(), name='restore_trash'),
-    path('trash/<int:trash_id>/delete/', views.PermanentlyDeleteView.as_view(), name='permanently_delete'),
+    path('trash/<int:file_id>/restore/', views.RestoreFromTrashView.as_view(), name='restore_trash'),
+    path('trash/<int:file_id>/delete/', views.PermanentlyDeleteView.as_view(), name='permanently_delete'),
+    path('trash/empty/', views.EmptyTrashView.as_view(), name='empty_trash'),
 
     # Search
     path('search/', views.SearchView.as_view(), name='search'),

@@ -6,7 +6,7 @@ from django.contrib import admin
 from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path, include
-from django.views.generic import TemplateView
+from django.views.generic import TemplateView, RedirectView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from django.views.decorators.cache import cache_page
@@ -23,8 +23,8 @@ class HomeView(TemplateView):
         return context
 
 urlpatterns = [
-    # Home
-    path('', HomeView.as_view(), name='home'),
+    # Home - Redirect to login
+    path('', RedirectView.as_view(url='/accounts/login/', permanent=False), name='home'),
 
     # Jazzmin Admin (enhanced admin interface)
     path('admin/', admin.site.urls),
@@ -50,12 +50,13 @@ urlpatterns = [
     path('core/', include('core.urls', namespace='core')),
 ]
 
-# Serve media files in development
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+# Serve media and static files
+# Note: In production, these should be served by a web server like nginx
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 
-    # Django debug toolbar
+# Django debug toolbar (only in DEBUG mode)
+if settings.DEBUG:
     if 'debug_toolbar' in settings.INSTALLED_APPS:
         import debug_toolbar
         urlpatterns = [path('__debug__/', include(debug_toolbar.urls))] + urlpatterns

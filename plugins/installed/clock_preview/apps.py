@@ -18,13 +18,14 @@ class ClockPreviewConfig(AppConfig):
     def ready(self):
         """
         Called when plugin is activated.
-        Registers the clock preview provider with the hook system.
+        Registers the clock preview provider and dashboard widget with the hook system.
         """
         logger.info("Initializing Clock Preview Plugin")
 
         try:
-            from plugins.hooks import hook_registry, FILE_PREVIEW_PROVIDER
+            from plugins.hooks import hook_registry, FILE_PREVIEW_PROVIDER, UI_DASHBOARD_WIDGET
             from clock_preview.handlers import ClockPreviewProvider
+            from clock_preview.widget import ClockWidgetProvider
 
             # Register the handler for .clock files
             hook_registry.register(
@@ -34,7 +35,14 @@ class ClockPreviewConfig(AppConfig):
                 mime_type='application/clock'
             )
 
-            logger.info("Clock Preview Provider registered")
+            # Register the dashboard widget
+            hook_registry.register(
+                UI_DASHBOARD_WIDGET,
+                ClockWidgetProvider,
+                priority=5,
+            )
+
+            logger.info("Clock Preview Provider and Widget registered")
 
         except Exception as e:
             logger.error(f"Failed to initialize Clock Preview Plugin: {e}")

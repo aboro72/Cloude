@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+
+{% block title %}Link erstellt - CloudService{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-check-circle me-2"></i> Link erfolgreich erstellt!
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Link Display -->
+                    <div class="mb-4">
+                        <label class="form-label"><strong>Öffentlicher Link:</strong></label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="publicLink" readonly
+                                   value="{{ request.scheme }}://{{ request.get_host }}/sharing/public/{{ link.token }}/">
+                            <button class="btn btn-primary" type="button" onclick="copyLink()">
+                                <i class="bi bi-clipboard"></i> Kopieren
+                            </button>
+                        </div>
+                        <div id="copySuccess" class="text-success mt-2" style="display: none;">
+                            <i class="bi bi-check"></i> Link in Zwischenablage kopiert!
+                        </div>
+                    </div>
+
+                    <!-- Link Details -->
+                    <div class="card bg-light mb-4">
+                        <div class="card-body">
+                            <h6 class="card-subtitle mb-3 text-muted">Link-Details</h6>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p class="mb-2">
+                                        <strong>Datei:</strong><br>
+                                        <i class="bi bi-file-earmark"></i> {{ link.content_object.name }}
+                                    </p>
+                                    {% if link.title %}
+                                    <p class="mb-2">
+                                        <strong>Titel:</strong><br>
+                                        {{ link.title }}
+                                    </p>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6">
+                                    <p class="mb-2">
+                                        <strong>Berechtigung:</strong><br>
+                                        {{ link.get_permission_display }}
+                                    </p>
+                                    <p class="mb-2">
+                                        <strong>Download erlaubt:</strong><br>
+                                        {% if link.allow_download %}
+                                            <span class="text-success"><i class="bi bi-check-circle"></i> Ja</span>
+                                        {% else %}
+                                            <span class="text-danger"><i class="bi bi-x-circle"></i> Nein</span>
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {% if link.expires_at or link.expires_after_downloads %}
+                            <hr>
+                            <div class="row">
+                                {% if link.expires_at %}
+                                <div class="col-md-6">
+                                    <p class="mb-0">
+                                        <strong>Läuft ab:</strong><br>
+                                        {{ link.expires_at|date:"d.m.Y H:i" }}
+                                    </p>
+                                </div>
+                                {% endif %}
+                                {% if link.expires_after_downloads %}
+                                <div class="col-md-6">
+                                    <p class="mb-0">
+                                        <strong>Max. Downloads:</strong><br>
+                                        {{ link.expires_after_downloads }}
+                                    </p>
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- QR Code (optional) -->
+                    <div class="text-center mb-4">
+                        <div id="qrcode" class="d-inline-block p-3 bg-white border rounded"></div>
+                        <p class="text-muted mt-2 small">QR-Code zum schnellen Teilen</p>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="d-flex justify-content-between">
+                        <a href="/storage/" class="btn btn-outline-secondary">
+                            <i class="bi bi-folder"></i> Zurück zu Dateien
+                        </a>
+                        <div>
+                            <a href="{% url 'sharing:links_list' %}" class="btn btn-outline-primary me-2">
+                                <i class="bi bi-list"></i> Alle Links
+                            </a>
+                            <a href="{% url 'sharing:link_settings' link_id=link.id %}" class="btn btn-primary">
+                                <i class="bi bi-gear"></i> Einstellungen
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+<script>
+function copyLink() {
+    const linkInput = document.getElementById('publicLink');
+    linkInput.select();
+    linkInput.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(linkInput.value);
+
+    const successMsg = document.getElementById('copySuccess');
+    successMsg.style.display = 'block';
+    setTimeout(() => {
+        successMsg.style.display = 'none';
+    }, 3000);
+}
+
+// Generate QR Code
+document.addEventListener('DOMContentLoaded', function() {
+    const linkUrl = document.getElementById('publicLink').value;
+    const qr = qrcode(0, 'M');
+    qr.addData(linkUrl);
+    qr.make();
+    document.getElementById('qrcode').innerHTML = qr.createImgTag(4, 8);
+});
+</script>
+{% endblock %}

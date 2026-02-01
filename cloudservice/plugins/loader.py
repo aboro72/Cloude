@@ -2,7 +2,8 @@
 Plugin loader and lifecycle management.
 
 Handles ZIP validation, extraction, dynamic loading/unloading of plugins,
-and hot-loading (activation/deactivation without server restart).
+folder-based plugin discovery, and hot-loading (activation/deactivation
+without server restart).
 """
 
 import os
@@ -12,7 +13,7 @@ import zipfile
 import shutil
 import importlib
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 from django.conf import settings
 from django.apps import apps
@@ -40,6 +41,109 @@ class PluginLoader:
         """Initialize plugin loader and create plugins directory"""
         self.PLUGINS_DIR.mkdir(parents=True, exist_ok=True)
         logger.debug(f"PluginLoader initialized with PLUGINS_DIR: {self.PLUGINS_DIR}")
+
+    def discover_plugins(self) -> List[Dict[str, Any]]:
+        """
+        Discover plugins from folder structure in PLUGINS_DIR.
+
+        Scans for folders containing plugin.json and registers them
+        in the database if not already present.
+
+        Returns:
+            List of discovered plugin manifests
+        """
+        from plugins.models import Plugin, PluginLog
+
+        discovered = []
+        logger.info(f"Discovering plugins in {self.PLUGINS_DIR}")
+
+        if not self.PLUGINS_DIR.exists():
+            logger.warning(f"Plugins directory does not exist: {self.PLUGINS_DIR}")
+            return discovered
+
+        for item in self.PLUGINS_DIR.iterdir():
+            if not item.is_dir():
+                continue
+
+            # Skip __pycache__ and hidden folders
+            if item.name.startswith('_') or item.name.startswith('.'):
+                continue
+
+            manifest_path = item / 'plugin.json'
+            if not manifest_path.exists():
+                logger.debug(f"Skipping {item.name}: no plugin.json found")
+                continue
+
+            try:
+                # Parse manifest
+                with open(manifest_path, 'r', encoding='utf-8') as f:
+                    manifest = json.load(f)
+
+                # Validate required fields
+                required_fields = ['name', 'slug', 'version']
+                missing = [f for f in required_fields if f not in manifest]
+                if missing:
+                    logger.warning(f"Plugin {item.name} missing fields: {missing}")
+                    continue
+
+                # Check if plugin already exists in database
+                slug = manifest['slug']
+                module_name = slug.replace('-', '_')
+
+                # Extract settings schema if present
+                settings_config = manifest.get('settings', {})
+                has_settings = settings_config.get('has_settings', False)
+                settings_schema = settings_config.get('schema', {})
+
+                plugin, created = Plugin.objects.get_or_create(
+                    slug=slug,
+                    defaults={
+                        'name': manifest['name'],
+                        'version': manifest['version'],
+                        'author': manifest.get('author', 'Unknown'),
+                        'description': manifest.get('description', ''),
+                        'manifest': manifest,
+                        'extracted_path': str(item),
+                        'module_name': module_name,
+                        'is_local': True,
+                        'status': 'inactive',
+                        'enabled': False,
+                        'has_settings': has_settings,
+                        'settings_schema': settings_schema,
+                    }
+                )
+
+                if created:
+                    logger.info(f"Discovered new plugin: {manifest['name']} v{manifest['version']}")
+                    PluginLog.objects.create(
+                        plugin=plugin,
+                        action='uploaded',
+                        message=f"Plugin discovered from folder: {item.name}"
+                    )
+                else:
+                    # Update manifest and settings schema if version changed
+                    if plugin.version != manifest['version'] or plugin.settings_schema != settings_schema:
+                        plugin.version = manifest['version']
+                        plugin.manifest = manifest
+                        plugin.has_settings = has_settings
+                        plugin.settings_schema = settings_schema
+                        plugin.save()
+                        logger.info(f"Updated plugin: {manifest['name']} to v{manifest['version']}")
+
+                discovered.append({
+                    'plugin': plugin,
+                    'manifest': manifest,
+                    'path': str(item),
+                    'created': created,
+                })
+
+            except json.JSONDecodeError as e:
+                logger.error(f"Invalid JSON in {manifest_path}: {e}")
+            except Exception as e:
+                logger.error(f"Error discovering plugin in {item.name}: {e}")
+
+        logger.info(f"Discovered {len(discovered)} plugins")
+        return discovered
 
     def validate_zip(self, zip_path: Path) -> Dict[str, Any]:
         """
@@ -351,3 +455,73 @@ class PluginLoader:
 
         except Exception as e:
             logger.error(f"Error loading enabled plugins: {e}")
+
+    def register_plugin_hooks_only(self, plugin_id: str) -> bool:
+        """
+        Register plugin hooks without modifying INSTALLED_APPS.
+
+        This is safe to call during Django startup.
+        Only imports the module and calls ready() to register hooks.
+
+        Args:
+            plugin_id: UUID of the plugin
+
+        Returns:
+            True if successful
+        """
+        from plugins.models import Plugin
+
+        try:
+            plugin = Plugin.objects.get(pk=plugin_id)
+
+            # Add to Python path
+            if str(self.PLUGINS_DIR) not in sys.path:
+                sys.path.insert(0, str(self.PLUGINS_DIR))
+
+            module_name = plugin.slug.replace('-', '_')
+
+            # Import plugin module
+            plugin_module = importlib.import_module(module_name)
+
+            # Get and import AppConfig
+            app_config_path = plugin.manifest.get('django_app', {}).get('app_config')
+            if not app_config_path:
+                raise ValueError("No app_config specified in manifest")
+
+            config_module_path, config_class_name = app_config_path.rsplit('.', 1)
+            config_module = importlib.import_module(config_module_path)
+            app_config_class = getattr(config_module, config_class_name)
+
+            # Create instance and call ready() to register hooks only
+            # Don't modify apps.app_configs or INSTALLED_APPS
+            app_config_instance = app_config_class(module_name, plugin_module)
+            app_config_instance.ready()
+
+            logger.info(f"Registered hooks for plugin: {plugin.name}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to register hooks for plugin {plugin_id}: {e}")
+            return False
+
+    def register_all_enabled_hooks(self) -> None:
+        """
+        Register hooks for all enabled plugins without full loading.
+
+        Safe to call during Django startup.
+        """
+        from plugins.models import Plugin
+
+        logger.info("Registering hooks for enabled plugins...")
+
+        try:
+            enabled_plugins = Plugin.objects.filter(enabled=True)
+
+            for plugin in enabled_plugins:
+                try:
+                    self.register_plugin_hooks_only(str(plugin.id))
+                except Exception as e:
+                    logger.warning(f"Could not register hooks for {plugin.name}: {e}")
+
+        except Exception as e:
+            logger.error(f"Error registering plugin hooks: {e}")

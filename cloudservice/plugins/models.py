@@ -54,12 +54,18 @@ class Plugin(models.Model):
     # Files
     zip_file = models.FileField(
         upload_to='plugins/%Y/%m/',
-        help_text="Uploaded ZIP file containing plugin code"
+        blank=True,
+        null=True,
+        help_text="Uploaded ZIP file (optional for local folder plugins)"
     )
     extracted_path = models.CharField(
         max_length=500,
         blank=True,
-        help_text="Path where plugin files were extracted"
+        help_text="Path where plugin files are located"
+    )
+    is_local = models.BooleanField(
+        default=False,
+        help_text="True if plugin is a local folder (not uploaded ZIP)"
     )
 
     # Manifest (parsed from plugin.json)
@@ -119,6 +125,22 @@ class Plugin(models.Model):
         help_text="Admin who uploaded this plugin"
     )
 
+    # Plugin settings (configurable by admin)
+    settings = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Plugin-specific configuration settings"
+    )
+    settings_schema = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="JSON schema defining available settings"
+    )
+    has_settings = models.BooleanField(
+        default=False,
+        help_text="Whether this plugin has configurable settings"
+    )
+
     # Timestamps
     uploaded_at = models.DateTimeField(
         auto_now_add=True,
@@ -134,6 +156,15 @@ class Plugin(models.Model):
         auto_now=True,
         help_text="Last modification time"
     )
+
+    def get_setting(self, key, default=None):
+        """Get a specific setting value."""
+        return self.settings.get(key, default)
+
+    def set_setting(self, key, value):
+        """Set a specific setting value."""
+        self.settings[key] = value
+        self.save(update_fields=['settings'])
 
     class Meta:
         ordering = ['-uploaded_at']

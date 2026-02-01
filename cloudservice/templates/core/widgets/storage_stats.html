@@ -1,0 +1,48 @@
+<div class="row text-center mb-3">
+    <div class="col-6">
+        <div class="border rounded p-2">
+            <i class="bi bi-file-earmark text-primary"></i>
+            <h4 class="mb-0">{{ widget_context.total_files }}</h4>
+            <small class="text-muted">Dateien</small>
+        </div>
+    </div>
+    <div class="col-6">
+        <div class="border rounded p-2">
+            <i class="bi bi-folder text-warning"></i>
+            <h4 class="mb-0">{{ widget_context.total_folders }}</h4>
+            <small class="text-muted">Ordner</small>
+        </div>
+    </div>
+</div>
+
+<div class="mb-2">
+    <div class="d-flex justify-content-between mb-1">
+        <small>Speicherplatz</small>
+        <small>{{ widget_context.storage_percentage|floatformat:1 }}%</small>
+    </div>
+    <div class="progress" style="height: 20px;">
+        <div class="progress-bar {% if widget_context.is_critical %}bg-danger{% elif widget_context.is_warning %}bg-warning{% else %}bg-success{% endif %}"
+             role="progressbar"
+             style="width: {{ widget_context.storage_percentage|floatformat:0 }}%"
+             aria-valuenow="{{ widget_context.storage_percentage|floatformat:0 }}"
+             aria-valuemin="0"
+             aria-valuemax="100">
+        </div>
+    </div>
+    <small class="text-muted">
+        {{ widget_context.storage_used_mb|floatformat:1 }} MB von {{ widget_context.storage_quota_gb|floatformat:1 }} GB verwendet
+    </small>
+</div>
+
+{% if widget_context.is_warning %}
+<div class="alert alert-{{ widget_context.is_critical|yesno:'danger,warning' }} py-2 mb-0 mt-2">
+    <small>
+        <i class="bi bi-exclamation-triangle me-1"></i>
+        {% if widget_context.is_critical %}
+        Speicherplatz fast voll!
+        {% else %}
+        Speicherplatz wird knapp.
+        {% endif %}
+    </small>
+</div>
+{% endif %}

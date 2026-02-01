@@ -1,0 +1,437 @@
+{% extends "base.html" %}
+
+{% block title %}Entwickler-Dokumentation - CloudService{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-3">
+            <!-- Sidebar Navigation -->
+            <div class="card sticky-top" style="top: 20px;">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-code-slash me-2"></i>Inhalt</h5>
+                </div>
+                <div class="list-group list-group-flush">
+                    <a href="#overview" class="list-group-item list-group-item-action">Übersicht</a>
+                    <a href="#structure" class="list-group-item list-group-item-action">Plugin-Struktur</a>
+                    <a href="#manifest" class="list-group-item list-group-item-action">plugin.json</a>
+                    <a href="#widgets" class="list-group-item list-group-item-action">Dashboard Widgets</a>
+                    <a href="#settings" class="list-group-item list-group-item-action">Plugin-Einstellungen</a>
+                    <a href="#hooks" class="list-group-item list-group-item-action">Hook-System</a>
+                    <a href="#templates" class="list-group-item list-group-item-action">Templates</a>
+                    <a href="#example" class="list-group-item list-group-item-action">Beispiel-Plugin</a>
+                    <a href="{% url 'core:help' %}" class="list-group-item list-group-item-action">
+                        <i class="bi bi-arrow-left me-1"></i>Zurück zur Hilfe
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-9">
+            <h1><i class="bi bi-code-slash me-2"></i>Entwickler-Dokumentation</h1>
+            <p class="lead">Leitfaden zur Entwicklung von CloudService Plugins.</p>
+            <div class="alert alert-light border mb-4">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-building me-3 text-primary" style="font-size: 1.5rem;"></i>
+                    <div>
+                        <strong>CloudService</strong> - Entwickelt von <strong>Andreas Borowczak</strong>
+                        <span class="text-muted mx-2">|</span>
+                        <a href="https://aboro-it.de" target="_blank" class="text-decoration-none">
+                            <strong>Aboro IT</strong> <i class="bi bi-box-arrow-up-right small"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <hr>
+
+            <!-- Overview -->
+            <section id="overview" class="mb-5">
+                <h2>Übersicht</h2>
+                <div class="card">
+                    <div class="card-body">
+                        <p>CloudService verwendet ein modulares Plugin-System basierend auf Django Apps. Plugins können:</p>
+                        <ul>
+                            <li><strong>Dashboard-Widgets</strong> hinzufügen</li>
+                            <li><strong>Datei-Vorschauen</strong> bereitstellen</li>
+                            <li><strong>Eigene Einstellungen</strong> haben</li>
+                            <li><strong>Hooks</strong> für verschiedene Events registrieren</li>
+                        </ul>
+
+                        <h5 class="mt-4">Installation</h5>
+                        <p>Plugins können auf zwei Arten installiert werden:</p>
+                        <ol>
+                            <li><strong>Lokaler Ordner:</strong> Plugin in <code>plugins/installed/</code> ablegen</li>
+                            <li><strong>ZIP-Upload:</strong> Plugin als ZIP über die Einstellungen hochladen</li>
+                        </ol>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Structure -->
+            <section id="structure" class="mb-5">
+                <h2>Plugin-Struktur</h2>
+                <div class="card">
+                    <div class="card-body">
+                        <p>Ein Plugin besteht aus folgenden Dateien:</p>
+<pre class="bg-dark text-light p-3 rounded"><code>mein_plugin/
+├── __init__.py          # Python-Paket (erforderlich)
+├── plugin.json          # Manifest mit Metadaten (erforderlich)
+├── apps.py              # Django AppConfig (erforderlich)
+├── widget.py            # Widget-Provider (optional)
+├── handlers.py          # Hook-Handler (optional)
+└── templates/           # Template-Ordner (optional)
+    └── mein_plugin/
+        └── widget.html</code></pre>
+
+                        <h5 class="mt-4">Minimale Dateien</h5>
+                        <ul>
+                            <li><code>__init__.py</code> - Kann leer sein oder default_app_config enthalten</li>
+                            <li><code>plugin.json</code> - Manifest mit Name, Version, etc.</li>
+                            <li><code>apps.py</code> - Django AppConfig mit ready() Methode</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Manifest -->
+            <section id="manifest" class="mb-5">
+                <h2>plugin.json Manifest</h2>
+                <div class="card">
+                    <div class="card-body">
+                        <p>Die <code>plugin.json</code> definiert alle Plugin-Metadaten:</p>
+<pre class="bg-dark text-light p-3 rounded"><code>{
+  "name": "Mein Plugin",
+  "slug": "mein-plugin",
+  "version": "1.0.0",
+  "author": "Ihr Name",
+  "description": "Beschreibung des Plugins",
+
+  "django_app": {
+    "app_config": "mein_plugin.apps.MeinPluginConfig"
+  },
+
+  "requirements": {
+    "django": ">=5.0,<6.0",
+    "python": ">=3.10"
+  },
+
+  "hooks": {
+    "ui_dashboard_widget": {
+      "handler": "mein_plugin.widget.MeinWidgetProvider",
+      "priority": 10
+    }
+  },
+
+  "settings": {
+    "has_settings": true,
+    "schema": {
+      "api_key": {
+        "type": "password",
+        "label": "API Key",
+        "required": true
+      },
+      "option": {
+        "type": "select",
+        "label": "Option",
+        "options": [
+          {"value": "a", "label": "Option A"},
+          {"value": "b", "label": "Option B"}
+        ]
+      }
+    }
+  }
+}</code></pre>
+
+                        <h5 class="mt-4">Pflichtfelder</h5>
+                        <table class="table table-sm">
+                            <thead>
+                                <tr><th>Feld</th><th>Beschreibung</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td><code>name</code></td><td>Anzeigename des Plugins</td></tr>
+                                <tr><td><code>slug</code></td><td>URL-freundliche ID (a-z, 0-9, -)</td></tr>
+                                <tr><td><code>version</code></td><td>Semver-Version (1.0.0)</td></tr>
+                                <tr><td><code>django_app.app_config</code></td><td>Pfad zur AppConfig-Klasse</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Widgets -->
+            <section id="widgets" class="mb-5">
+                <h2>Dashboard Widgets</h2>
+                <div class="card">
+                    <div class="card-body">
+                        <p>Widgets werden auf der Landing Page angezeigt. Erstellen Sie eine Widget-Klasse:</p>
+
+<pre class="bg-dark text-light p-3 rounded"><code># widget.py
+from plugins.widgets import DashboardWidgetProvider
+
+class MeinWidgetProvider(DashboardWidgetProvider):
+    widget_id = "mein_widget"
+    widget_name = "Mein Widget"
+    widget_icon = "bi-star"        # Bootstrap Icon
+    widget_size = "medium"         # small, medium, large
+    widget_order = 50              # Sortierung (niedriger = weiter oben)
+
+    def get_context(self, request):
+        """Daten für das Template."""
+        return {
+            'message': 'Hallo Welt!',
+            'user': request.user.username,
+        }
+
+    def get_template_name(self):
+        """Pfad zum Template."""
+        return 'mein_plugin/widget.html'
+
+    def is_visible(self, request):
+        """Optional: Widget nur für bestimmte User zeigen."""
+        return request.user.is_authenticated</code></pre>
+
+                        <h5 class="mt-4">Widget-Größen</h5>
+                        <table class="table table-sm">
+                            <thead>
+                                <tr><th>Größe</th><th>Bootstrap-Klasse</th><th>Breite</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td><code>small</code></td><td>col-md-4</td><td>1/3</td></tr>
+                                <tr><td><code>medium</code></td><td>col-md-6</td><td>1/2</td></tr>
+                                <tr><td><code>large</code></td><td>col-md-12</td><td>Volle Breite</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Settings -->
+            <section id="settings" class="mb-5">
+                <h2>Plugin-Einstellungen</h2>
+                <div class="card">
+                    <div class="card-body">
+                        <p>Plugins können konfigurierbare Einstellungen haben:</p>
+
+                        <h5>Schema in plugin.json</h5>
+<pre class="bg-dark text-light p-3 rounded"><code>"settings": {
+  "has_settings": true,
+  "schema": {
+    "feldname": {
+      "type": "text|password|number|boolean|select|textarea",
+      "label": "Anzeigename",
+      "help": "Hilfetext",
+      "required": true|false,
+      "default": "Standardwert",
+      "placeholder": "Platzhalter",
+      "options": [...]  // Nur für select
+    }
+  }
+}</code></pre>
+
+                        <h5 class="mt-4">Einstellungen im Code lesen</h5>
+<pre class="bg-dark text-light p-3 rounded"><code>from plugins.models import Plugin
+
+# In Ihrem Widget oder Handler:
+plugin = Plugin.objects.get(slug='mein-plugin')
+api_key = plugin.settings.get('api_key', '')
+option = plugin.settings.get('option', 'default')</code></pre>
+
+                        <h5 class="mt-4">Verfügbare Feldtypen</h5>
+                        <table class="table table-sm">
+                            <thead>
+                                <tr><th>Typ</th><th>HTML-Element</th><th>Beschreibung</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td><code>text</code></td><td>input[text]</td><td>Einzeiliger Text</td></tr>
+                                <tr><td><code>password</code></td><td>input[password]</td><td>Passwort/API-Key</td></tr>
+                                <tr><td><code>number</code></td><td>input[number]</td><td>Dezimalzahl</td></tr>
+                                <tr><td><code>integer</code></td><td>input[number]</td><td>Ganzzahl</td></tr>
+                                <tr><td><code>boolean</code></td><td>checkbox</td><td>Ja/Nein</td></tr>
+                                <tr><td><code>select</code></td><td>select</td><td>Dropdown</td></tr>
+                                <tr><td><code>textarea</code></td><td>textarea</td><td>Mehrzeiliger Text</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Hooks -->
+            <section id="hooks" class="mb-5">
+                <h2>Hook-System</h2>
+                <div class="card">
+                    <div class="card-body">
+                        <p>Hooks erlauben es, auf Events zu reagieren oder Funktionalität zu erweitern:</p>
+
+                        <h5>Hook registrieren (in apps.py)</h5>
+<pre class="bg-dark text-light p-3 rounded"><code>from django.apps import AppConfig
+
+class MeinPluginConfig(AppConfig):
+    name = 'mein_plugin'
+
+    def ready(self):
+        from plugins.hooks import hook_registry, UI_DASHBOARD_WIDGET
+        from mein_plugin.widget import MeinWidgetProvider
+
+        hook_registry.register(
+            UI_DASHBOARD_WIDGET,
+            MeinWidgetProvider,
+            priority=10
+        )</code></pre>
+
+                        <h5 class="mt-4">Verfügbare Hooks</h5>
+                        <table class="table table-sm">
+                            <thead>
+                                <tr><th>Hook</th><th>Beschreibung</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td><code>UI_DASHBOARD_WIDGET</code></td><td>Dashboard-Widget hinzufügen</td></tr>
+                                <tr><td><code>FILE_PREVIEW_PROVIDER</code></td><td>Dateivorschau-Handler</td></tr>
+                                <tr><td><code>UI_FILE_ACTION_BUTTON</code></td><td>Aktions-Button bei Dateien</td></tr>
+                                <tr><td><code>UI_MENU_ITEM</code></td><td>Menüeintrag hinzufügen</td></tr>
+                                <tr><td><code>STORAGE_FILE_UPLOADED</code></td><td>Event: Datei hochgeladen</td></tr>
+                                <tr><td><code>STORAGE_FILE_DELETED</code></td><td>Event: Datei gelöscht</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Templates -->
+            <section id="templates" class="mb-5">
+                <h2>Templates</h2>
+                <div class="card">
+                    <div class="card-body">
+                        <p>Plugin-Templates werden automatisch gefunden wenn sie im richtigen Ordner liegen:</p>
+<pre class="bg-dark text-light p-3 rounded"><code>mein_plugin/
+└── templates/
+    └── mein_plugin/
+        └── widget.html</code></pre>
+
+                        <h5 class="mt-4">Widget-Template Beispiel</h5>
+<pre class="bg-dark text-light p-3 rounded"><code>&lt;div class="mein-widget"&gt;
+    &lt;h4&gt;{{ widget_context.message }}&lt;/h4&gt;
+    &lt;p&gt;Benutzer: {{ widget_context.user }}&lt;/p&gt;
+
+    &lt;style&gt;
+        .mein-widget { padding: 10px; }
+    &lt;/style&gt;
+&lt;/div&gt;</code></pre>
+
+                        <h5 class="mt-4">Verfügbare Variablen</h5>
+                        <ul>
+                            <li><code>widget_context</code> - Dict von get_context()</li>
+                            <li><code>request</code> - HTTP Request</li>
+                            <li><code>user</code> - Aktueller Benutzer</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Example -->
+            <section id="example" class="mb-5">
+                <h2>Komplettes Beispiel-Plugin</h2>
+                <div class="card">
+                    <div class="card-body">
+                        <p>Hier ein vollständiges Beispiel für ein "Zitat des Tages" Widget:</p>
+
+                        <h5>__init__.py</h5>
+<pre class="bg-dark text-light p-3 rounded"><code>"""Quote of the Day Plugin"""
+default_app_config = 'quote_plugin.apps.QuoteConfig'</code></pre>
+
+                        <h5 class="mt-3">plugin.json</h5>
+<pre class="bg-dark text-light p-3 rounded"><code>{
+  "name": "Zitat des Tages",
+  "slug": "quote-plugin",
+  "version": "1.0.0",
+  "author": "Entwickler",
+  "description": "Zeigt ein inspirierendes Zitat an.",
+  "django_app": {
+    "app_config": "quote_plugin.apps.QuoteConfig"
+  }
+}</code></pre>
+
+                        <h5 class="mt-3">apps.py</h5>
+<pre class="bg-dark text-light p-3 rounded"><code>from django.apps import AppConfig
+
+class QuoteConfig(AppConfig):
+    name = 'quote_plugin'
+
+    def ready(self):
+        from plugins.hooks import hook_registry, UI_DASHBOARD_WIDGET
+        from quote_plugin.widget import QuoteWidgetProvider
+
+        hook_registry.register(
+            UI_DASHBOARD_WIDGET,
+            QuoteWidgetProvider,
+            priority=30
+        )</code></pre>
+
+                        <h5 class="mt-3">widget.py</h5>
+<pre class="bg-dark text-light p-3 rounded"><code>import random
+from plugins.widgets import DashboardWidgetProvider
+
+class QuoteWidgetProvider(DashboardWidgetProvider):
+    widget_id = "quote_widget"
+    widget_name = "Zitat des Tages"
+    widget_icon = "bi-quote"
+    widget_size = "medium"
+    widget_order = 30
+
+    QUOTES = [
+        ("Der Weg ist das Ziel.", "Konfuzius"),
+        ("Wissen ist Macht.", "Francis Bacon"),
+        ("Carpe Diem.", "Horaz"),
+    ]
+
+    def get_context(self, request):
+        quote, author = random.choice(self.QUOTES)
+        return {'quote': quote, 'author': author}
+
+    def get_template_name(self):
+        return 'quote_plugin/widget.html'</code></pre>
+
+                        <h5 class="mt-3">templates/quote_plugin/widget.html</h5>
+<pre class="bg-dark text-light p-3 rounded"><code>&lt;div class="text-center py-3"&gt;
+    &lt;i class="bi bi-quote display-4 text-primary"&gt;&lt;/i&gt;
+    &lt;blockquote class="blockquote mt-3"&gt;
+        &lt;p&gt;{{ widget_context.quote }}&lt;/p&gt;
+        &lt;footer class="blockquote-footer"&gt;
+            {{ widget_context.author }}
+        &lt;/footer&gt;
+    &lt;/blockquote&gt;
+&lt;/div&gt;</code></pre>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ZIP Upload -->
+            <section id="zip" class="mb-5">
+                <h2>Plugin als ZIP verteilen</h2>
+                <div class="card">
+                    <div class="card-body">
+                        <p>Um ein Plugin als ZIP zu verteilen:</p>
+                        <ol>
+                            <li>Erstellen Sie die Plugin-Ordnerstruktur</li>
+                            <li>Packen Sie den Ordner als ZIP:
+<pre class="bg-dark text-light p-3 rounded"><code># Linux/Mac
+zip -r mein_plugin.zip mein_plugin/
+
+# Windows PowerShell
+Compress-Archive -Path mein_plugin -DestinationPath mein_plugin.zip</code></pre>
+                            </li>
+                            <li>Die ZIP-Struktur sollte so aussehen:
+<pre class="bg-dark text-light p-3 rounded"><code>mein_plugin.zip
+└── mein_plugin/
+    ├── __init__.py
+    ├── plugin.json
+    ├── apps.py
+    └── ...</code></pre>
+                            </li>
+                        </ol>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -42,6 +42,8 @@ urlpatterns = [
     path('public-links/<int:link_id>/password/', views.SetPublicLinkPasswordView.as_view(), name='set_link_password'),
 
     # Plugin management
+    path('plugins/discover/', views.PluginDiscoverView.as_view(), name='plugin_discover'),
     path('plugins/<uuid:plugin_id>/activate/', views.PluginActivateView.as_view(), name='plugin_activate'),
     path('plugins/<uuid:plugin_id>/deactivate/', views.PluginDeactivateView.as_view(), name='plugin_deactivate'),
+    path('plugins/<uuid:plugin_id>/settings/', views.PluginSettingsView.as_view(), name='plugin_settings'),
 ]

@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - CloudService{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <h1>Willkommen, {{ user.get_full_name|default:user.username }}!</h1>
+            <p class="text-muted">Hier ist Ihre persönliche Übersicht.</p>
+        </div>
+    </div>
+
+    <!-- Widget Grid -->
+    <div class="row">
+        {% for widget in widgets %}
+        <div class="{{ widget.css_classes }} mb-4">
+            <div class="card h-100">
+                <div class="card-header d-flex align-items-center">
+                    <i class="bi {{ widget.icon }} me-2"></i>
+                    <span>{{ widget.name }}</span>
+                </div>
+                <div class="card-body">
+                    {% include widget.template with widget_context=widget.context %}
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-2"></i>
+                Keine Widgets verfügbar. Bitte aktivieren Sie Plugins in den Einstellungen.
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-lightning me-2"></i>Schnellaktionen</h5>
+                </div>
+                <div class="card-body">
+                    <a href="{% url 'storage:file_list' %}" class="btn btn-primary me-2">
+                        <i class="bi bi-folder me-1"></i>Dateien ansehen
+                    </a>
+                    <a href="{% url 'core:dashboard' %}" class="btn btn-outline-primary me-2">
+                        <i class="bi bi-speedometer2 me-1"></i>Dashboard
+                    </a>
+                    <a href="{% url 'accounts:profile' %}" class="btn btn-outline-primary me-2">
+                        <i class="bi bi-person me-1"></i>Profil
+                    </a>
+                    {% if user.is_superuser %}
+                    <a href="{% url 'core:settings' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-gear me-1"></i>Einstellungen
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

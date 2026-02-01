@@ -37,36 +37,42 @@
         </div>
     {% endif %}
 
-    <!-- Plugin Upload Section -->
+    <!-- Plugin Discovery + Upload Section -->
     <div class="row">
-        <div class="col-md-12">
-            <div class="card">
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="bi bi-folder-check"></i> Lokale Plugins</h5>
+                </div>
+                <div class="card-body">
+                    <p>Plugins werden automatisch aus dem Ordner <code>plugins/installed/</code> erkannt.</p>
+                    <p class="text-muted small">Jeder Unterordner mit einer <code>plugin.json</code> Datei wird als Plugin erkannt.</p>
+                    <form method="post" action="{% url 'api:plugin_discover' %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-success btn-lg w-100">
+                            <i class="bi bi-arrow-repeat"></i> Plugins neu erkennen
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card h-100">
                 <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">📤 Upload New Plugin</h5>
+                    <h5 class="mb-0"><i class="bi bi-upload"></i> Plugin hochladen</h5>
                 </div>
                 <div class="card-body">
                     <form method="post" enctype="multipart/form-data">
                         {% csrf_token %}
-
-                        <div class="form-group">
-                            <label for="zip_file" class="font-weight-bold">Select Plugin ZIP File</label>
-                            <div class="custom-file">
-                                <input type="file"
-                                       class="custom-file-input"
-                                       id="zip_file"
-                                       name="zip_file"
-                                       accept=".zip"
-                                       required
-                                       onchange="updateFilename(this)">
-                                <label class="custom-file-label" for="zip_file">Choose file...</label>
-                            </div>
-                            <small class="form-text text-muted mt-2">
-                                📝 Must be a ZIP file containing a valid CloudService plugin with plugin.json manifest.
+                        <div class="mb-3">
+                            <label for="zip_file" class="form-label">ZIP-Datei auswählen</label>
+                            <input type="file" class="form-control" id="zip_file" name="zip_file" accept=".zip" required>
+                            <small class="form-text text-muted">
+                                ZIP-Datei mit plugin.json Manifest.
                             </small>
                         </div>
-
-                        <button type="submit" class="btn btn-success btn-lg" style="width: 100%;">
-                            <i class="fas fa-upload"></i> Upload Plugin
+                        <button type="submit" class="btn btn-primary btn-lg w-100">
+                            <i class="bi bi-cloud-upload"></i> Hochladen
                         </button>
                     </form>
                 </div>
@@ -89,10 +95,8 @@
                                     <tr>
                                         <th>Name</th>
                                         <th>Version</th>
-                                        <th>Author</th>
+                                        <th>Typ</th>
                                         <th>Status</th>
-                                        <th>Enabled</th>
-                                        <th>Uploaded</th>
                                         <th>Actions</th>
                                     </tr>
                                 </thead>
@@ -100,52 +104,47 @@
                                     {% for plugin in plugins %}
                                         <tr>
                                             <td>
-                                                <strong>📦 {{ plugin.name }}</strong>
+                                                <strong>{{ plugin.name }}</strong>
                                                 <br>
                                                 <small class="text-muted">{{ plugin.description|truncatewords:10 }}</small>
                                             </td>
                                             <td>{{ plugin.version }}</td>
-                                            <td>{{ plugin.author }}</td>
+                                            <td>
+                                                {% if plugin.is_local %}
+                                                    <span class="badge bg-success">Lokal</span>
+                                                {% else %}
+                                                    <span class="badge bg-primary">Upload</span>
+                                                {% endif %}
+                                            </td>
                                             <td>
                                                 {% if plugin.status == 'active' %}
-                                                    <span class="badge badge-success">✅ Active</span>
+                                                    <span class="badge bg-success">Aktiv</span>
                                                 {% elif plugin.status == 'inactive' %}
-                                                    <span class="badge badge-secondary">⭕ Inactive</span>
+                                                    <span class="badge bg-secondary">Inaktiv</span>
                                                 {% elif plugin.status == 'error' %}
-                                                    <span class="badge badge-danger">❌ Error</span>
+                                                    <span class="badge bg-danger" title="{{ plugin.error_message }}">Fehler</span>
                                                 {% endif %}
                                             </td>
                                             <td>
+                                                {% if plugin.has_settings %}
+                                                    <a href="{% url 'api:plugin_settings' plugin.id %}" class="btn btn-sm btn-outline-secondary me-1">
+                                                        <i class="bi bi-gear"></i>
+                                                    </a>
+                                                {% endif %}
                                                 {% if plugin.enabled %}
-                                                    <span class="badge badge-success">🟢 Yes</span>
+                                                    <form method="post" action="{% url 'api:plugin_deactivate' plugin.id %}" class="d-inline">
+                                                        {% csrf_token %}
+                                                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                            <i class="bi bi-stop-circle"></i> Deaktivieren
+                                                        </button>
+                                                    </form>
                                                 {% else %}
-                                                    <span class="badge badge-light">⭕ No</span>
-                                                {% endif %}
-                                            </td>
-                                            <td>
-                                                <small>{{ plugin.uploaded_at|date:"M d, Y H:i" }}</small>
-                                            </td>
-                                            <td>
-                                                {% if plugin.status == 'error' %}
-                                                    <span class="text-danger" title="{{ plugin.error_message }}">
-                                                        ⚠️ <small>Check error</small>
-                                                    </span>
-                                                {% else %}
-                                                    {% if plugin.enabled %}
-                                                        <form method="post" action="{% url 'api:plugin_deactivate' plugin.id %}" style="display: inline;">
-                                                            {% csrf_token %}
-                                                            <button type="submit" class="btn btn-sm btn-danger" title="Deactivate this plugin">
-                                                                🔴 Deactivate
-                                                            </button>
-                                                        </form>
-                                                    {% else %}
-                                                        <form method="post" action="{% url 'api:plugin_activate' plugin.id %}" style="display: inline;">
-                                                            {% csrf_token %}
-                                                            <button type="submit" class="btn btn-sm btn-success" title="Activate this plugin">
-                                                                🟢 Activate
-                                                            </button>
-                                                        </form>
-                                                    {% endif %}
+                                                    <form method="post" action="{% url 'api:plugin_activate' plugin.id %}" class="d-inline">
+                                                        {% csrf_token %}
+                                                        <button type="submit" class="btn btn-sm btn-success">
+                                                            <i class="bi bi-play-circle"></i> Aktivieren
+                                                        </button>
+                                                    </form>
                                                 {% endif %}
                                             </td>
                                         </tr>
@@ -190,13 +189,13 @@
                                             <td><strong>{{ log.plugin.name }}</strong></td>
                                             <td>
                                                 {% if log.action == 'uploaded' %}
-                                                    <span class="badge badge-primary">📤 Uploaded</span>
+                                                    <span class="badge bg-primary">Entdeckt</span>
                                                 {% elif log.action == 'activated' %}
-                                                    <span class="badge badge-success">🟢 Activated</span>
+                                                    <span class="badge bg-success">Aktiviert</span>
                                                 {% elif log.action == 'deactivated' %}
-                                                    <span class="badge badge-secondary">⭕ Deactivated</span>
+                                                    <span class="badge bg-secondary">Deaktiviert</span>
                                                 {% elif log.action == 'error' %}
-                                                    <span class="badge badge-danger">❌ Error</span>
+                                                    <span class="badge bg-danger">Fehler</span>
                                                 {% endif %}
                                             </td>
                                             <td>{{ log.user.username|default:"System" }}</td>

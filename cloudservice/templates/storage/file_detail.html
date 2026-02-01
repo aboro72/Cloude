@@ -14,6 +14,29 @@
 
 {% block content %}
 <div class="container">
+    <!-- Debug Panel (nur für Admins) -->
+    {% if user.is_superuser %}
+    <div class="alert alert-secondary mb-3">
+        <details>
+            <summary><i class="bi bi-bug me-2"></i><strong>Debug Info</strong> (nur für Admins)</summary>
+            <div class="mt-2 small">
+                <table class="table table-sm table-bordered mb-0">
+                    <tr><td><strong>Datei-ID:</strong></td><td>{{ file.id }}</td></tr>
+                    <tr><td><strong>Name:</strong></td><td>{{ file.name }}</td></tr>
+                    <tr><td><strong>MIME-Type:</strong></td><td>{{ file.mime_type|default:"(nicht gesetzt)" }}</td></tr>
+                    <tr><td><strong>Datei vorhanden:</strong></td><td>{% if file.file %}Ja{% else %}Nein{% endif %}</td></tr>
+                    <tr><td><strong>Datei-URL:</strong></td><td>{% if file.file %}<a href="{{ file.file.url }}" target="_blank">{{ file.file.url }}</a>{% else %}(keine){% endif %}</td></tr>
+                    <tr><td><strong>Datei-Pfad:</strong></td><td>{% if file.file %}{{ file.file.path }}{% else %}(keine){% endif %}</td></tr>
+                    <tr><td><strong>is_image:</strong></td><td>{{ is_image }}</td></tr>
+                    <tr><td><strong>is_video:</strong></td><td>{{ is_video }}</td></tr>
+                    <tr><td><strong>is_audio:</strong></td><td>{{ is_audio }}</td></tr>
+                    <tr><td><strong>can_preview:</strong></td><td>{{ can_preview }}</td></tr>
+                </table>
+            </div>
+        </details>
+    </div>
+    {% endif %}
+
     <div class="row mb-4">
         <div class="col-md-12">
             <a href="/storage/" class="btn btn-outline-secondary mb-3">← Zurück</a>
@@ -34,7 +57,90 @@
                     {% if can_preview %}
                         {% if is_image %}
                             <!-- Image preview -->
-                            <img src="{{ file.file.url }}" class="img-fluid" style="max-height: 500px; object-fit: contain;" alt="{{ file.name }}">
+                            <div class="text-center">
+                                {% if file.file %}
+                                <img src="{{ file.file.url }}" class="img-fluid rounded shadow-sm"
+                                     style="max-height: 600px; object-fit: contain;"
+                                     alt="{{ file.name }}"
+                                     id="previewImage"
+                                     onload="document.getElementById('imageError').style.display='none';"
+                                     onerror="document.getElementById('imageError').style.display='block'; this.style.display='none';">
+                                <div id="imageError" class="alert alert-warning mt-3" style="display: none;">
+                                    <i class="bi bi-exclamation-triangle me-2"></i>
+                                    Bild konnte nicht geladen werden.
+                                    <br><small class="text-muted">URL: {{ file.file.url }}</small>
+                                    <br>
+                                    <a href="{{ file.file.url }}" target="_blank" class="btn btn-sm btn-outline-primary mt-2">
+                                        <i class="bi bi-box-arrow-up-right"></i> Direkt öffnen
+                                    </a>
+                                </div>
+                                {% else %}
+                                <div class="alert alert-warning">
+                                    <i class="bi bi-exclamation-triangle me-2"></i>
+                                    Keine Datei vorhanden.
+                                </div>
+                                {% endif %}
+                            </div>
+
+                        {% elif is_video %}
+                            <!-- Video preview -->
+                            <div class="text-center">
+                                {% if file.file %}
+                                <video controls class="w-100 rounded shadow-sm" style="max-height: 600px;"
+                                       onerror="document.getElementById('videoError').style.display='block'; this.style.display='none';">
+                                    <source src="{{ file.file.url }}" type="{{ file.mime_type|default:'video/mp4' }}">
+                                    <source src="{{ file.file.url }}" type="video/mp4">
+                                    <source src="{{ file.file.url }}" type="video/webm">
+                                </video>
+                                <div id="videoError" class="alert alert-warning mt-3" style="display: none;">
+                                    <i class="bi bi-exclamation-triangle me-2"></i>
+                                    Video konnte nicht geladen werden.
+                                    <br>
+                                    <a href="/storage/file/{{ file.id }}/download/" class="btn btn-sm btn-primary mt-2">
+                                        <i class="bi bi-download"></i> Herunterladen
+                                    </a>
+                                </div>
+                                <p class="text-muted mt-2 small">
+                                    <i class="bi bi-film me-1"></i> {{ file.name }}
+                                </p>
+                                {% else %}
+                                <div class="alert alert-warning">
+                                    <i class="bi bi-exclamation-triangle me-2"></i>
+                                    Keine Videodatei vorhanden.
+                                </div>
+                                {% endif %}
+                            </div>
+
+                        {% elif is_audio %}
+                            <!-- Audio preview -->
+                            <div class="text-center py-4">
+                                {% if file.file %}
+                                <div class="mb-4">
+                                    <i class="bi bi-music-note-beamed display-1 text-primary"></i>
+                                </div>
+                                <h5 class="mb-3">{{ file.name }}</h5>
+                                <audio controls class="w-100" style="max-width: 500px;"
+                                       onerror="document.getElementById('audioError').style.display='block'; this.style.display='none';">
+                                    <source src="{{ file.file.url }}" type="{{ file.mime_type|default:'audio/mpeg' }}">
+                                    <source src="{{ file.file.url }}" type="audio/mpeg">
+                                    <source src="{{ file.file.url }}" type="audio/wav">
+                                    <source src="{{ file.file.url }}" type="audio/ogg">
+                                </audio>
+                                <div id="audioError" class="alert alert-warning mt-3" style="display: none;">
+                                    <i class="bi bi-exclamation-triangle me-2"></i>
+                                    Audio konnte nicht geladen werden.
+                                    <br>
+                                    <a href="/storage/file/{{ file.id }}/download/" class="btn btn-sm btn-primary mt-2">
+                                        <i class="bi bi-download"></i> Herunterladen
+                                    </a>
+                                </div>
+                                {% else %}
+                                <div class="alert alert-warning">
+                                    <i class="bi bi-exclamation-triangle me-2"></i>
+                                    Keine Audiodatei vorhanden.
+                                </div>
+                                {% endif %}
+                            </div>
 
                         {% elif is_pdf %}
                             <!-- PDF preview -->
@@ -225,8 +331,8 @@
                     <a href="/storage/file/{{ file.id }}/versions/" class="btn btn-outline-primary w-100 mb-2">
                         📜 Versionen
                     </a>
-                    <button class="btn btn-outline-secondary w-100 mb-2">
-                        🔗 Teilen
+                    <button class="btn btn-outline-secondary w-100 mb-2" data-bs-toggle="modal" data-bs-target="#shareModal">
+                        <i class="bi bi-share"></i> Teilen
                     </button>
                     <button class="btn btn-outline-danger w-100" onclick="if(confirm('Diese Datei wirklich löschen?')) window.location.href='/storage/file/{{ file.id }}/delete/'">
                         🗑️ Löschen
@@ -237,7 +343,95 @@
     </div>
 </div>
 
+<!-- Share Modal -->
+<div class="modal fade" id="shareModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-share me-2"></i>Datei teilen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted mb-4">
+                    <i class="bi bi-file-earmark me-1"></i> {{ file.name }}
+                </p>
+
+                <!-- Share Options -->
+                <div class="d-grid gap-3">
+                    <!-- Public Link -->
+                    <a href="{% url 'sharing:create_link' content_type='file' object_id=file.id %}"
+                       class="btn btn-outline-primary btn-lg text-start">
+                        <i class="bi bi-link-45deg me-3"></i>
+                        <span>
+                            <strong>Öffentlicher Link</strong><br>
+                            <small class="text-muted">Jeder mit dem Link kann zugreifen</small>
+                        </span>
+                    </a>
+
+                    <!-- Share with User -->
+                    <a href="{% url 'sharing:share' content_type='file' object_id=file.id %}"
+                       class="btn btn-outline-secondary btn-lg text-start">
+                        <i class="bi bi-person-plus me-3"></i>
+                        <span>
+                            <strong>Mit Benutzer teilen</strong><br>
+                            <small class="text-muted">Nur für registrierte Benutzer</small>
+                        </span>
+                    </a>
+                </div>
+
+                <hr class="my-4">
+
+                <!-- Quick Link (already created links) -->
+                <div id="existingLinks">
+                    <h6 class="text-muted mb-3">Bestehende Links</h6>
+                    <div id="linksLoader" class="text-center py-3">
+                        <div class="spinner-border spinner-border-sm text-primary"></div>
+                        <small class="text-muted ms-2">Lade...</small>
+                    </div>
+                    <div id="linksList"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <a href="{% url 'sharing:links_list' %}" class="btn btn-link">
+                    Alle Links verwalten
+                </a>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    Schließen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast for copy confirmation -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1100">
+    <div id="copyToast" class="toast" role="alert">
+        <div class="toast-body bg-success text-white rounded">
+            <i class="bi bi-check-circle me-2"></i> Link kopiert!
+        </div>
+    </div>
+</div>
+
 <script>
+// Load existing links when modal opens
+document.getElementById('shareModal').addEventListener('shown.bs.modal', function() {
+    loadExistingLinks();
+});
+
+function loadExistingLinks() {
+    // For now, just show the message - can be enhanced with AJAX later
+    document.getElementById('linksLoader').style.display = 'none';
+    document.getElementById('linksList').innerHTML =
+        '<p class="text-muted small text-center">Noch keine Links für diese Datei erstellt.</p>';
+}
+
+function copyLink(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        const toast = new bootstrap.Toast(document.getElementById('copyToast'));
+        toast.show();
+    });
+}
+
 // Download file for editing
 function downloadForEdit(fileId, fileName) {
     const link = document.createElement('a');
