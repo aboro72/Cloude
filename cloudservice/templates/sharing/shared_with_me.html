@@ -4,14 +4,85 @@
 
 {% block content %}
 <div class="container">
-    <h2 class="mb-4">📤 Mit mir geteilt</h2>
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2><i class="bi bi-share"></i> Mit mir geteilt</h2>
+            <p class="text-muted">Dateien und Ordner, die andere mit Ihnen geteilt haben</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="/storage/" class="btn btn-outline-primary">
+                <i class="bi bi-folder"></i> Meine Dateien
+            </a>
+        </div>
+    </div>
 
+    {% if shares %}
     <div class="card">
-        <div class="card-body">
-            <p class="text-muted text-center py-5">
-                👥 Dateien, die andere mit dir geteilt haben, werden hier angezeigt.
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Name</th>
+                        <th>Von</th>
+                        <th>Berechtigung</th>
+                        <th>Geteilt am</th>
+                        <th>Aktionen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for share in shares %}
+                    <tr>
+                        <td>
+                            {% if share.content_object %}
+                                <i class="bi bi-file-earmark me-1"></i>
+                                <a href="/storage/file/{{ share.content_object.id }}/">
+                                    {{ share.content_object.name|truncatechars:40 }}
+                                </a>
+                            {% else %}
+                                <span class="text-muted">Gelöscht</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <i class="bi bi-person me-1"></i>
+                            {{ share.owner.username }}
+                        </td>
+                        <td>
+                            <span class="badge bg-secondary">{{ share.get_permission_display }}</span>
+                        </td>
+                        <td>{{ share.created_at|date:"d.m.Y" }}</td>
+                        <td>
+                            {% if share.content_object %}
+                            <div class="btn-group btn-group-sm">
+                                <a href="/storage/file/{{ share.content_object.id }}/"
+                                   class="btn btn-outline-primary" title="Öffnen">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                {% if share.can_download %}
+                                <a href="/storage/file/{{ share.content_object.id }}/download/"
+                                   class="btn btn-outline-secondary" title="Herunterladen">
+                                    <i class="bi bi-download"></i>
+                                </a>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {% else %}
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <i class="bi bi-share display-1 text-muted mb-4"></i>
+            <h4>Keine geteilten Dateien</h4>
+            <p class="text-muted">
+                Es wurden noch keine Dateien mit Ihnen geteilt.
             </p>
         </div>
     </div>
+    {% endif %}
 </div>
 {% endblock %}

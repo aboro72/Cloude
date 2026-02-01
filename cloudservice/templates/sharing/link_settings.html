@@ -1,0 +1,157 @@
+{% extends 'base.html' %}
+
+{% block title %}Link-Einstellungen - CloudService{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <a href="{% url 'sharing:links_list' %}" class="btn btn-outline-secondary mb-3">
+                <i class="bi bi-arrow-left"></i> Zurück zu Links
+            </a>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-gear"></i> Link-Einstellungen
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Link Info -->
+                    <div class="alert alert-info mb-4">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <i class="bi bi-file-earmark me-2"></i>
+                                <strong>{{ link.content_object.name }}</strong>
+                            </div>
+                            <span class="badge {% if link.is_active %}bg-success{% else %}bg-secondary{% endif %}">
+                                {% if link.is_active %}Aktiv{% else %}Deaktiviert{% endif %}
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Link URL -->
+                    <div class="mb-4">
+                        <label class="form-label"><strong>Link-URL</strong></label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="linkUrl" readonly
+                                   value="{{ request.scheme }}://{{ request.get_host }}/sharing/public/{{ link.token }}/">
+                            <button class="btn btn-primary" type="button" onclick="copyLink()">
+                                <i class="bi bi-clipboard"></i> Kopieren
+                            </button>
+                        </div>
+                        <div id="copySuccess" class="text-success mt-2" style="display: none;">
+                            <i class="bi bi-check"></i> Link kopiert!
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <!-- Statistics -->
+                    <div class="row mb-4">
+                        <div class="col-md-4 text-center">
+                            <h4 class="text-primary">{{ link.view_count }}</h4>
+                            <small class="text-muted"><i class="bi bi-eye"></i> Aufrufe</small>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <h4 class="text-success">{{ link.download_count }}</h4>
+                            <small class="text-muted"><i class="bi bi-download"></i> Downloads</small>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <h4>{{ link.created_at|date:"d.m.Y" }}</h4>
+                            <small class="text-muted"><i class="bi bi-calendar"></i> Erstellt</small>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <!-- Settings Form -->
+                    <form method="post" action="">
+                        {% csrf_token %}
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="title" class="form-label">Titel</label>
+                                <input type="text" class="form-control" id="title" name="title"
+                                       value="{{ link.title }}">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="permission" class="form-label">Berechtigung</label>
+                                <select class="form-select" id="permission" name="permission">
+                                    <option value="view" {% if link.permission == 'view' %}selected{% endif %}>Nur ansehen</option>
+                                    <option value="download" {% if link.permission == 'download' %}selected{% endif %}>Herunterladen</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Beschreibung</label>
+                            <textarea class="form-control" id="description" name="description" rows="2">{{ link.description }}</textarea>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="expires_at" class="form-label">Ablaufdatum</label>
+                                <input type="datetime-local" class="form-control" id="expires_at" name="expires_at"
+                                       value="{% if link.expires_at %}{{ link.expires_at|date:'Y-m-d\TH:i' }}{% endif %}">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="expires_after_downloads" class="form-label">Max. Downloads</label>
+                                <input type="number" class="form-control" id="expires_after_downloads"
+                                       name="expires_after_downloads" min="1"
+                                       value="{{ link.expires_after_downloads|default:'' }}">
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="allow_download"
+                                           name="allow_download" {% if link.allow_download %}checked{% endif %}>
+                                    <label class="form-check-label" for="allow_download">
+                                        Download erlauben
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="is_active"
+                                           name="is_active" {% if link.is_active %}checked{% endif %}>
+                                    <label class="form-check-label" for="is_active">
+                                        Link aktiv
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr>
+
+                        <div class="d-flex justify-content-between">
+                            <button type="button" class="btn btn-outline-danger"
+                                    onclick="if(confirm('Link wirklich löschen?')) window.location.href='{% url 'sharing:delete_link' link_id=link.id %}'">
+                                <i class="bi bi-trash"></i> Link löschen
+                            </button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check"></i> Speichern
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyLink() {
+    const linkInput = document.getElementById('linkUrl');
+    linkInput.select();
+    navigator.clipboard.writeText(linkInput.value);
+
+    document.getElementById('copySuccess').style.display = 'block';
+    setTimeout(() => {
+        document.getElementById('copySuccess').style.display = 'none';
+    }, 3000);
+}
+</script>
+{% endblock %}

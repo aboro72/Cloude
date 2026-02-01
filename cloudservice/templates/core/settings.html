@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Settings - CloudService{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <h1>⚙️ Settings</h1>
+            <hr>
+        </div>
+    </div>
+
+    <!-- Plugin Management Section -->
+    <div class="row mt-5">
+        <div class="col-md-12">
+            <h2>📦 Plugin Management</h2>
+            <p class="text-muted">Upload, manage, and configure plugins for CloudService.</p>
+            <hr>
+        </div>
+    </div>
+
+    <!-- Messages -->
+    {% if messages %}
+        <div class="row">
+            <div class="col-md-12">
+                {% for message in messages %}
+                    <div class="alert alert-{% if message.tags %}{{ message.tags }}{% else %}info{% endif %} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Plugin Discovery + Upload Section -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="bi bi-folder-check"></i> Lokale Plugins</h5>
+                </div>
+                <div class="card-body">
+                    <p>Plugins werden automatisch aus dem Ordner <code>plugins/installed/</code> erkannt.</p>
+                    <p class="text-muted small">Jeder Unterordner mit einer <code>plugin.json</code> Datei wird als Plugin erkannt.</p>
+                    <form method="post" action="{% url 'api:plugin_discover' %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-success btn-lg w-100">
+                            <i class="bi bi-arrow-repeat"></i> Plugins neu erkennen
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-upload"></i> Plugin hochladen</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="zip_file" class="form-label">ZIP-Datei auswählen</label>
+                            <input type="file" class="form-control" id="zip_file" name="zip_file" accept=".zip" required>
+                            <small class="form-text text-muted">
+                                ZIP-Datei mit plugin.json Manifest.
+                            </small>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-lg w-100">
+                            <i class="bi bi-cloud-upload"></i> Hochladen
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Installed Plugins Section -->
+    <div class="row mt-5">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0">📋 Installed Plugins ({{ plugins|length }})</h5>
+                </div>
+                <div class="card-body">
+                    {% if has_plugins %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Version</th>
+                                        <th>Typ</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for plugin in plugins %}
+                                        <tr>
+                                            <td>
+                                                <strong>{{ plugin.name }}</strong>
+                                                <br>
+                                                <small class="text-muted">{{ plugin.description|truncatewords:10 }}</small>
+                                            </td>
+                                            <td>{{ plugin.version }}</td>
+                                            <td>
+                                                {% if plugin.is_local %}
+                                                    <span class="badge bg-success">Lokal</span>
+                                                {% else %}
+                                                    <span class="badge bg-primary">Upload</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if plugin.status == 'active' %}
+                                                    <span class="badge bg-success">Aktiv</span>
+                                                {% elif plugin.status == 'inactive' %}
+                                                    <span class="badge bg-secondary">Inaktiv</span>
+                                                {% elif plugin.status == 'error' %}
+                                                    <span class="badge bg-danger" title="{{ plugin.error_message }}">Fehler</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if plugin.has_settings %}
+                                                    <a href="{% url 'api:plugin_settings' plugin.id %}" class="btn btn-sm btn-outline-secondary me-1">
+                                                        <i class="bi bi-gear"></i>
+                                                    </a>
+                                                {% endif %}
+                                                {% if plugin.enabled %}
+                                                    <form method="post" action="{% url 'api:plugin_deactivate' plugin.id %}" class="d-inline">
+                                                        {% csrf_token %}
+                                                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                            <i class="bi bi-stop-circle"></i> Deaktivieren
+                                                        </button>
+                                                    </form>
+                                                {% else %}
+                                                    <form method="post" action="{% url 'api:plugin_activate' plugin.id %}" class="d-inline">
+                                                        {% csrf_token %}
+                                                        <button type="submit" class="btn btn-sm btn-success">
+                                                            <i class="bi bi-play-circle"></i> Aktivieren
+                                                        </button>
+                                                    </form>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <h5>No plugins installed yet</h5>
+                            <p>Upload your first plugin using the form above to get started!</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Plugin Logs Section -->
+    <div class="row mt-5 mb-5">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">📜 Recent Plugin Activity</h5>
+                </div>
+                <div class="card-body">
+                    {% if plugin_logs %}
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Plugin</th>
+                                        <th>Action</th>
+                                        <th>User</th>
+                                        <th>Message</th>
+                                        <th>Time</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for log in plugin_logs %}
+                                        <tr>
+                                            <td><strong>{{ log.plugin.name }}</strong></td>
+                                            <td>
+                                                {% if log.action == 'uploaded' %}
+                                                    <span class="badge bg-primary">Entdeckt</span>
+                                                {% elif log.action == 'activated' %}
+                                                    <span class="badge bg-success">Aktiviert</span>
+                                                {% elif log.action == 'deactivated' %}
+                                                    <span class="badge bg-secondary">Deaktiviert</span>
+                                                {% elif log.action == 'error' %}
+                                                    <span class="badge bg-danger">Fehler</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ log.user.username|default:"System" }}</td>
+                                            <td><small>{{ log.message }}</small></td>
+                                            <td><small>{{ log.created_at|date:"M d, H:i" }}</small></td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">No plugin activity yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .card {
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        border: none;
+    }
+
+    .card-header {
+        border-bottom: 2px solid rgba(0,0,0,0.1);
+    }
+
+    .table-hover tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+
+    .custom-file-label::after {
+        content: "Choose file...";
+    }
+
+    .custom-file-input:lang(en)~.custom-file-label::after {
+        content: "Choose file...";
+    }
+</style>
+
+<script>
+    function updateFilename(input) {
+        const label = input.nextElementSibling;
+        label.textContent = input.files[0] ? input.files[0].name : 'Choose file...';
+    }
+</script>
+{% endblock %}

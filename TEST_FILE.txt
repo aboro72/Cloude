@@ -1,6 +1,0 @@
-Dies ist eine Test-Datei für die Vorschau-Funktionalität
-
-Das ist der Inhalt dieser Datei.
-Sie kann in der Browser-Vorschau angezeigt werden.
-
-Test der mehrzeiligen Anzeige.

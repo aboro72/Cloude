@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+
+{% block title %}Link abgelaufen - CloudService{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6 text-center py-5">
+            <i class="bi bi-clock-history display-1 text-warning mb-4"></i>
+            <h2>Link abgelaufen</h2>
+            <p class="text-muted mb-4">
+                Dieser Link ist nicht mehr gültig. Er ist entweder abgelaufen oder die maximale Anzahl an Downloads wurde erreicht.
+            </p>
+            <a href="/" class="btn btn-primary">
+                <i class="bi bi-house me-1"></i> Zur Startseite
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

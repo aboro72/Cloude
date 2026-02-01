@@ -1,0 +1,133 @@
+{% extends 'base.html' %}
+
+{% block title %}Meine Freigaben - CloudService{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2><i class="bi bi-people"></i> Meine Freigaben</h2>
+            <p class="text-muted">Dateien, die Sie mit anderen geteilt haben</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="/storage/" class="btn btn-outline-primary">
+                <i class="bi bi-folder"></i> Dateien
+            </a>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <ul class="nav nav-tabs mb-4">
+        <li class="nav-item">
+            <a class="nav-link active" href="{% url 'sharing:shares_list' %}">
+                <i class="bi bi-arrow-up-right"></i> Von mir geteilt
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{% url 'sharing:shared_with_me' %}">
+                <i class="bi bi-arrow-down-left"></i> Mit mir geteilt
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{% url 'sharing:links_list' %}">
+                <i class="bi bi-link-45deg"></i> Öffentliche Links
+            </a>
+        </li>
+    </ul>
+
+    {% if shares %}
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Datei/Ordner</th>
+                        <th>Geteilt mit</th>
+                        <th>Berechtigung</th>
+                        <th>Datum</th>
+                        <th>Aktionen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for share in shares %}
+                    <tr>
+                        <td>
+                            {% if share.content_object %}
+                                <i class="bi bi-file-earmark me-1"></i>
+                                {{ share.content_object.name|truncatechars:30 }}
+                            {% else %}
+                                <span class="text-muted">Gelöscht</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if share.owner == request.user %}
+                                <i class="bi bi-person me-1"></i>
+                                {{ share.shared_with.username }}
+                            {% else %}
+                                <span class="text-muted">von {{ share.owner.username }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge bg-secondary">{{ share.get_permission_display }}</span>
+                        </td>
+                        <td>{{ share.created_at|date:"d.m.Y" }}</td>
+                        <td>
+                            {% if share.owner == request.user %}
+                            <button class="btn btn-sm btn-outline-danger"
+                                    onclick="deleteShare({{ share.id }})" title="Freigabe entfernen">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {% else %}
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <i class="bi bi-people display-1 text-muted mb-4"></i>
+            <h4>Keine Freigaben</h4>
+            <p class="text-muted">
+                Sie haben noch keine Dateien mit anderen Benutzern geteilt.
+            </p>
+            <a href="/storage/" class="btn btn-primary mt-3">
+                <i class="bi bi-folder"></i> Zu meinen Dateien
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function deleteShare(shareId) {
+    if (confirm('Diese Freigabe wirklich entfernen?')) {
+        const csrfToken = getCookie('csrftoken');
+        fetch(`/sharing/share/${shareId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            }
+        }).then(() => window.location.reload());
+    }
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

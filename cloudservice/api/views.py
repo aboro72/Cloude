@@ -6,7 +6,8 @@ Django REST Framework with comprehensive CRUD operations.
 from rest_framework import viewsets, status, generics, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
+from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.pagination import PageNumberPagination
 from django.shortcuts import get_object_or_404
@@ -500,3 +501,151 @@ class SetPublicLinkPasswordView(generics.GenericAPIView):
             link.save()
 
         return Response({'message': 'Password updated'})
+
+
+# Plugin Management Views
+class PluginActivateView(APIView):
+    """Activate a plugin"""
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, plugin_id):
+        """Activate plugin"""
+        try:
+            from plugins.models import Plugin
+            from plugins.loader import PluginLoader
+            from django.contrib import messages
+
+            plugin = get_object_or_404(Plugin, id=plugin_id)
+            loader = PluginLoader()
+            loader.load_plugin(str(plugin_id))
+
+            # Redirect back with success message
+            from django.shortcuts import redirect
+            messages.success(request, f'✅ Plugin "{plugin.name}" activated successfully')
+            return redirect('core:settings')
+
+        except Exception as e:
+            from django.shortcuts import redirect
+            from django.contrib import messages
+            messages.error(request, f'❌ Activation failed: {str(e)}')
+            return redirect('core:settings')
+
+
+class PluginDeactivateView(APIView):
+    """Deactivate a plugin"""
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, plugin_id):
+        """Deactivate plugin"""
+        try:
+            from plugins.models import Plugin
+            from plugins.loader import PluginLoader
+            from django.contrib import messages
+
+            plugin = get_object_or_404(Plugin, id=plugin_id)
+            loader = PluginLoader()
+            loader.unload_plugin(str(plugin_id))
+
+            # Redirect back with success message
+            from django.shortcuts import redirect
+            messages.success(request, f'✅ Plugin "{plugin.name}" deactivated successfully')
+            return redirect('core:settings')
+
+        except Exception as e:
+            from django.shortcuts import redirect
+            from django.contrib import messages
+            messages.error(request, f'❌ Deactivation failed: {str(e)}')
+            return redirect('core:settings')
+
+
+class PluginDiscoverView(APIView):
+    """Discover plugins from filesystem"""
+    permission_classes = [IsAdminUser]
+
+    def post(self, request):
+        """Scan plugins directory and register new plugins"""
+        try:
+            from plugins.loader import PluginLoader
+            from django.contrib import messages
+            from django.shortcuts import redirect
+
+            loader = PluginLoader()
+            discovered = loader.discover_plugins()
+
+            new_count = sum(1 for d in discovered if d['created'])
+
+            if new_count > 0:
+                messages.success(request, f'✅ {new_count} neue Plugin(s) entdeckt!')
+            else:
+                messages.info(request, 'Keine neuen Plugins gefunden.')
+
+            return redirect('core:settings')
+
+        except Exception as e:
+            from django.shortcuts import redirect
+            from django.contrib import messages
+            messages.error(request, f'❌ Fehler: {str(e)}')
+            return redirect('core:settings')
+
+
+class PluginSettingsView(APIView):
+    """View and update plugin settings"""
+    permission_classes = [IsAdminUser]
+
+    def get(self, request, plugin_id):
+        """Show plugin settings form"""
+        from django.shortcuts import render
+        from plugins.models import Plugin
+
+        plugin = get_object_or_404(Plugin, id=plugin_id)
+
+        # Prepare fields with current values
+        fields = []
+        for key, field_def in plugin.settings_schema.items():
+            field = {
+                'key': key,
+                'value': plugin.settings.get(key, field_def.get('default', '')),
+                **field_def
+            }
+            fields.append(field)
+
+        return render(request, 'plugins/settings.html', {
+            'plugin': plugin,
+            'fields': fields,
+        })
+
+    def post(self, request, plugin_id):
+        """Save plugin settings"""
+        from django.shortcuts import redirect
+        from django.contrib import messages
+        from plugins.models import Plugin
+
+        plugin = get_object_or_404(Plugin, id=plugin_id)
+
+        try:
+            # Get settings from form
+            new_settings = {}
+            for key, field_def in plugin.settings_schema.items():
+                value = request.POST.get(key, '')
+
+                # Type conversion based on schema
+                field_type = field_def.get('type', 'text')
+                if field_type == 'number':
+                    value = float(value) if value else 0
+                elif field_type == 'boolean':
+                    value = key in request.POST
+                elif field_type == 'integer':
+                    value = int(value) if value else 0
+
+                new_settings[key] = value
+
+            # Save settings
+            plugin.settings = new_settings
+            plugin.save()
+
+            messages.success(request, f'✅ Einstellungen für "{plugin.name}" gespeichert!')
+
+        except Exception as e:
+            messages.error(request, f'❌ Fehler beim Speichern: {str(e)}')
+
+        return redirect('api:plugin_settings', plugin_id=plugin_id)

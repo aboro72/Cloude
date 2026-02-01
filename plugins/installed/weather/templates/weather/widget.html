@@ -1,0 +1,122 @@
+{% if widget_context.error %}
+<!-- Error or Not Configured State -->
+<div class="text-center py-4">
+    <i class="bi bi-cloud-slash display-4 text-muted"></i>
+    <p class="text-muted mt-2 mb-0">{{ widget_context.error }}</p>
+    {% if not widget_context.configured %}
+    <a href="{% url 'core:settings' %}" class="btn btn-sm btn-primary mt-3">
+        <i class="bi bi-gear me-1"></i>Konfigurieren
+    </a>
+    {% endif %}
+</div>
+
+{% else %}
+<!-- Weather Display -->
+<div class="weather-widget text-center">
+    <style>
+        .weather-widget .weather-icon {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            color: #f39c12;
+        }
+        .weather-widget .temperature {
+            font-size: 2.5rem;
+            font-weight: bold;
+        }
+        .weather-widget .feels-like {
+            font-size: 0.85rem;
+            color: #888;
+        }
+        .weather-widget .condition {
+            font-size: 1rem;
+            color: #666;
+            margin-bottom: 15px;
+        }
+        .weather-widget .weather-details {
+            display: flex;
+            justify-content: space-around;
+            border-top: 1px solid #eee;
+            padding-top: 15px;
+            margin-top: 10px;
+        }
+        .weather-widget .weather-detail {
+            text-align: center;
+        }
+        .weather-widget .weather-detail i {
+            font-size: 1.2rem;
+            color: #666;
+        }
+        .weather-widget .weather-detail .value {
+            font-weight: bold;
+            display: block;
+        }
+        .weather-widget .weather-detail .label {
+            font-size: 0.75rem;
+            color: #999;
+        }
+        .weather-widget .location {
+            font-size: 0.85rem;
+            color: #888;
+            margin-top: 10px;
+        }
+        .weather-widget .sun-times {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 10px;
+            font-size: 0.8rem;
+            color: #888;
+        }
+    </style>
+
+    <!-- Main weather display -->
+    <div class="weather-icon">
+        <i class="bi {{ widget_context.icon }}"></i>
+    </div>
+
+    <div class="temperature" style="color: {{ widget_context.temp_color }}">
+        {{ widget_context.temperature }}{{ widget_context.unit }}
+    </div>
+
+    <div class="feels-like">
+        Gefühlt: {{ widget_context.feels_like }}{{ widget_context.unit }}
+    </div>
+
+    <div class="condition">
+        {{ widget_context.condition }}
+    </div>
+
+    <!-- Weather details -->
+    <div class="weather-details">
+        <div class="weather-detail">
+            <i class="bi bi-droplet"></i>
+            <span class="value">{{ widget_context.humidity }}%</span>
+            <span class="label">Luftfeuchtigkeit</span>
+        </div>
+        <div class="weather-detail">
+            <i class="bi bi-wind"></i>
+            <span class="value">{{ widget_context.wind_speed }} km/h</span>
+            <span class="label">Wind</span>
+        </div>
+    </div>
+
+    <!-- Sun times -->
+    <div class="sun-times">
+        <span><i class="bi bi-sunrise"></i> {{ widget_context.sunrise }}</span>
+        <span><i class="bi bi-sunset"></i> {{ widget_context.sunset }}</span>
+    </div>
+
+    <!-- Location and update time -->
+    <div class="location">
+        <i class="bi bi-geo-alt"></i> {{ widget_context.city }}, {{ widget_context.country }}
+        <br>
+        <small>Aktualisiert: {{ widget_context.updated }}</small>
+    </div>
+
+    {% if widget_context.is_demo %}
+    <div class="alert alert-warning py-1 px-2 mt-2 mb-0" style="font-size: 0.75rem;">
+        <i class="bi bi-info-circle"></i> Demo-Daten (API-Key noch nicht aktiv)
+    </div>
+    {% endif %}
+</div>
+{% endif %}

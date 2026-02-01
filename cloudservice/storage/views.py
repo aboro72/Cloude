@@ -3,15 +3,18 @@ Views for Storage app.
 File and folder management UI views.
 """
 
-from django.views.generic import ListView, DetailView, CreateView, DeleteView, TemplateView
+from django.views.generic import ListView, DetailView, CreateView, DeleteView, TemplateView, FormView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import redirect, get_object_or_404
 from django.urls import reverse_lazy
 from django.http import FileResponse, JsonResponse
 from django.db.models import Q, Sum
+from django.core.files.base import ContentFile
+from django import forms
 
 from core.models import StorageFile, StorageFolder
 import logging
+import mimetypes
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +26,7 @@ class FileListView(LoginRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        """Get root folder files"""
+        """Get root folder files (excluding trashed)"""
         user = self.request.user
         try:
             root_folder = StorageFolder.objects.filter(
@@ -31,7 +34,7 @@ class FileListView(LoginRequiredMixin, ListView):
                 parent=None
             ).first()
             if root_folder:
-                return StorageFile.objects.filter(folder=root_folder)
+                return StorageFile.objects.filter(folder=root_folder, is_trashed=False)
         except:
             pass
         return StorageFile.objects.none()
@@ -73,6 +76,14 @@ class FileDetailView(LoginRequiredMixin, DetailView):
         context = super().get_context_data(**kwargs)
         file_obj = self.object
 
+        # Debug: Log file info
+        logger.info(f"[FileDetailView] File: {file_obj.name}")
+        logger.info(f"[FileDetailView] MIME: {file_obj.mime_type}")
+        logger.info(f"[FileDetailView] Has file: {bool(file_obj.file)}")
+        if file_obj.file:
+            logger.info(f"[FileDetailView] File URL: {file_obj.file.url}")
+            logger.info(f"[FileDetailView] File path: {file_obj.file.path}")
+
         # Determine MIME types
         word_types = [
             'application/vnd.openxmlformats-officedocument.wordprocessingml.document',  # .docx
@@ -86,23 +97,178 @@ class FileDetailView(LoginRequiredMixin, DetailView):
             'application/vnd.openxmlformats-officedocument.presentationml.presentation',  # .pptx
             'application/vnd.ms-powerpoint'  # .ppt
         ]
-        image_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+        image_types = [
+            'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+            'image/svg+xml', 'image/bmp', 'image/tiff', 'image/x-icon'
+        ]
+        video_types = [
+            'video/mp4', 'video/webm', 'video/ogg', 'video/quicktime',
+            'video/x-msvideo', 'video/x-matroska', 'video/mpeg'
+        ]
+        audio_types = [
+            'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg',
+            'audio/webm', 'audio/flac', 'audio/aac'
+        ]
         text_types = ['text/plain', 'text/html', 'text/css', 'application/json', 'text/csv']
 
-        # Determine if we can preview this file
-        context['can_preview'] = True
-        context['is_image'] = file_obj.mime_type in image_types
-        context['is_pdf'] = file_obj.mime_type == 'application/pdf'
-        context['is_text'] = file_obj.mime_type in text_types
-        context['is_word'] = file_obj.mime_type in word_types
-        context['is_excel'] = file_obj.mime_type in excel_types
-        context['is_ppt'] = file_obj.mime_type in ppt_types
+        # Check by extension if MIME type detection failed
+        file_ext = file_obj.name.lower().split('.')[-1] if '.' in file_obj.name else ''
+        image_extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'tiff', 'ico']
+        video_extensions = ['mp4', 'webm', 'ogg', 'mov', 'avi', 'mkv', 'mpeg', 'mpg']
+        audio_extensions = ['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a']
 
-        # If not previewable, show download button
-        if not any([context['is_image'], context['is_pdf'], context['is_text'],
-                    context['is_word'], context['is_excel'], context['is_ppt']]):
-            context['can_preview'] = False
+        # Initialize preview variables
+        is_image_by_mime = file_obj.mime_type in image_types if file_obj.mime_type else False
+        is_image_by_ext = file_ext in image_extensions
+        context['is_image'] = is_image_by_mime or is_image_by_ext
 
+        is_video_by_mime = file_obj.mime_type in video_types if file_obj.mime_type else False
+        is_video_by_ext = file_ext in video_extensions
+        context['is_video'] = is_video_by_mime or is_video_by_ext
+
+        is_audio_by_mime = file_obj.mime_type in audio_types if file_obj.mime_type else False
+        is_audio_by_ext = file_ext in audio_extensions
+        context['is_audio'] = is_audio_by_mime or is_audio_by_ext
+
+        context['is_pdf'] = file_obj.mime_type == 'application/pdf' or file_ext == 'pdf'
+        context['is_text'] = file_obj.mime_type in text_types if file_obj.mime_type else False
+        context['is_word'] = file_obj.mime_type in word_types if file_obj.mime_type else False
+        context['is_excel'] = file_obj.mime_type in excel_types if file_obj.mime_type else False
+        context['is_ppt'] = file_obj.mime_type in ppt_types if file_obj.mime_type else False
+
+        # Add file URL to context for debugging
+        context['file_url'] = file_obj.file.url if file_obj.file else None
+        context['has_file'] = bool(file_obj.file)
+        context['plugin_preview'] = False
+        context['plugin_preview_html'] = ''
+
+        # Plugin positioning
+        context['plugins_left'] = []
+        context['plugins_center'] = []
+        context['plugins_right'] = []
+
+        # Check for active plugins (.plug files)
+        # These can be positioned on left, center, or right
+        try:
+            from plugins.models import Plugin
+
+            active_plugins = Plugin.objects.filter(enabled=True, status='active')
+
+            for plugin in active_plugins:
+                try:
+                    # Load plugin preview for .plug files
+                    from plugins.hooks import hook_registry, FILE_PREVIEW_PROVIDER
+
+                    handlers = hook_registry.get_handlers(
+                        FILE_PREVIEW_PROVIDER,
+                        plugin_type='file_preview'
+                    )
+
+                    if handlers:
+                        provider = handlers[0]()
+                        if provider.can_preview(file_obj):
+                            plugin_html = provider.get_preview_html(file_obj)
+                            plugin_data = {
+                                'name': plugin.name,
+                                'html': plugin_html,
+                                'position': plugin.position
+                            }
+
+                            # Add to appropriate position list
+                            if plugin.position == 'left':
+                                context['plugins_left'].append(plugin_data)
+                            elif plugin.position == 'center':
+                                context['plugins_center'].append(plugin_data)
+                            elif plugin.position == 'right':
+                                context['plugins_right'].append(plugin_data)
+
+                            logger.info(f"[FileDetailView] ✅ Plugin '{plugin.name}' added to {plugin.position}")
+                except Exception as e:
+                    logger.error(f"[FileDetailView] Error processing plugin {plugin.name}: {e}", exc_info=True)
+        except Exception as e:
+            logger.warning(f"[FileDetailView] Could not load plugins: {e}")
+
+        # Determine if we can preview this file (standard types OR plugins)
+        standard_previewable = any([
+            context['is_image'], context['is_video'], context['is_audio'],
+            context['is_pdf'], context['is_text'],
+            context['is_word'], context['is_excel'], context['is_ppt']
+        ])
+        has_plugins = any([context['plugins_left'], context['plugins_center'], context['plugins_right']])
+        context['can_preview'] = standard_previewable or has_plugins
+
+        return context
+
+
+class CreateFileForm(forms.Form):
+    """Form for creating new files"""
+    filename = forms.CharField(
+        max_length=255,
+        label='Dateiname',
+        help_text='z.B. test.txt, notes.md, clock.clock'
+    )
+    content = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={'rows': 5}),
+        label='Inhalt (optional)',
+        help_text='Leer lassen für leere Datei'
+    )
+
+
+class CreateFileView(LoginRequiredMixin, FormView):
+    """Create new file (empty or with content)"""
+    template_name = 'storage/create_file.html'
+    form_class = CreateFileForm
+    success_url = reverse_lazy('storage:file_list')
+
+    def form_valid(self, form):
+        """Create file with content"""
+        try:
+            # Get or create root folder
+            root_folder, _ = StorageFolder.objects.get_or_create(
+                owner=self.request.user,
+                parent=None,
+                defaults={'name': 'Root', 'description': 'Root folder'}
+            )
+
+            filename = form.cleaned_data['filename']
+            content = form.cleaned_data.get('content', '')
+
+            # Create file content
+            file_content = ContentFile(content.encode('utf-8'))
+
+            # Detect MIME type
+            mime_type, _ = mimetypes.guess_type(filename)
+            if not mime_type:
+                mime_type = 'application/octet-stream'
+
+            # Create storage file
+            storage_file = StorageFile(
+                owner=self.request.user,
+                folder=root_folder,
+                name=filename,
+                size=file_content.size,
+                mime_type=mime_type
+            )
+            storage_file.file.save(filename, file_content)
+            storage_file.save()
+
+            logger.info(f"File created: {filename} by {self.request.user.username}")
+
+            from django.contrib import messages
+            messages.success(self.request, f'✅ Datei "{filename}" erstellt')
+
+            return super().form_valid(form)
+
+        except Exception as e:
+            logger.error(f"Error creating file: {e}")
+            from django.contrib import messages
+            messages.error(self.request, f'❌ Fehler beim Erstellen: {e}')
+            return redirect('storage:file_list')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = 'Neue Datei erstellen'
         return context
 
 
@@ -224,14 +390,28 @@ class FileMoveView(LoginRequiredMixin, DetailView):
         return JsonResponse({'success': True})
 
 
-class FileDeleteView(LoginRequiredMixin, DeleteView):
-    """Delete file"""
+class FileDeleteView(LoginRequiredMixin, DetailView):
+    """Move file to trash (soft delete)"""
     model = StorageFile
     pk_url_kwarg = 'file_id'
-    success_url = reverse_lazy('storage:file_list')
 
     def get_queryset(self):
-        return StorageFile.objects.filter(owner=self.request.user)
+        return StorageFile.objects.filter(owner=self.request.user, is_trashed=False)
+
+    def post(self, request, *args, **kwargs):
+        file_obj = self.get_object()
+        file_obj.move_to_trash()
+
+        logger.info(f"File moved to trash: {file_obj.name} by {request.user.username}")
+
+        from django.contrib import messages
+        messages.success(request, f'Datei "{file_obj.name}" in den Papierkorb verschoben.')
+
+        return redirect('storage:file_list')
+
+    def get(self, request, *args, **kwargs):
+        # Also handle GET requests (from direct link clicks)
+        return self.post(request, *args, **kwargs)
 
 
 class FolderCreateView(LoginRequiredMixin, CreateView):
@@ -334,38 +514,96 @@ class RestoreVersionView(LoginRequiredMixin, DetailView):
 
 
 class TrashView(LoginRequiredMixin, ListView):
-    """View trash/bin"""
+    """View trash/bin - shows trashed files"""
     template_name = 'storage/trash.html'
     context_object_name = 'trash_items'
 
     def get_queryset(self):
-        from storage.models import TrashBin
-        return TrashBin.objects.filter(user=self.request.user)
+        """Get trashed files for current user"""
+        return StorageFile.objects.filter(
+            owner=self.request.user,
+            is_trashed=True
+        ).order_by('-trashed_at')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Calculate total size of trashed files
+        total_size = sum(f.size for f in context['trash_items'])
+        context['total_size'] = total_size
+        context['total_count'] = context['trash_items'].count()
+        return context
 
 
 class RestoreFromTrashView(LoginRequiredMixin, DetailView):
-    """Restore item from trash"""
-    pk_url_kwarg = 'trash_id'
+    """Restore file from trash"""
+    model = StorageFile
+    pk_url_kwarg = 'file_id'
 
     def get_queryset(self):
-        from storage.models import TrashBin
-        return TrashBin.objects.filter(user=self.request.user)
+        return StorageFile.objects.filter(owner=self.request.user, is_trashed=True)
 
     def post(self, request, *args, **kwargs):
-        from storage.models import TrashBin
-        trash_item = get_object_or_404(TrashBin, id=self.kwargs.get('trash_id'), user=request.user)
-        # Implementation for restoring from trash
-        trash_item.delete()
-        return JsonResponse({'success': True})
+        file_obj = self.get_object()
+        file_obj.restore_from_trash()
+
+        logger.info(f"File restored from trash: {file_obj.name} by {request.user.username}")
+
+        from django.contrib import messages
+        messages.success(request, f'Datei "{file_obj.name}" wiederhergestellt.')
+
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': True, 'message': f'Datei "{file_obj.name}" wiederhergestellt.'})
+
+        return redirect('storage:trash')
+
+    def get(self, request, *args, **kwargs):
+        return self.post(request, *args, **kwargs)
 
 
 class PermanentlyDeleteView(LoginRequiredMixin, DetailView):
-    """Permanently delete from trash"""
-    pk_url_kwarg = 'trash_id'
+    """Permanently delete file from trash"""
+    model = StorageFile
+    pk_url_kwarg = 'file_id'
 
     def get_queryset(self):
-        from storage.models import TrashBin
-        return TrashBin.objects.filter(user=self.request.user)
+        return StorageFile.objects.filter(owner=self.request.user, is_trashed=True)
+
+    def post(self, request, *args, **kwargs):
+        file_obj = self.get_object()
+        file_name = file_obj.name
+
+        file_obj.permanent_delete()
+
+        logger.info(f"File permanently deleted: {file_name} by {request.user.username}")
+
+        from django.contrib import messages
+        messages.success(request, f'Datei "{file_name}" endgültig gelöscht.')
+
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': True, 'message': f'Datei "{file_name}" endgültig gelöscht.'})
+
+        return redirect('storage:trash')
+
+    def get(self, request, *args, **kwargs):
+        return self.post(request, *args, **kwargs)
+
+
+class EmptyTrashView(LoginRequiredMixin, TemplateView):
+    """Empty entire trash"""
+
+    def post(self, request, *args, **kwargs):
+        trashed_files = StorageFile.objects.filter(owner=request.user, is_trashed=True)
+        count = trashed_files.count()
+
+        for file_obj in trashed_files:
+            file_obj.permanent_delete()
+
+        logger.info(f"Trash emptied: {count} files by {request.user.username}")
+
+        from django.contrib import messages
+        messages.success(request, f'{count} Datei(en) endgültig gelöscht.')
+
+        return redirect('storage:trash')
 
     def post(self, request, *args, **kwargs):
         from storage.models import TrashBin

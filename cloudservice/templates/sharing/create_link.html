@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+
+{% block title %}Link erstellen - CloudService{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <a href="javascript:history.back()" class="btn btn-outline-secondary mb-3">
+                <i class="bi bi-arrow-left"></i> Zurück
+            </a>
+
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-link-45deg"></i> Öffentlichen Link erstellen
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- File/Folder Info -->
+                    <div class="alert alert-info mb-4">
+                        <i class="bi bi-{% if content_type == 'file' %}file-earmark{% else %}folder{% endif %} me-2"></i>
+                        <strong>{{ object.name }}</strong>
+                        {% if content_type == 'file' and object.size %}
+                            <span class="text-muted ms-2">
+                                ({% if object.size >= 1048576 %}{{ object.size|floatformat:1 }} MB{% else %}{{ object.size|floatformat:1 }} KB{% endif %})
+                            </span>
+                        {% endif %}
+                    </div>
+
+                    <form method="post">
+                        {% csrf_token %}
+
+                        <div class="mb-3">
+                            <label for="id_title" class="form-label">Titel (optional)</label>
+                            <input type="text" class="form-control" id="id_title" name="title"
+                                   placeholder="z.B. Urlaubsfotos 2024">
+                            <div class="form-text">Ein optionaler Titel für den Link</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="id_description" class="form-label">Beschreibung (optional)</label>
+                            <textarea class="form-control" id="id_description" name="description" rows="2"
+                                      placeholder="Optionale Beschreibung für den Empfänger"></textarea>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="id_permission" class="form-label">Berechtigung</label>
+                                <select class="form-select" id="id_permission" name="permission">
+                                    <option value="view" selected>Nur ansehen</option>
+                                    <option value="download">Herunterladen</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label for="id_expires_at" class="form-label">Ablaufdatum (optional)</label>
+                                <input type="datetime-local" class="form-control" id="id_expires_at" name="expires_at">
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="id_expires_after_downloads" class="form-label">Max. Downloads (optional)</label>
+                                <input type="number" class="form-control" id="id_expires_after_downloads"
+                                       name="expires_after_downloads" min="1" placeholder="z.B. 10">
+                                <div class="form-text">Link wird nach X Downloads ungültig</div>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <div class="form-check mt-4">
+                                    <input class="form-check-input" type="checkbox" id="id_allow_download"
+                                           name="allow_download" checked>
+                                    <label class="form-check-label" for="id_allow_download">
+                                        Download erlauben
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="javascript:history.back()" class="btn btn-outline-secondary">
+                                Abbrechen
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-link-45deg me-1"></i> Link erstellen
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

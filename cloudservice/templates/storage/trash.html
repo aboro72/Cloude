@@ -4,14 +4,186 @@
 
 {% block content %}
 <div class="container">
-    <h2 class="mb-4">🗑️ Papierkorb</h2>
-
-    <div class="card">
-        <div class="card-body">
-            <p class="text-muted text-center py-5">
-                ♻️ Gelöschte Dateien werden hier angezeigt.
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2><i class="bi bi-trash3 me-2"></i>Papierkorb</h2>
+            <p class="text-muted">
+                {% if total_count > 0 %}
+                    {{ total_count }} Datei(en) im Papierkorb
+                    ({% if total_size >= 1048576 %}{{ total_size|floatformat:2 }} MB{% else %}{{ total_size|floatformat:2 }} KB{% endif %})
+                {% else %}
+                    Papierkorb ist leer
+                {% endif %}
             </p>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="/storage/" class="btn btn-outline-primary me-2">
+                <i class="bi bi-folder"></i> Zurück zu Dateien
+            </a>
+            {% if total_count > 0 %}
+            <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#emptyTrashModal">
+                <i class="bi bi-trash3"></i> Papierkorb leeren
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if trash_items %}
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Name</th>
+                        <th>Größe</th>
+                        <th>Gelöscht am</th>
+                        <th>Aktionen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for file in trash_items %}
+                    <tr id="row-{{ file.id }}">
+                        <td>
+                            <i class="bi {{ file.get_icon_class }} me-2"></i>
+                            {{ file.name }}
+                        </td>
+                        <td>
+                            {% if file.size >= 1048576 %}
+                                {{ file.size|floatformat:2 }} MB
+                            {% elif file.size >= 1024 %}
+                                {{ file.size|floatformat:2 }} KB
+                            {% else %}
+                                {{ file.size }} Bytes
+                            {% endif %}
+                        </td>
+                        <td>{{ file.trashed_at|date:"d.m.Y H:i" }}</td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-success" title="Wiederherstellen"
+                                        onclick="restoreFile({{ file.id }}, '{{ file.name|escapejs }}')">
+                                    <i class="bi bi-arrow-counterclockwise"></i> Wiederherstellen
+                                </button>
+                                <button class="btn btn-outline-danger" title="Endgültig löschen"
+                                        onclick="deleteFile({{ file.id }}, '{{ file.name|escapejs }}')">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {% else %}
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <i class="bi bi-trash3 display-1 text-muted mb-4"></i>
+            <h4>Papierkorb ist leer</h4>
+            <p class="text-muted">Gelöschte Dateien werden hier angezeigt.</p>
+            <a href="/storage/" class="btn btn-primary mt-3">
+                <i class="bi bi-folder"></i> Zu meinen Dateien
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Empty Trash Modal -->
+<div class="modal fade" id="emptyTrashModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-2"></i>Papierkorb leeren</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p><strong>Sind Sie sicher?</strong></p>
+                <p class="text-muted">
+                    Diese Aktion löscht <strong>{{ total_count }} Datei(en)</strong> endgültig.
+                    Dies kann nicht rückgängig gemacht werden!
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <form action="{% url 'storage:empty_trash' %}" method="post" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash3"></i> Endgültig löschen
+                    </button>
+                </form>
+            </div>
         </div>
     </div>
 </div>
+
+<script>
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function restoreFile(fileId, fileName) {
+    if (confirm(`"${fileName}" wiederherstellen?`)) {
+        fetch(`/storage/trash/${fileId}/restore/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById(`row-${fileId}`).remove();
+                // Check if table is empty
+                if (document.querySelectorAll('tbody tr').length === 0) {
+                    window.location.reload();
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            window.location.reload();
+        });
+    }
+}
+
+function deleteFile(fileId, fileName) {
+    if (confirm(`"${fileName}" ENDGÜLTIG löschen? Dies kann nicht rückgängig gemacht werden!`)) {
+        fetch(`/storage/trash/${fileId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById(`row-${fileId}`).remove();
+                // Check if table is empty
+                if (document.querySelectorAll('tbody tr').length === 0) {
+                    window.location.reload();
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            window.location.reload();
+        });
+    }
+}
+</script>
 {% endblock %}

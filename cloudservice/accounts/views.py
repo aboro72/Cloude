@@ -10,17 +10,20 @@ from django.contrib.auth.models import User
 from django.shortcuts import redirect, get_object_or_404
 from django.urls import reverse_lazy
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import ensure_csrf_cookie
 from accounts.models import UserProfile
 import logging
 
 logger = logging.getLogger(__name__)
 
 
+@method_decorator(ensure_csrf_cookie, name='dispatch')
 class LoginView(DjangoLoginView):
     """User login"""
     template_name = 'accounts/login.html'
     redirect_authenticated_user = False
-    success_url = reverse_lazy('core:dashboard')
+    success_url = reverse_lazy('core:landing')
 
     def get(self, request, *args, **kwargs):
         """Handle GET requests - show login form"""

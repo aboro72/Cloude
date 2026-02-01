@@ -22,16 +22,16 @@ class ShareView(LoginRequiredMixin, CreateView):
     template_name = 'sharing/share.html'
     model = UserShare
     fields = ['shared_with', 'permission', 'message']
-
-    def form_valid(self, form):
-        form.instance.owner = self.request.user
-        return super().form_valid(form)
+    success_url = reverse_lazy('sharing:shares_list')
 
     def get_context_data(self, **kwargs):
+        from django.contrib.auth.models import User
+
         context = super().get_context_data(**kwargs)
         content_type = self.kwargs.get('content_type')
         object_id = self.kwargs.get('object_id')
 
+        # Get object being shared
         if content_type == 'file':
             context['object'] = get_object_or_404(
                 StorageFile,
@@ -45,7 +45,28 @@ class ShareView(LoginRequiredMixin, CreateView):
                 owner=self.request.user
             )
 
+        # Get list of users (exclude current user)
+        context['users'] = User.objects.exclude(id=self.request.user.id).order_by('username')
+
         return context
+
+    def form_valid(self, form):
+        from django.contrib.contenttypes.models import ContentType as CT
+
+        content_type = self.kwargs.get('content_type')
+        object_id = self.kwargs.get('object_id')
+
+        form.instance.owner = self.request.user
+
+        if content_type == 'file':
+            ct = CT.objects.get_for_model(StorageFile)
+        else:
+            ct = CT.objects.get_for_model(StorageFolder)
+
+        form.instance.content_type = ct
+        form.instance.object_id = object_id
+
+        return super().form_valid(form)
 
 
 class SharesListView(LoginRequiredMixin, ListView):
@@ -64,6 +85,7 @@ class DeleteShareView(LoginRequiredMixin, DeleteView):
     """Delete share"""
     model = UserShare
     success_url = reverse_lazy('sharing:shares_list')
+    pk_url_kwarg = 'share_id'
 
     def get_queryset(self):
         return UserShare.objects.filter(owner=self.request.user)
@@ -152,15 +174,57 @@ class PublicLinkSettingsView(LoginRequiredMixin, DetailView):
     template_name = 'sharing/link_settings.html'
     model = PublicLink
     context_object_name = 'link'
+    pk_url_kwarg = 'link_id'
 
     def get_queryset(self):
         return PublicLink.objects.filter(owner=self.request.user)
+
+    def post(self, request, *args, **kwargs):
+        """Handle settings update"""
+        link = self.get_object()
+
+        # Update fields
+        link.title = request.POST.get('title', '')
+        link.description = request.POST.get('description', '')
+        link.permission = request.POST.get('permission', 'view')
+        link.allow_download = 'allow_download' in request.POST
+        link.is_active = 'is_active' in request.POST
+
+        # Handle expires_at
+        expires_at = request.POST.get('expires_at', '')
+        if expires_at:
+            from django.utils import timezone
+            from datetime import datetime
+            try:
+                link.expires_at = datetime.fromisoformat(expires_at)
+            except ValueError:
+                pass
+        else:
+            link.expires_at = None
+
+        # Handle expires_after_downloads
+        expires_after = request.POST.get('expires_after_downloads', '')
+        if expires_after:
+            try:
+                link.expires_after_downloads = int(expires_after)
+            except ValueError:
+                pass
+        else:
+            link.expires_after_downloads = None
+
+        link.save()
+
+        from django.contrib import messages
+        messages.success(request, 'Link-Einstellungen gespeichert.')
+
+        return redirect('sharing:link_settings', link_id=link.id)
 
 
 class DeletePublicLinkView(LoginRequiredMixin, DeleteView):
     """Delete public link"""
     model = PublicLink
     success_url = reverse_lazy('sharing:links_list')
+    pk_url_kwarg = 'link_id'
 
     def get_queryset(self):
         return PublicLink.objects.filter(owner=self.request.user)
@@ -213,3 +277,74 @@ class SharedWithMeView(LoginRequiredMixin, ListView):
             shared_with=self.request.user,
             is_active=True
         )
+
+
+class CreatePublicLinkView(LoginRequiredMixin, CreateView):
+    """Create a public link for a file or folder"""
+    model = PublicLink
+    template_name = 'sharing/create_link.html'
+    fields = ['title', 'description', 'permission', 'expires_at', 'expires_after_downloads', 'allow_download']
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        content_type = self.kwargs.get('content_type')
+        object_id = self.kwargs.get('object_id')
+
+        if content_type == 'file':
+            context['object'] = get_object_or_404(
+                StorageFile,
+                id=object_id,
+                owner=self.request.user
+            )
+            context['content_type'] = 'file'
+        elif content_type == 'folder':
+            context['object'] = get_object_or_404(
+                StorageFolder,
+                id=object_id,
+                owner=self.request.user
+            )
+            context['content_type'] = 'folder'
+
+        return context
+
+    def form_valid(self, form):
+        from django.contrib.contenttypes.models import ContentType as CT
+
+        content_type = self.kwargs.get('content_type')
+        object_id = self.kwargs.get('object_id')
+
+        form.instance.owner = self.request.user
+
+        if content_type == 'file':
+            ct = CT.objects.get_for_model(StorageFile)
+            obj = get_object_or_404(StorageFile, id=object_id, owner=self.request.user)
+        else:
+            ct = CT.objects.get_for_model(StorageFolder)
+            obj = get_object_or_404(StorageFolder, id=object_id, owner=self.request.user)
+
+        form.instance.content_type = ct
+        form.instance.object_id = object_id
+
+        # Log the action
+        ShareLog.objects.create(
+            user=self.request.user,
+            action='created',
+            content_type=ct,
+            object_id=object_id,
+            description=f"Public link created for {obj}"
+        )
+
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy('sharing:link_created', kwargs={'pk': self.object.pk})
+
+
+class LinkCreatedView(LoginRequiredMixin, DetailView):
+    """Show the created link with copy functionality"""
+    model = PublicLink
+    template_name = 'sharing/link_created.html'
+    context_object_name = 'link'
+
+    def get_queryset(self):
+        return PublicLink.objects.filter(owner=self.request.user)

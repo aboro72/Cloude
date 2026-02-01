@@ -150,6 +150,9 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
+                        <a class="nav-link" href="{% url 'core:help' %}"><i class="bi bi-question-circle me-1"></i>Hilfe</a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link" href="/api/docs/">📚 API Docs</a>
                     </li>
                     {% if user.is_authenticated %}
@@ -163,6 +166,11 @@
                             <ul class="dropdown-menu dropdown-menu-end">
                                 <li><a class="dropdown-item" href="/accounts/profile/">Profil</a></li>
                                 <li><a class="dropdown-item" href="/accounts/settings/">Einstellungen</a></li>
+                                {% if user.is_superuser %}
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item" href="/settings/">⚙️ Admin Settings</a></li>
+                                    <li><a class="dropdown-item" href="/admin/">🔧 Django Admin</a></li>
+                                {% endif %}
                                 <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item" href="/accounts/logout/">Logout</a></li>
                             </ul>
@@ -199,7 +207,22 @@
 
     <!-- Footer -->
     <footer>
-        <p>&copy; 2026 CloudService. Ein moderner Cloud-Storage mit Django 5.x</p>
+        <p>&copy; 2026 ABoro IT CloudService. Ein moderner Cloud-Storage </p>
+        <p class="mb-2">
+            <a href="{% url 'core:help' %}" class="text-white-50 text-decoration-none me-3">
+                <i class="bi bi-question-circle me-1"></i>Hilfe
+            </a>
+            <a href="{% url 'core:help_developer' %}" class="text-white-50 text-decoration-none">
+                <i class="bi bi-code-slash me-1"></i>Entwickler-Doku
+            </a>
+        </p>
+        <p class="mb-0 small text-white-50">
+            Entwickelt von <strong class="text-white">Andreas Borowczak</strong>
+            <span class="mx-2">|</span>
+            <a href="https://aboro-it.net" target="_blank" class="text-white text-decoration-none">
+                <i class="bi bi-building me-1"></i><strong>Aboro IT</strong>
+            </a>
+        </p>
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

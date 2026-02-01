@@ -1,0 +1,77 @@
+<div class="rss-feed-widget">
+    <style>
+        .rss-feed-widget .feed-item {
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .rss-feed-widget .feed-item:last-child {
+            border-bottom: none;
+        }
+        .rss-feed-widget .feed-item a {
+            color: #333;
+            text-decoration: none;
+            font-weight: 500;
+            display: block;
+            margin-bottom: 4px;
+        }
+        .rss-feed-widget .feed-item a:hover {
+            color: #e74c3c;
+        }
+        .rss-feed-widget .feed-meta {
+            font-size: 0.75rem;
+            color: #888;
+        }
+        .rss-feed-widget .feed-summary {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 4px;
+        }
+        .rss-feed-widget .feed-footer {
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px solid #eee;
+            text-align: center;
+        }
+        .rss-feed-widget .feed-footer a {
+            color: #e74c3c;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+        .rss-feed-widget .feed-footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+
+    <div class="feed-items">
+        {% for item in widget_context.items %}
+        <div class="feed-item">
+            <a href="{{ item.link }}" target="_blank" rel="noopener">
+                {{ item.title }}
+            </a>
+            {% if item.date %}
+            <div class="feed-meta">
+                <i class="bi bi-clock"></i> {{ item.date }}
+            </div>
+            {% endif %}
+            {% if item.summary %}
+            <div class="feed-summary">
+                {{ item.summary|striptags|truncatewords:15 }}
+            </div>
+            {% endif %}
+        </div>
+        {% empty %}
+        <div class="text-center text-muted py-3">
+            <i class="bi bi-exclamation-circle"></i> Keine Artikel verfügbar
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="feed-footer">
+        <a href="{{ widget_context.feed_url }}" target="_blank" rel="noopener">
+            <i class="bi bi-box-arrow-up-right"></i> {{ widget_context.feed_name }} öffnen
+        </a>
+        <div class="feed-meta mt-1">
+            Aktualisiert: {{ widget_context.updated }}
+        </div>
+    </div>
+</div>

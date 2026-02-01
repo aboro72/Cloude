@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+
+{% block title %}Neue Datei - CloudService{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col-md-8 mx-auto">
+            <a href="{% url 'storage:file_list' %}" class="btn btn-outline-secondary mb-3">← Zurück</a>
+            <h2>📝 Neue Datei erstellen</h2>
+            <p class="text-muted">Erstelle schnell neue Text-, Markdown-, Clock- oder andere Dateien</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-body p-4">
+                    <form method="post">
+                        {% csrf_token %}
+
+                        <div class="form-group mb-3">
+                            <label for="{{ form.filename.id_for_label }}" class="form-label">
+                                <strong>Dateiname</strong>
+                            </label>
+                            {{ form.filename }}
+                            <small class="form-text text-muted d-block mt-2">
+                                {{ form.filename.help_text|safe }}
+                            </small>
+                            {% if form.filename.errors %}
+                                <div class="invalid-feedback d-block">{{ form.filename.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="form-group mb-4">
+                            <label for="{{ form.content.id_for_label }}" class="form-label">
+                                <strong>Inhalt</strong>
+                            </label>
+                            {{ form.content }}
+                            <small class="form-text text-muted d-block mt-2">
+                                {{ form.content.help_text|safe }}
+                            </small>
+                            {% if form.content.errors %}
+                                <div class="invalid-feedback d-block">{{ form.content.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <button type="submit" class="btn btn-primary btn-lg w-100">
+                                    ✅ Datei erstellen
+                                </button>
+                            </div>
+                            <div class="col-md-6">
+                                <a href="{% url 'storage:file_list' %}" class="btn btn-secondary btn-lg w-100">
+                                    ❌ Abbrechen
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Examples -->
+            <div class="card mt-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">💡 Beispiele</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Text-Datei</h6>
+                            <code>notes.txt</code>
+                            <p class="text-muted small">Einfache Text-Datei</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Markdown</h6>
+                            <code>README.md</code>
+                            <p class="text-muted small">Markdown mit Formatierung</p>
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <h6>Clock Test</h6>
+                            <code>test.clock</code>
+                            <p class="text-muted small">Testet das Clock Plugin 🕐</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>JSON Konfiguration</h6>
+                            <code>config.json</code>
+                            <p class="text-muted small">Strukturierte Daten</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tips -->
+            <div class="alert alert-info mt-4">
+                <strong>💡 Tipp:</strong> Dateiendung bestimmt den Typ. Die Uhr wird nur mit <code>.clock</code> Dateien angezeigt,
+                wenn das Clock Plugin aktiviert ist.
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .form-group label {
+        margin-bottom: 10px;
+    }
+
+    textarea {
+        font-family: 'Courier New', monospace;
+        font-size: 14px;
+    }
+
+    .card {
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        border: none;
+    }
+
+    .btn {
+        border-radius: 5px;
+        font-weight: 500;
+    }
+
+    code {
+        background-color: #f5f5f5;
+        padding: 2px 6px;
+        border-radius: 3px;
+    }
+</style>
+{% endblock %}

@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block title %}{{ plugin.name }} - Einstellungen{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <!-- Header -->
+            <div class="d-flex align-items-center mb-4">
+                <a href="{% url 'core:settings' %}" class="btn btn-outline-secondary me-3">
+                    <i class="bi bi-arrow-left"></i>
+                </a>
+                <div>
+                    <h2 class="mb-0">{{ plugin.name }}</h2>
+                    <small class="text-muted">Version {{ plugin.version }} von {{ plugin.author }}</small>
+                </div>
+            </div>
+
+            <!-- Plugin Info -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <p class="mb-0">{{ plugin.description }}</p>
+                </div>
+            </div>
+
+            <!-- Settings Form -->
+            {% if fields %}
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-gear me-2"></i>Einstellungen</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+
+                        {% for field in fields %}
+                        <div class="mb-3">
+                            <label for="{{ field.key }}" class="form-label">
+                                {{ field.label }}
+                                {% if field.required %}<span class="text-danger">*</span>{% endif %}
+                            </label>
+
+                            {% if field.type == 'text' or field.type == 'password' or field.type == 'email' %}
+                            <input type="{{ field.type }}"
+                                   class="form-control"
+                                   id="{{ field.key }}"
+                                   name="{{ field.key }}"
+                                   value="{{ field.value }}"
+                                   {% if field.placeholder %}placeholder="{{ field.placeholder }}"{% endif %}
+                                   {% if field.required %}required{% endif %}>
+
+                            {% elif field.type == 'number' or field.type == 'integer' %}
+                            <input type="number"
+                                   class="form-control"
+                                   id="{{ field.key }}"
+                                   name="{{ field.key }}"
+                                   value="{{ field.value }}"
+                                   {% if field.min %}min="{{ field.min }}"{% endif %}
+                                   {% if field.max %}max="{{ field.max }}"{% endif %}
+                                   {% if field.type == 'integer' %}step="1"{% else %}step="any"{% endif %}>
+
+                            {% elif field.type == 'boolean' %}
+                            <div class="form-check form-switch">
+                                <input type="checkbox"
+                                       class="form-check-input"
+                                       id="{{ field.key }}"
+                                       name="{{ field.key }}"
+                                       {% if field.value %}checked{% endif %}>
+                                <label class="form-check-label" for="{{ field.key }}">Aktiviert</label>
+                            </div>
+
+                            {% elif field.type == 'select' %}
+                            <select class="form-select" id="{{ field.key }}" name="{{ field.key }}">
+                                {% for option in field.options %}
+                                <option value="{{ option.value }}"
+                                        {% if field.value == option.value %}selected{% endif %}>
+                                    {{ option.label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+
+                            {% elif field.type == 'textarea' %}
+                            <textarea class="form-control"
+                                      id="{{ field.key }}"
+                                      name="{{ field.key }}"
+                                      rows="3"
+                                      {% if field.placeholder %}placeholder="{{ field.placeholder }}"{% endif %}>{{ field.value }}</textarea>
+                            {% endif %}
+
+                            {% if field.help %}
+                            <small class="form-text text-muted">{{ field.help }}</small>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'core:settings' %}" class="btn btn-outline-secondary">
+                                Abbrechen
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-lg me-1"></i>Speichern
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-2"></i>
+                Dieses Plugin hat keine konfigurierbaren Einstellungen.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

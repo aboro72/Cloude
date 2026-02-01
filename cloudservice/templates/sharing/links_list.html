@@ -6,19 +6,143 @@
 <div class="container">
     <div class="row mb-4">
         <div class="col-md-8">
-            <h2>🔗 Öffentliche Links</h2>
+            <h2><i class="bi bi-link-45deg"></i> Meine öffentlichen Links</h2>
+            <p class="text-muted">Verwalten Sie Ihre geteilten Links</p>
         </div>
         <div class="col-md-4 text-end">
-            <a href="/storage/" class="btn btn-primary">+ Neuer Link</a>
+            <a href="/storage/" class="btn btn-outline-primary">
+                <i class="bi bi-folder"></i> Dateien
+            </a>
         </div>
     </div>
 
+    {% if links %}
     <div class="card">
-        <div class="card-body">
-            <p class="text-muted text-center py-5">
-                🔗 Öffentliche Links werden hier angezeigt.
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Datei/Ordner</th>
+                        <th>Titel</th>
+                        <th>Status</th>
+                        <th>Statistik</th>
+                        <th>Erstellt</th>
+                        <th>Aktionen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for link in links %}
+                    <tr>
+                        <td>
+                            {% if link.content_object %}
+                                <i class="bi bi-file-earmark me-1"></i>
+                                {{ link.content_object.name|truncatechars:30 }}
+                            {% else %}
+                                <span class="text-muted">Gelöscht</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ link.title|default:"-" }}</td>
+                        <td>
+                            {% if link.is_expired %}
+                                <span class="badge bg-danger">Abgelaufen</span>
+                            {% elif link.is_active %}
+                                <span class="badge bg-success">Aktiv</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Deaktiviert</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <small>
+                                <i class="bi bi-eye"></i> {{ link.view_count }}
+                                <span class="mx-1">|</span>
+                                <i class="bi bi-download"></i> {{ link.download_count }}
+                            </small>
+                        </td>
+                        <td>{{ link.created_at|date:"d.m.Y" }}</td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-primary" title="Link kopieren"
+                                        onclick="copyToClipboard('{{ request.scheme }}://{{ request.get_host }}/sharing/public/{{ link.token }}/')">
+                                    <i class="bi bi-clipboard"></i>
+                                </button>
+                                <a href="{% url 'sharing:link_settings' link_id=link.id %}"
+                                   class="btn btn-outline-secondary" title="Einstellungen">
+                                    <i class="bi bi-gear"></i>
+                                </a>
+                                <button class="btn btn-outline-danger" title="Löschen"
+                                        onclick="deleteLink({{ link.id }})">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {% else %}
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <i class="bi bi-link-45deg display-1 text-muted mb-4"></i>
+            <h4>Keine öffentlichen Links</h4>
+            <p class="text-muted">
+                Sie haben noch keine öffentlichen Links erstellt.<br>
+                Gehen Sie zu einer Datei und klicken Sie auf "Teilen" um einen Link zu erstellen.
             </p>
+            <a href="/storage/" class="btn btn-primary mt-3">
+                <i class="bi bi-folder"></i> Zu meinen Dateien
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Toast for copy confirmation -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+    <div id="copyToast" class="toast" role="alert">
+        <div class="toast-body bg-success text-white rounded">
+            <i class="bi bi-check-circle me-2"></i> Link kopiert!
         </div>
     </div>
 </div>
+
+<script>
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        const toast = new bootstrap.Toast(document.getElementById('copyToast'));
+        toast.show();
+    });
+}
+
+function deleteLink(linkId) {
+    if (confirm('Diesen Link wirklich löschen? Er kann nicht wiederhergestellt werden.')) {
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value ||
+                          getCookie('csrftoken');
+
+        fetch(`/sharing/link/${linkId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            }
+        }).then(() => window.location.reload());
+    }
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
 {% endblock %}

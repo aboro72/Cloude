@@ -7,7 +7,13 @@
       "Bash(ls -la \"C:\\\\Users\\\\aborowczak\\\\PycharmProjects\\\\Cloude\\\\cloudservice\\\\accounts\\\\management\"\" 2>nul || echo \"Directory does not exist \")",
       "Bash(python:*)",
       "Bash(test:*)",
-      "Bash(timeout 5 curl:*)"
+      "Bash(timeout 5 curl:*)",
+      "Bash(dir:*)",
+      "Bash(powershell -Command \"Compress-Archive -Path example_clock_preview -DestinationPath clock-preview.zip -Force\")",
+      "Bash(powershell -Command:*)",
+      "Bash(DJANGO_SETTINGS_MODULE=config.settings python:*)",
+      "Bash(curl:*)",
+      "Bash(zip:*)"
     ]
   }
 }

@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+
+{% block title %}Hilfe - CloudService{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-3">
+            <!-- Sidebar Navigation -->
+            <div class="card sticky-top" style="top: 20px;">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-book me-2"></i>Inhalt</h5>
+                </div>
+                <div class="list-group list-group-flush">
+                    <a href="#getting-started" class="list-group-item list-group-item-action">Erste Schritte</a>
+                    <a href="#files" class="list-group-item list-group-item-action">Dateiverwaltung</a>
+                    <a href="#sharing" class="list-group-item list-group-item-action">Teilen</a>
+                    <a href="#dashboard" class="list-group-item list-group-item-action">Dashboard & Widgets</a>
+                    <a href="#plugins" class="list-group-item list-group-item-action">Plugins</a>
+                    <a href="#settings" class="list-group-item list-group-item-action">Einstellungen</a>
+                    <a href="#about" class="list-group-item list-group-item-action">Über CloudService</a>
+                    <a href="{% url 'core:help_developer' %}" class="list-group-item list-group-item-action">
+                        <i class="bi bi-code-slash me-1"></i>Entwickler-Doku
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-9">
+            <h1><i class="bi bi-question-circle me-2"></i>Hilfe</h1>
+            <p class="lead">Willkommen bei CloudService - Ihrer persönlichen Cloud-Lösung.</p>
+            <hr>
+
+            <!-- Getting Started -->
+            <section id="getting-started" class="mb-5">
+                <h2><i class="bi bi-rocket-takeoff me-2"></i>Erste Schritte</h2>
+                <div class="card">
+                    <div class="card-body">
+                        <h5>Was ist CloudService?</h5>
+                        <p>CloudService ist eine selbst-gehostete Cloud-Speicher-Lösung ähnlich wie Nextcloud oder Dropbox. Sie können Dateien hochladen, organisieren und teilen.</p>
+
+                        <h5 class="mt-4">Nach dem Login</h5>
+                        <p>Nach dem Login landen Sie auf der <strong>Landing Page</strong> mit verschiedenen Widgets:</p>
+                        <ul>
+                            <li><strong>Speicherplatz</strong> - Zeigt Ihre Speichernutzung</li>
+                            <li><strong>Letzte Dateien</strong> - Schnellzugriff auf kürzlich hochgeladene Dateien</li>
+                            <li><strong>Weitere Widgets</strong> - Je nach installierten Plugins</li>
+                        </ul>
+
+                        <h5 class="mt-4">Navigation</h5>
+                        <ul>
+                            <li><strong>Dateien</strong> - Ihre Datei- und Ordnerstruktur</li>
+                            <li><strong>Dashboard</strong> - Detaillierte Übersicht</li>
+                            <li><strong>Profil</strong> - Persönliche Einstellungen</li>
+                            <li><strong>Einstellungen</strong> - Admin-Bereich (nur für Admins)</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Files -->
+            <section id="files" class="mb-5">
+                <h2><i class="bi bi-folder me-2"></i>Dateiverwaltung</h2>
+                <div class="card">
+                    <div class="card-body">
+                        <h5>Dateien hochladen</h5>
+                        <ol>
+                            <li>Gehen Sie zu <strong>Dateien</strong></li>
+                            <li>Klicken Sie auf <strong>Hochladen</strong></li>
+                            <li>Wählen Sie eine oder mehrere Dateien aus</li>
+                            <li>Die Dateien werden automatisch hochgeladen</li>
+                        </ol>
+
+                        <h5 class="mt-4">Ordner erstellen</h5>
+                        <ol>
+                            <li>Klicken Sie auf <strong>Neuer Ordner</strong></li>
+                            <li>Geben Sie einen Namen ein</li>
+                            <li>Bestätigen Sie mit Enter</li>
+                        </ol>
+
+                        <h5 class="mt-4">Unterstützte Dateitypen</h5>
+                        <p>CloudService unterstützt alle gängigen Dateitypen:</p>
+                        <ul>
+                            <li><strong>Dokumente:</strong> PDF, DOC, DOCX, XLS, XLSX, PPT, TXT</li>
+                            <li><strong>Bilder:</strong> JPG, PNG, GIF, SVG, WebP</li>
+                            <li><strong>Videos:</strong> MP4, AVI, MOV, MKV</li>
+                            <li><strong>Audio:</strong> MP3, WAV, FLAC</li>
+                            <li><strong>Archive:</strong> ZIP, RAR, 7Z</li>
+                            <li><strong>Code:</strong> PY, JS, HTML, CSS, etc.</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Sharing -->
+            <section id="sharing" class="mb-5">
+                <h2><i class="bi bi-share me-2"></i>Teilen</h2>
+                <div class="card">
+                    <div class="card-body">
+                        <h5>Dateien teilen</h5>
+                        <ol>
+                            <li>Wählen Sie eine Datei aus</li>
+                            <li>Klicken Sie auf <strong>Teilen</strong></li>
+                            <li>Wählen Sie zwischen:
+                                <ul>
+                                    <li><strong>Mit Benutzer teilen</strong> - Für registrierte Benutzer</li>
+                                    <li><strong>Öffentlicher Link</strong> - Für jeden zugänglich</li>
+                                </ul>
+                            </li>
+                        </ol>
+
+                        <h5 class="mt-4">Berechtigungen</h5>
+                        <ul>
+                            <li><strong>Ansehen</strong> - Nur lesen</li>
+                            <li><strong>Bearbeiten</strong> - Lesen und ändern</li>
+                            <li><strong>Verwalten</strong> - Volle Kontrolle inkl. Löschen</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Dashboard -->
+            <section id="dashboard" class="mb-5">
+                <h2><i class="bi bi-grid me-2"></i>Dashboard & Widgets</h2>
+                <div class="card">
+                    <div class="card-body">
+                        <h5>Landing Page</h5>
+                        <p>Die Landing Page zeigt Widgets in einem Grid-Layout. Widgets werden von Plugins bereitgestellt.</p>
+
+                        <h5 class="mt-4">Standard-Widgets</h5>
+                        <ul>
+                            <li><strong>Speicherplatz</strong> - Zeigt Dateien, Ordner und Speichernutzung</li>
+                            <li><strong>Letzte Dateien</strong> - Die 5 zuletzt hochgeladenen Dateien</li>
+                        </ul>
+
+                        <h5 class="mt-4">Plugin-Widgets</h5>
+                        <p>Plugins können zusätzliche Widgets hinzufügen, z.B.:</p>
+                        <ul>
+                            <li><strong>Uhr</strong> - Analoge Uhr mit Datum</li>
+                            <li><strong>Wetter</strong> - Aktuelle Wetterdaten</li>
+                            <li><strong>RSS Feed</strong> - Nachrichten-Feed</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Plugins -->
+            <section id="plugins" class="mb-5">
+                <h2><i class="bi bi-puzzle me-2"></i>Plugins</h2>
+                <div class="card">
+                    <div class="card-body">
+                        <h5>Was sind Plugins?</h5>
+                        <p>Plugins erweitern CloudService um zusätzliche Funktionen wie Widgets, Dateivorschauen oder Integrationen.</p>
+
+                        <h5 class="mt-4">Plugin-Verwaltung</h5>
+                        <p>Administratoren können Plugins unter <strong>Einstellungen</strong> verwalten:</p>
+                        <ul>
+                            <li><strong>Aktivieren/Deaktivieren</strong> - Plugins ein- oder ausschalten</li>
+                            <li><strong>Konfigurieren</strong> - Plugin-Einstellungen anpassen (Zahnrad-Symbol)</li>
+                            <li><strong>Hochladen</strong> - Neue Plugins als ZIP hochladen</li>
+                            <li><strong>Entdecken</strong> - Lokale Plugins aus dem Ordner erkennen</li>
+                        </ul>
+
+                        <h5 class="mt-4">Eigene Plugins entwickeln</h5>
+                        <p>Entwickler können eigene Plugins erstellen. Siehe <a href="{% url 'core:help_developer' %}">Entwickler-Dokumentation</a>.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Settings -->
+            <section id="settings" class="mb-5">
+                <h2><i class="bi bi-gear me-2"></i>Einstellungen</h2>
+                <div class="card">
+                    <div class="card-body">
+                        <h5>Profil-Einstellungen</h5>
+                        <ul>
+                            <li><strong>Profil bearbeiten</strong> - Name, Avatar, Bio</li>
+                            <li><strong>Passwort ändern</strong> - Sicherheit</li>
+                            <li><strong>Sprache & Zeitzone</strong> - Lokalisierung</li>
+                            <li><strong>Theme</strong> - Hell/Dunkel/Auto</li>
+                        </ul>
+
+                        <h5 class="mt-4">Admin-Einstellungen</h5>
+                        <p>Nur für Administratoren:</p>
+                        <ul>
+                            <li><strong>Plugin-Verwaltung</strong> - Plugins aktivieren/deaktivieren</li>
+                            <li><strong>Benutzer-Verwaltung</strong> - Im Django Admin</li>
+                            <li><strong>System-Einstellungen</strong> - Erweiterte Konfiguration</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Support -->
+            <section id="support" class="mb-5">
+                <h2><i class="bi bi-headset me-2"></i>Support</h2>
+                <div class="card">
+                    <div class="card-body">
+                        <p>Bei Fragen oder Problemen:</p>
+                        <ul>
+                            <li>Prüfen Sie diese Hilfe-Seite</li>
+                            <li>Lesen Sie die <a href="{% url 'core:help_developer' %}">Entwickler-Dokumentation</a></li>
+                            <li>Kontaktieren Sie Ihren Administrator</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- About -->
+            <section id="about" class="mb-5">
+                <h2><i class="bi bi-info-circle me-2"></i>Über CloudService</h2>
+                <div class="card">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h5>Entwicklung</h5>
+                                <p>
+                                    <strong>CloudService</strong> ist eine moderne, selbst-gehostete
+                                    Cloud-Speicher-Lösung, entwickelt mit Django 5.x.
+                                </p>
+                                <p class="mb-0">
+                                    <i class="bi bi-person-fill me-2"></i>
+                                    <strong>Entwickler:</strong> Andreas Borowczak
+                                </p>
+                            </div>
+                            <div class="col-md-6">
+                                <h5>Unternehmen</h5>
+                                <div class="d-flex align-items-center">
+                                    <div class="me-3">
+                                        <i class="bi bi-building display-4 text-primary"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-1">Aboro IT</h6>
+                                        <p class="text-muted mb-2">IT-Dienstleistungen & Software-Entwicklung</p>
+                                        <a href="https://aboro-it.de" target="_blank" class="btn btn-outline-primary btn-sm">
+                                            <i class="bi bi-globe me-1"></i> aboro-it.de
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <hr>
+                        <div class="row text-center">
+                            <div class="col-md-4">
+                                <i class="bi bi-stack display-6 text-primary mb-2"></i>
+                                <h6>Django 5.x</h6>
+                                <small class="text-muted">Backend Framework</small>
+                            </div>
+                            <div class="col-md-4">
+                                <i class="bi bi-bootstrap display-6 text-primary mb-2"></i>
+                                <h6>Bootstrap 5</h6>
+                                <small class="text-muted">UI Framework</small>
+                            </div>
+                            <div class="col-md-4">
+                                <i class="bi bi-puzzle display-6 text-primary mb-2"></i>
+                                <h6>Plugin-System</h6>
+                                <small class="text-muted">Erweiterbar</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+</div>
+{% endblock %}

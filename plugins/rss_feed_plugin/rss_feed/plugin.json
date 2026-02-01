@@ -1,0 +1,24 @@
+{
+  "name": "Heise RSS Feed",
+  "slug": "rss-feed",
+  "version": "1.0.0",
+  "author": "CloudService Team",
+  "description": "Zeigt aktuelle News von heise.de als RSS-Feed Widget an.",
+
+  "django_app": {
+    "app_config": "rss_feed.apps.RssFeedConfig"
+  },
+
+  "requirements": {
+    "django": ">=5.0,<6.0",
+    "python": ">=3.10",
+    "python_packages": []
+  },
+
+  "hooks": {
+    "ui_dashboard_widget": {
+      "handler": "rss_feed.widget.RssFeedWidgetProvider",
+      "priority": 25
+    }
+  }
+}

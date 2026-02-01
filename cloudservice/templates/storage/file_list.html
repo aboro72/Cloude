@@ -19,6 +19,9 @@
                 <button class="btn btn-primary btn-sm w-100 mb-2" data-bs-toggle="modal" data-bs-target="#uploadModal">
                     📤 Datei hochladen
                 </button>
+                <a href="{% url 'storage:create_file' %}" class="btn btn-success btn-sm w-100 mb-2">
+                    📝 Datei erstellen
+                </a>
                 <button class="btn btn-outline-primary btn-sm w-100" data-bs-toggle="modal" data-bs-target="#folderModal">
                     📁 Ordner erstellen
                 </button>
@@ -75,12 +78,40 @@
                                         </td>
                                         <td>{{ file.updated_at|date:"d.m.Y H:i" }}</td>
                                         <td>
-                                            <a href="/storage/file/{{ file.id }}/download/" class="btn btn-sm btn-outline-primary" title="Download">
-                                                <i class="bi bi-download"></i>
-                                            </a>
-                                            <button class="btn btn-sm btn-outline-danger" title="Löschen" onclick="deleteFile({{ file.id }})">
-                                                <i class="bi bi-trash"></i>
-                                            </button>
+                                            <div class="btn-group btn-group-sm">
+                                                <a href="/storage/file/{{ file.id }}/download/" class="btn btn-outline-primary" title="Download">
+                                                    <i class="bi bi-download"></i>
+                                                </a>
+                                                <button class="btn btn-outline-secondary" title="Teilen" data-bs-toggle="modal" data-bs-target="#shareModal{{ file.id }}">
+                                                    <i class="bi bi-share"></i>
+                                                </button>
+                                                <button class="btn btn-outline-danger" title="Löschen" onclick="deleteFile({{ file.id }})">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </div>
+
+                                            <!-- Share Modal for this file -->
+                                            <div class="modal fade" id="shareModal{{ file.id }}" tabindex="-1">
+                                                <div class="modal-dialog modal-sm">
+                                                    <div class="modal-content">
+                                                        <div class="modal-header">
+                                                            <h6 class="modal-title"><i class="bi bi-share me-1"></i> Teilen</h6>
+                                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                        </div>
+                                                        <div class="modal-body">
+                                                            <p class="small text-muted mb-3">{{ file.name|truncatechars:25 }}</p>
+                                                            <div class="d-grid gap-2">
+                                                                <a href="{% url 'sharing:create_link' content_type='file' object_id=file.id %}" class="btn btn-outline-primary btn-sm">
+                                                                    <i class="bi bi-link-45deg me-1"></i> Öffentlicher Link
+                                                                </a>
+                                                                <a href="{% url 'sharing:share' content_type='file' object_id=file.id %}" class="btn btn-outline-secondary btn-sm">
+                                                                    <i class="bi bi-person-plus me-1"></i> Mit Benutzer teilen
+                                                                </a>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </td>
                                     </tr>
                                 {% endfor %}

@@ -18,6 +18,9 @@ from datetime import timedelta
 
 logger = logging.getLogger(__name__)
 
+# Register custom MIME types for plugins
+mimetypes.add_type('application/plugin', '.plug')  # Universal plugin format
+
 
 class TimeStampedModel(models.Model):
     """
@@ -206,6 +209,26 @@ class StorageFile(TimeStampedModel):
         verbose_name=_('Last accessed')
     )
 
+    # Trash functionality
+    is_trashed = models.BooleanField(
+        default=False,
+        verbose_name=_('Is in trash'),
+        db_index=True
+    )
+    trashed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name=_('Trashed at')
+    )
+    original_folder = models.ForeignKey(
+        'StorageFolder',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='trashed_files',
+        verbose_name=_('Original folder (before trash)')
+    )
+
     class Meta:
         unique_together = [['owner', 'folder', 'name']]
         ordering = ['-created_at']
@@ -238,8 +261,16 @@ class StorageFile(TimeStampedModel):
             # Generate SHA256 hash
             if not self.file_hash:
                 hash_object = hashlib.sha256()
+
+                # For small/empty files, include filename and timestamp to ensure uniqueness
+                if self.size < 1024:  # Less than 1KB
+                    hash_object.update(self.name.encode('utf-8'))
+                    hash_object.update(str(timezone.now()).encode('utf-8'))
+
+                # Hash file content
                 for chunk in self.file.chunks():
                     hash_object.update(chunk)
+
                 self.file_hash = hash_object.hexdigest()
 
         super().save(*args, **kwargs)
@@ -296,6 +327,28 @@ class StorageFile(TimeStampedModel):
     def duplicate_check(cls, file_hash):
         """Check if file with same hash already exists"""
         return cls.objects.filter(file_hash=file_hash).exists()
+
+    def move_to_trash(self):
+        """Move file to trash (soft delete)"""
+        self.original_folder = self.folder
+        self.is_trashed = True
+        self.trashed_at = timezone.now()
+        self.save(update_fields=['original_folder', 'is_trashed', 'trashed_at'])
+
+    def restore_from_trash(self):
+        """Restore file from trash"""
+        if self.original_folder:
+            self.folder = self.original_folder
+        self.is_trashed = False
+        self.trashed_at = None
+        self.original_folder = None
+        self.save(update_fields=['folder', 'is_trashed', 'trashed_at', 'original_folder'])
+
+    def permanent_delete(self):
+        """Permanently delete file and its physical file"""
+        if self.file:
+            self.file.delete(save=False)
+        self.delete()
 
 
 class FileVersion(TimeStampedModel):
