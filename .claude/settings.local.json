@@ -27,7 +27,25 @@
       "Bash(git config:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(python3 manage.py package_plugins)",
+      "Bash(ls /c/Python*)",
+      "Bash(where.exe python:*)",
+      "Bash(PYTHON=\"/c/Users/User/AppData/Local/Programs/Python/Python314/python.exe\")",
+      "Bash(\"$PYTHON\" manage.py package_plugins)",
+      "Bash(\"$PYTHON\" package_plugins.py)",
+      "Bash(\"$PYTHON\" -c \":*)",
+      "Bash(\"$PYTHON\" -c \"import zipfile, os; base=''/c/Users/User/PycharmProjects/Cloude/.claude/worktrees/nice-lederberg/plugins/packages''; [print\\(f, [x for x in zipfile.ZipFile\\(os.path.join\\(base,f\\)\\).namelist\\(\\)]\\) for f in os.listdir\\(base\\)]\")",
+      "Skill(commit-commands:commit-push-pr)",
+      "Skill(commit-commands:commit-push-pr:*)",
+      "Bash(where.exe gh:*)",
+      "Read(//c/Program Files/GitHub CLI/**)",
+      "Bash(grep -r check_models_ready /c/Users/User/PycharmProjects/Cloude --include=*.py)",
+      "Bash(grep -E \"\\\\.py$\")",
+      "Bash(for d:*)",
+      "Bash(do echo:*)",
+      "Read(//c/Users/User/PycharmProjects/Cloude/.claude/worktrees/nice-lederberg/plugins/installed/$d/**)",
+      "Bash(done)"
     ]
   }
 }
