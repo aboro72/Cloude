@@ -318,8 +318,12 @@ class PluginLoader:
                 settings.INSTALLED_APPS = list(settings.INSTALLED_APPS) + [module_name]
                 logger.debug(f"Added {module_name} to INSTALLED_APPS")
 
-            # Create and register AppConfig instance
+            # Create and register AppConfig instance.
+            # IMPORTANT: apps.populate() normally sets app_config.apps = self after __init__.
+            # We must do the same here, otherwise app_config.apps remains None and any
+            # internal Django call to app_config.apps.check_models_ready() will crash.
             app_config_instance = app_config_class(module_name, plugin_module)
+            app_config_instance.apps = apps  # mirror what Apps.populate() does
             apps.app_configs[module_name] = app_config_instance
             logger.debug(f"Registered AppConfig: {module_name}")
 
@@ -455,6 +459,68 @@ class PluginLoader:
 
         except Exception as e:
             logger.error(f"Error loading enabled plugins: {e}")
+
+    def uninstall_plugin(self, plugin_id: str) -> bool:
+        """
+        Fully uninstall a plugin: deactivate, remove extracted files, delete DB record.
+
+        Args:
+            plugin_id: UUID of the plugin to uninstall
+
+        Returns:
+            True if successful
+
+        Raises:
+            Exception: If uninstall fails
+        """
+        from plugins.models import Plugin, PluginLog
+
+        logger.info(f"Uninstalling plugin {plugin_id}")
+
+        try:
+            plugin = Plugin.objects.get(pk=plugin_id)
+
+            # Step 1: Deactivate if currently active
+            if plugin.enabled:
+                self.unload_plugin(plugin_id)
+                # Re-fetch after unload updated the record
+                plugin.refresh_from_db()
+
+            # Step 2: Delete extracted directory (only if it looks safe and is inside PLUGINS_DIR)
+            if plugin.extracted_path:
+                extracted = Path(plugin.extracted_path)
+                try:
+                    if extracted.exists() and extracted.is_dir():
+                        # Safety check: only delete if it is inside PLUGINS_DIR
+                        extracted.relative_to(self.PLUGINS_DIR)
+                        shutil.rmtree(extracted)
+                        logger.info(f"Deleted extracted directory: {extracted}")
+                except ValueError:
+                    logger.warning(f"Skipping deletion of path outside PLUGINS_DIR: {extracted}")
+
+            # Step 3: Delete the ZIP from media storage (if present)
+            if plugin.zip_file:
+                try:
+                    from django.core.files.storage import default_storage
+                    if default_storage.exists(plugin.zip_file.name):
+                        default_storage.delete(plugin.zip_file.name)
+                        logger.info(f"Deleted plugin ZIP from storage: {plugin.zip_file.name}")
+                except Exception as e:
+                    logger.warning(f"Could not delete ZIP file: {e}")
+
+            plugin_name = plugin.name
+
+            # Step 4: Delete Plugin record (cascades to PluginLog)
+            plugin.delete()
+
+            logger.info(f"Plugin uninstalled successfully: {plugin_name}")
+            return True
+
+        except Plugin.DoesNotExist:
+            raise ValueError(f"Plugin {plugin_id} not found")
+        except Exception as e:
+            logger.error(f"Failed to uninstall plugin {plugin_id}: {e}")
+            raise
 
     def register_plugin_hooks_only(self, plugin_id: str) -> bool:
         """
