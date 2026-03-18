@@ -558,6 +558,33 @@ class PluginDeactivateView(APIView):
             return redirect('core:settings')
 
 
+class PluginUninstallView(APIView):
+    """Fully uninstall a plugin (deactivate + delete files + delete DB record)"""
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, plugin_id):
+        """Uninstall plugin"""
+        try:
+            from plugins.models import Plugin
+            from plugins.loader import PluginLoader
+            from django.contrib import messages
+            from django.shortcuts import redirect
+
+            plugin = get_object_or_404(Plugin, id=plugin_id)
+            plugin_name = plugin.name
+            loader = PluginLoader()
+            loader.uninstall_plugin(str(plugin_id))
+
+            messages.success(request, f'✅ Plugin "{plugin_name}" wurde deinstalliert')
+            return redirect('core:settings')
+
+        except Exception as e:
+            from django.shortcuts import redirect
+            from django.contrib import messages
+            messages.error(request, f'❌ Deinstallation fehlgeschlagen: {str(e)}')
+            return redirect('core:settings')
+
+
 class PluginDiscoverView(APIView):
     """Discover plugins from filesystem"""
     permission_classes = [IsAdminUser]

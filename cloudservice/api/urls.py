@@ -46,4 +46,5 @@ urlpatterns = [
     path('plugins/<uuid:plugin_id>/activate/', views.PluginActivateView.as_view(), name='plugin_activate'),
     path('plugins/<uuid:plugin_id>/deactivate/', views.PluginDeactivateView.as_view(), name='plugin_deactivate'),
     path('plugins/<uuid:plugin_id>/settings/', views.PluginSettingsView.as_view(), name='plugin_settings'),
+    path('plugins/<uuid:plugin_id>/uninstall/', views.PluginUninstallView.as_view(), name='plugin_uninstall'),
 ]
