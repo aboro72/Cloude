@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+
+{% block title %}Team News - {{ group.group_name }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <div class="text-muted">Team Site</div>
+            <h2 class="mb-0">{{ group.group_name }} News</h2>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'sharing:group_detail' group.id %}" class="btn btn-outline-secondary">Zur Team Site</a>
+            {% if can_manage_site %}
+                <a href="{% url 'sharing:team_news_create' group.id %}" class="btn btn-primary">Neue News</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row g-4">
+        {% for news in news_items %}
+            <div class="col-lg-6">
+                <div class="card h-100">
+                    {% if news.cover_image %}
+                        <img src="{{ news.cover_image.url }}" class="card-img-top" alt="{{ news.title }}" style="height: 220px; object-fit: cover;">
+                    {% endif %}
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h4 class="h5 mb-0">{{ news.title }}</h4>
+                            <div class="d-flex gap-2">
+                                {% if news.is_pinned %}
+                                    <span class="badge bg-warning text-dark">Pinned</span>
+                                {% endif %}
+                                {% if news.is_published %}
+                                    <span class="badge bg-success">Publiziert</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Entwurf</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% if news.category %}
+                            <div class="small text-muted mb-2">{{ news.category }}</div>
+                        {% endif %}
+                        <p class="text-muted">{{ news.summary|default:news.content|truncatechars:180 }}</p>
+                        <div class="small text-muted mb-3">
+                            {{ news.created_at|date:"d.m.Y H:i" }}
+                            {% if news.publish_at %}
+                                · Veröffentlichung {{ news.publish_at|date:"d.m.Y H:i" }}
+                            {% endif %}
+                        </div>
+                        <div class="d-flex gap-2">
+                            <a href="{% url 'sharing:team_news_detail' group.id news.id %}" class="btn btn-outline-primary">Lesen</a>
+                            {% if can_manage_site %}
+                                <a href="{% url 'sharing:team_news_edit' group.id news.id %}" class="btn btn-outline-secondary">Bearbeiten</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% empty %}
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body text-center py-5">
+                        <h4 class="mb-2">Noch keine Team-News</h4>
+                        <p class="text-muted mb-3">Owner und Team Leader koennen hier News fuer die Team Site veroeffentlichen.</p>
+                        {% if can_manage_site %}
+                            <a href="{% url 'sharing:team_news_create' group.id %}" class="btn btn-primary">Erste News anlegen</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

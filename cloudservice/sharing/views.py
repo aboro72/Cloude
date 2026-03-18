@@ -3,15 +3,18 @@ Views for Sharing app.
 File and folder sharing management.
 """
 
-from django.views.generic import CreateView, DeleteView, ListView, TemplateView, DetailView
+from django.views.generic import CreateView, DeleteView, ListView, TemplateView, DetailView, UpdateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import redirect, get_object_or_404, render
 from django.urls import reverse_lazy
-from django.http import JsonResponse, FileResponse
+from django.http import JsonResponse, FileResponse, Http404
 from django.db.models import Q
+from django.contrib.contenttypes.models import ContentType
+from django.utils import timezone
 
-from sharing.models import UserShare, PublicLink, GroupShare, ShareLog
-from core.models import StorageFile, StorageFolder
+from sharing.models import UserShare, PublicLink, GroupShare, ShareLog, TeamSiteNews
+from sharing.forms import TeamSiteNewsForm
+from core.models import ActivityLog, StorageFile, StorageFolder
 import logging
 
 logger = logging.getLogger(__name__)
@@ -236,19 +239,195 @@ class GroupsListView(LoginRequiredMixin, ListView):
     context_object_name = 'groups'
 
     def get_queryset(self):
-        return GroupShare.objects.filter(owner=self.request.user)
+        return GroupShare.objects.filter(
+            Q(owner=self.request.user) | Q(members=self.request.user)
+        ).distinct()
 
 
 class CreateGroupView(LoginRequiredMixin, CreateView):
     """Create sharing group"""
     template_name = 'sharing/create_group.html'
     model = GroupShare
-    fields = ['group_name', 'members']
+    fields = ['group_name', 'members', 'background_image', 'background_video']
     success_url = reverse_lazy('sharing:groups_list')
 
     def form_valid(self, form):
+        site_folder = StorageFolder.objects.create(
+            owner=self.request.user,
+            parent=None,
+            name=form.cleaned_data['group_name'],
+            description=f"Dokumentbibliothek fuer Team Site {form.cleaned_data['group_name']}",
+        )
+
         form.instance.owner = self.request.user
+        form.instance.content_type = ContentType.objects.get_for_model(StorageFolder)
+        form.instance.object_id = site_folder.id
+        form.instance.permission = 'admin'
+
+        response = super().form_valid(form)
+        self.object.members.add(self.request.user)
+        return response
+
+    def get_success_url(self):
+        return reverse_lazy('sharing:group_detail', kwargs={'group_id': self.object.id})
+
+
+class GroupDetailView(LoginRequiredMixin, DetailView):
+    """Detailed Team Site view."""
+    template_name = 'sharing/group_detail.html'
+    context_object_name = 'group'
+    pk_url_kwarg = 'group_id'
+    model = GroupShare
+
+    def get_queryset(self):
+        return GroupShare.objects.filter(
+            Q(owner=self.request.user) | Q(members=self.request.user)
+        ).distinct()
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        group = self.object
+        library = group.content_object if isinstance(group.content_object, StorageFolder) else None
+
+        context['library'] = library
+        context['library_files'] = library.files.order_by('-updated_at')[:8] if library else []
+        context['subfolders'] = library.subfolders.order_by('name')[:8] if library else []
+        context['site_news'] = group.news_items.filter(
+            is_published=True
+        ).filter(
+            Q(publish_at__isnull=True) | Q(publish_at__lte=timezone.now())
+        ).order_by('-is_pinned', '-publish_at', '-created_at')[:5]
+        context['background_image_url'] = group.background_image.url if group.background_image else ''
+        context['background_video_url'] = group.background_video.url if group.background_video else ''
+        context['can_manage_site'] = group.user_can_manage(self.request.user)
+        context['site_webparts'] = [
+            {'title': 'News', 'icon': 'bi-megaphone', 'description': 'Aktuelle Meldungen und Team-Updates.'},
+            {'title': 'Dokumentbibliothek', 'icon': 'bi-folder2-open', 'description': 'Dateien, Versionen und Ordner der Team Site.'},
+            {'title': 'Mitglieder', 'icon': 'bi-people', 'description': 'Owner, Team und Rollen im Bereich.'},
+            {'title': 'Schnelllinks', 'icon': 'bi-link-45deg', 'description': 'Wichtige Ziele fuer Projekte und Abteilungen.'},
+        ]
+        context['quick_links'] = [
+            {'label': 'Dateibibliothek oeffnen', 'url': reverse_lazy('storage:folder', kwargs={'folder_id': library.id}) if library else reverse_lazy('storage:file_list')},
+            {'label': 'Geteilte Inhalte', 'url': reverse_lazy('sharing:shared_with_me')},
+            {'label': 'MySite Hub', 'url': reverse_lazy('core:plugin_app', kwargs={'slug': 'mysite'})},
+        ]
+        return context
+
+
+class GroupUpdateView(LoginRequiredMixin, UpdateView):
+    """Edit Team Site metadata."""
+    model = GroupShare
+    template_name = 'sharing/group_edit.html'
+    fields = ['group_name', 'members', 'team_leaders', 'background_image', 'background_video']
+    pk_url_kwarg = 'group_id'
+
+    def get_queryset(self):
+        return GroupShare.objects.filter(
+            Q(owner=self.request.user) | Q(team_leaders=self.request.user)
+        ).distinct()
+
+    def get_success_url(self):
+        return reverse_lazy('sharing:group_detail', kwargs={'group_id': self.object.id})
+
+
+class TeamSiteManageMixin(LoginRequiredMixin):
+    def get_group(self):
+        group = get_object_or_404(
+            GroupShare.objects.filter(
+                Q(owner=self.request.user) | Q(team_leaders=self.request.user) | Q(members=self.request.user)
+            ).distinct(),
+            id=self.kwargs['group_id'],
+        )
+        return group
+
+    def dispatch(self, request, *args, **kwargs):
+        group = self.get_group()
+        if request.method.lower() in {'post', 'put', 'patch', 'delete'} or getattr(self, 'require_manage_access', False):
+            if not group.user_can_manage(request.user):
+                raise Http404('No access to manage this team site')
+        self.group = group
+        return super().dispatch(request, *args, **kwargs)
+
+
+class TeamSiteNewsListView(TeamSiteManageMixin, ListView):
+    template_name = 'sharing/team_news_list.html'
+    context_object_name = 'news_items'
+
+    def get_queryset(self):
+        queryset = self.group.news_items.all()
+        if not self.group.user_can_manage(self.request.user):
+            queryset = queryset.filter(is_published=True).filter(
+                Q(publish_at__isnull=True) | Q(publish_at__lte=timezone.now())
+            )
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['group'] = self.group
+        context['can_manage_site'] = self.group.user_can_manage(self.request.user)
+        return context
+
+
+class TeamSiteNewsDetailView(TeamSiteManageMixin, DetailView):
+    template_name = 'sharing/team_news_detail.html'
+    context_object_name = 'news'
+    pk_url_kwarg = 'news_id'
+    model = TeamSiteNews
+
+    def get_queryset(self):
+        queryset = TeamSiteNews.objects.filter(group=self.group)
+        if not self.group.user_can_manage(self.request.user):
+            queryset = queryset.filter(is_published=True).filter(
+                Q(publish_at__isnull=True) | Q(publish_at__lte=timezone.now())
+            )
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['group'] = self.group
+        context['can_manage_site'] = self.group.user_can_manage(self.request.user)
+        return context
+
+
+class TeamSiteNewsCreateView(TeamSiteManageMixin, CreateView):
+    template_name = 'sharing/team_news_form.html'
+    model = TeamSiteNews
+    form_class = TeamSiteNewsForm
+    require_manage_access = True
+
+    def form_valid(self, form):
+        form.instance.group = self.group
+        form.instance.author = self.request.user
         return super().form_valid(form)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['group'] = self.group
+        context['form_mode'] = 'create'
+        return context
+
+    def get_success_url(self):
+        return reverse_lazy('sharing:team_news_detail', kwargs={'group_id': self.group.id, 'news_id': self.object.id})
+
+
+class TeamSiteNewsUpdateView(TeamSiteManageMixin, UpdateView):
+    template_name = 'sharing/team_news_form.html'
+    model = TeamSiteNews
+    form_class = TeamSiteNewsForm
+    pk_url_kwarg = 'news_id'
+    require_manage_access = True
+
+    def get_queryset(self):
+        return TeamSiteNews.objects.filter(group=self.group)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['group'] = self.group
+        context['form_mode'] = 'edit'
+        return context
+
+    def get_success_url(self):
+        return reverse_lazy('sharing:team_news_detail', kwargs={'group_id': self.group.id, 'news_id': self.object.id})
 
 
 class GroupShareView(LoginRequiredMixin, CreateView):

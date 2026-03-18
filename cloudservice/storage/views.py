@@ -4,21 +4,97 @@ File and folder management UI views.
 """
 
 from django.views.generic import ListView, DetailView, CreateView, DeleteView, TemplateView, FormView
+from django.views import View
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import redirect, get_object_or_404
-from django.urls import reverse_lazy
-from django.http import FileResponse, JsonResponse
+from django.urls import reverse, reverse_lazy
+from django.http import FileResponse, JsonResponse, Http404, HttpResponse
 from django.db.models import Q, Sum
-from django.core.files.base import ContentFile
+from django.core.files.base import ContentFile, File
+from django.conf import settings
+from django.core import signing
+from django.core.cache import cache
 from django import forms
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.cache import never_cache
 
 from core.models import StorageFile, StorageFolder
 import logging
 import mimetypes
+import os
+from urllib.parse import quote
 
 logger = logging.getLogger(__name__)
 
+COLLABORA_EXTENSIONS = {
+    'doc', 'docx', 'odt', 'xls', 'xlsx', 'ods', 'ppt', 'pptx', 'odp',
+    'csv', 'txt', 'rtf',
+}
 
+
+def get_remaining_quota_bytes(user):
+    """Return the remaining quota in bytes for the given user."""
+    return user.profile.get_storage_remaining()
+
+
+def get_or_create_root_folder(user):
+    """Return the user's existing root folder, creating one if needed."""
+    root_folder = StorageFolder.objects.filter(owner=user, parent=None).first()
+    if root_folder:
+        return root_folder
+
+    return StorageFolder.objects.create(
+        owner=user,
+        parent=None,
+        name='Root',
+        description='Root folder',
+    )
+
+
+def ensure_quota_available(user, incoming_size):
+    """Raise ValueError if the incoming upload would exceed the user's quota."""
+    remaining_bytes = get_remaining_quota_bytes(user)
+    if incoming_size > remaining_bytes:
+        remaining_mb = remaining_bytes / (1024 * 1024)
+        required_mb = incoming_size / (1024 * 1024)
+        raise ValueError(
+            f'Speicherlimit erreicht. Frei: {remaining_mb:.2f} MB, benoetigt: {required_mb:.2f} MB.'
+        )
+
+
+def supports_collabora(file_obj):
+    extension = os.path.splitext(file_obj.name)[1].lstrip('.').lower()
+    return extension in COLLABORA_EXTENSIONS
+
+
+def build_collabora_token(user, file_obj):
+    return signing.dumps(
+        {
+            'user_id': user.id,
+            'file_id': file_obj.id,
+            'can_write': True,
+        },
+        salt='collabora-wopi',
+    )
+
+
+def parse_collabora_token(token, file_id):
+    payload = signing.loads(
+        token,
+        salt='collabora-wopi',
+        max_age=settings.COLLABORA_ACCESS_TOKEN_TTL,
+    )
+    if payload.get('file_id') != file_id:
+        raise signing.BadSignature('File mismatch')
+    return payload
+
+
+def get_wopi_lock_key(file_id):
+    return f'collabora:wopi-lock:{file_id}'
+
+
+@method_decorator(never_cache, name='dispatch')
 class FileListView(LoginRequiredMixin, ListView):
     """List files in root folder"""
     template_name = 'storage/file_list.html'
@@ -29,10 +105,7 @@ class FileListView(LoginRequiredMixin, ListView):
         """Get root folder files (excluding trashed)"""
         user = self.request.user
         try:
-            root_folder = StorageFolder.objects.filter(
-                owner=user,
-                parent=None
-            ).first()
+            root_folder = get_or_create_root_folder(user)
             if root_folder:
                 return StorageFile.objects.filter(folder=root_folder, is_trashed=False)
         except:
@@ -41,13 +114,20 @@ class FileListView(LoginRequiredMixin, ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        root_folder = get_or_create_root_folder(self.request.user)
         context['current_folder'] = None
+        context['subfolders'] = (
+            root_folder.subfolders.all()
+            if root_folder else StorageFolder.objects.none()
+        )
+        context['move_targets'] = StorageFolder.objects.filter(owner=self.request.user)
         return context
 
 
+@method_decorator(never_cache, name='dispatch')
 class FolderView(LoginRequiredMixin, TemplateView):
     """View folder contents"""
-    template_name = 'storage/folder_view.html'
+    template_name = 'storage/file_list.html'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -57,8 +137,10 @@ class FolderView(LoginRequiredMixin, TemplateView):
             owner=self.request.user
         )
         context['folder'] = folder
+        context['current_folder'] = folder
         context['subfolders'] = folder.subfolders.all()
-        context['files'] = folder.files.all()
+        context['files'] = folder.files.filter(is_trashed=False)
+        context['move_targets'] = StorageFolder.objects.filter(owner=self.request.user).exclude(id=folder.id)
         return context
 
 
@@ -146,6 +228,7 @@ class FileDetailView(LoginRequiredMixin, DetailView):
         context['plugins_left'] = []
         context['plugins_center'] = []
         context['plugins_right'] = []
+        context['single_plugin_preview'] = ''
 
         # Check for active plugins (.plug files)
         # These can be positioned on left, center, or right
@@ -153,19 +236,21 @@ class FileDetailView(LoginRequiredMixin, DetailView):
             from plugins.models import Plugin
 
             active_plugins = Plugin.objects.filter(enabled=True, status='active')
+            from plugins.hooks import hook_registry, FILE_PREVIEW_PROVIDER
+            handlers = hook_registry.get_handlers(FILE_PREVIEW_PROVIDER)
 
             for plugin in active_plugins:
                 try:
-                    # Load plugin preview for .plug files
-                    from plugins.hooks import hook_registry, FILE_PREVIEW_PROVIDER
-
-                    handlers = hook_registry.get_handlers(
-                        FILE_PREVIEW_PROVIDER,
-                        plugin_type='file_preview'
+                    matching_handler = next(
+                        (
+                            handler for handler in handlers
+                            if plugin.module_name and handler.__module__.startswith(f'{plugin.module_name}.')
+                        ),
+                        None,
                     )
 
-                    if handlers:
-                        provider = handlers[0]()
+                    if matching_handler:
+                        provider = matching_handler()
                         if provider.can_preview(file_obj):
                             plugin_html = provider.get_preview_html(file_obj)
                             plugin_data = {
@@ -189,6 +274,10 @@ class FileDetailView(LoginRequiredMixin, DetailView):
             logger.warning(f"[FileDetailView] Could not load plugins: {e}")
 
         # Determine if we can preview this file (standard types OR plugins)
+        all_plugins = context['plugins_left'] + context['plugins_center'] + context['plugins_right']
+        if len(all_plugins) == 1:
+            context['single_plugin_preview'] = all_plugins[0]['html']
+
         standard_previewable = any([
             context['is_image'], context['is_video'], context['is_audio'],
             context['is_pdf'], context['is_text'],
@@ -198,6 +287,26 @@ class FileDetailView(LoginRequiredMixin, DetailView):
         context['can_preview'] = standard_previewable or has_plugins
 
         return context
+
+
+class CollaboraOfficeView(LoginRequiredMixin, View):
+    """Redirect authenticated users into the Collabora editor for a file."""
+
+    def get(self, request, file_id, *args, **kwargs):
+        file_obj = get_object_or_404(StorageFile, id=file_id, owner=request.user)
+        if not supports_collabora(file_obj):
+            raise Http404("File type is not supported by Collabora")
+
+        token = build_collabora_token(request.user, file_obj)
+        wopi_src = quote(
+            f"{settings.CLOUDSERVICE_EXTERNAL_URL.rstrip('/')}{reverse('storage:wopi_file', kwargs={'file_id': file_obj.id})}",
+            safe='',
+        )
+        collabora_url = (
+            f"{settings.COLLABORA_BASE_URL.rstrip('/')}/browser/dist/cool.html"
+            f"?WOPISrc={wopi_src}&access_token={quote(token, safe='')}&lang=de"
+        )
+        return redirect(collabora_url)
 
 
 class CreateFileForm(forms.Form):
@@ -225,17 +334,14 @@ class CreateFileView(LoginRequiredMixin, FormView):
         """Create file with content"""
         try:
             # Get or create root folder
-            root_folder, _ = StorageFolder.objects.get_or_create(
-                owner=self.request.user,
-                parent=None,
-                defaults={'name': 'Root', 'description': 'Root folder'}
-            )
+            root_folder = get_or_create_root_folder(self.request.user)
 
             filename = form.cleaned_data['filename']
             content = form.cleaned_data.get('content', '')
 
             # Create file content
             file_content = ContentFile(content.encode('utf-8'))
+            ensure_quota_available(self.request.user, file_content.size)
 
             # Detect MIME type
             mime_type, _ = mimetypes.guess_type(filename)
@@ -282,14 +388,11 @@ class FileUploadView(LoginRequiredMixin, CreateView):
         if request.FILES.get('file'):
             try:
                 # Get or create root folder
-                root_folder, _ = StorageFolder.objects.get_or_create(
-                    owner=request.user,
-                    parent=None,
-                    defaults={'name': 'Root', 'description': 'Root folder'}
-                )
+                root_folder = get_or_create_root_folder(request.user)
 
                 # Get uploaded file
                 uploaded_file = request.FILES['file']
+                ensure_quota_available(request.user, uploaded_file.size)
 
                 # Create file object
                 storage_file = StorageFile(
@@ -327,6 +430,124 @@ class FileUploadView(LoginRequiredMixin, CreateView):
         return reverse_lazy('storage:file_list')
 
 
+class ChunkUploadView(LoginRequiredMixin, CreateView):
+    """Chunked file upload endpoint for large files (bypasses Cloudflare 100MB limit)"""
+
+    def post(self, request, *args, **kwargs):
+        upload_id = request.POST.get('upload_id')
+        chunk_index = request.POST.get('chunk_index')
+        total_chunks = request.POST.get('total_chunks')
+        filename = request.POST.get('filename')
+        total_size = request.POST.get('total_size')
+        folder_id = request.POST.get('folder_id')
+        chunk_file = request.FILES.get('chunk')
+
+        if not all([upload_id, total_chunks, filename, chunk_file]) or chunk_index is None:
+            return JsonResponse({'success': False, 'error': 'Missing parameters'}, status=400)
+
+        try:
+            chunk_index = int(chunk_index)
+            total_chunks = int(total_chunks)
+            total_size = int(total_size) if total_size is not None else None
+
+            if total_size is not None:
+                ensure_quota_available(request.user, total_size)
+
+            # Save chunk to temp directory
+            tmp_dir = os.path.join(settings.MEDIA_ROOT, 'tmp_chunks', upload_id)
+            os.makedirs(tmp_dir, exist_ok=True)
+            chunk_path = os.path.join(tmp_dir, f'chunk_{chunk_index:06d}')
+
+            with open(chunk_path, 'wb') as f:
+                for data in chunk_file.chunks():
+                    f.write(data)
+
+            # Check if all chunks are present
+            received = len([
+                name for name in os.listdir(tmp_dir)
+                if name.startswith('chunk_')
+            ])
+
+            if received < total_chunks:
+                return JsonResponse({
+                    'success': True,
+                    'complete': False,
+                    'received': received,
+                    'total': total_chunks
+                })
+
+            # All chunks received — assemble directly into MEDIA_ROOT (no double-copy)
+            import shutil
+            from django.utils import timezone
+            from django.db.models import Model as DjangoModel
+
+            target_folder = None
+            if folder_id:
+                target_folder = StorageFolder.objects.filter(
+                    id=folder_id,
+                    owner=request.user,
+                ).first()
+            if target_folder is None:
+                target_folder = get_or_create_root_folder(request.user)
+
+            # Build the target path matching upload_to='files/%Y/%m/%d/%H%M%S'
+            now = timezone.now()
+            upload_subdir = now.strftime('files/%Y/%m/%d/%H%M%S')
+            media_dir = os.path.join(settings.MEDIA_ROOT, upload_subdir)
+            os.makedirs(media_dir, exist_ok=True)
+            final_path = os.path.join(media_dir, filename)
+
+            # Concatenate chunks in order using a large buffer for speed
+            with open(final_path, 'wb') as outfile:
+                for i in range(total_chunks):
+                    part = os.path.join(tmp_dir, f'chunk_{i:06d}')
+                    with open(part, 'rb') as infile:
+                        shutil.copyfileobj(infile, outfile, length=8 * 1024 * 1024)
+
+            file_size = os.path.getsize(final_path)
+            ensure_quota_available(request.user, file_size)
+            mime_type, _ = mimetypes.guess_type(filename)
+            if not mime_type:
+                mime_type = 'application/octet-stream'
+
+            # Create StorageFile pointing to the assembled file without re-reading it
+            # Use DjangoModel.save() to bypass the custom save() which would re-hash the file
+            storage_file = StorageFile(
+                owner=request.user,
+                folder=target_folder,
+                name=filename,
+                size=file_size,
+                mime_type=mime_type,
+                file_hash=f'chunked-{upload_id[:32]}',  # skip slow SHA256 for large files
+            )
+            storage_file.file.name = f'{upload_subdir}/{filename}'
+            DjangoModel.save(storage_file)  # bypass custom save() — hash already set
+
+            # Clean up temp dir in background so we can respond immediately
+            import threading
+            threading.Thread(
+                target=shutil.rmtree, args=(tmp_dir,), kwargs={'ignore_errors': True}
+            ).start()
+
+            logger.info(f"Chunked upload complete: {filename} ({file_size} bytes) by {request.user.username}")
+
+            return JsonResponse({
+                'success': True,
+                'complete': True,
+                'file_id': storage_file.id,
+                'file_name': storage_file.name,
+                'file_size': storage_file.size,
+            })
+
+        except Exception as e:
+            if 'tmp_dir' in locals():
+                import shutil
+                shutil.rmtree(tmp_dir, ignore_errors=True)
+            logger.error(f"Chunk upload error: {e}", exc_info=True)
+            status_code = 400 if isinstance(e, ValueError) else 500
+            return JsonResponse({'success': False, 'error': str(e)}, status=status_code)
+
+
 class FileDownloadView(LoginRequiredMixin, DetailView):
     """Download file"""
     model = StorageFile
@@ -345,6 +566,163 @@ class FileDownloadView(LoginRequiredMixin, DetailView):
         )
         response['Content-Disposition'] = f'attachment; filename="{file_obj.name}"'
         return response
+
+
+class FilePreviewView(LoginRequiredMixin, View):
+    """Serve files inline for authenticated previews."""
+
+    def get(self, request, file_id, *args, **kwargs):
+        file_obj = get_object_or_404(StorageFile, id=file_id, owner=request.user)
+
+        if not file_obj.file or not file_obj.file.name:
+            raise Http404("No file attached")
+
+        if not file_obj.file.storage.exists(file_obj.file.name):
+            raise Http404("Stored file is missing")
+
+        content_type = file_obj.mime_type or mimetypes.guess_type(file_obj.name)[0] or 'application/octet-stream'
+        range_header = request.headers.get('Range')
+        file_handle = file_obj.file.open('rb')
+        file_size = file_obj.file.size
+
+        if range_header:
+            start_str, end_str = range_header.removeprefix('bytes=').split('-', 1)
+            start = int(start_str) if start_str else 0
+            end = int(end_str) if end_str else file_size - 1
+            end = min(end, file_size - 1)
+
+            if start > end or start >= file_size:
+                file_handle.close()
+                response = HttpResponse(status=416)
+                response['Content-Range'] = f'bytes */{file_size}'
+                return response
+
+            file_handle.seek(start)
+            response = HttpResponse(
+                file_handle.read(end - start + 1),
+                status=206,
+                content_type=content_type,
+            )
+            response['Content-Range'] = f'bytes {start}-{end}/{file_size}'
+            response['Content-Length'] = str(end - start + 1)
+        else:
+            response = FileResponse(
+                file_handle,
+                as_attachment=False,
+                content_type=content_type,
+            )
+            response['Content-Length'] = str(file_size)
+
+        response['Accept-Ranges'] = 'bytes'
+        response['Content-Disposition'] = f'inline; filename="{file_obj.name}"'
+        return response
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class WopiFileView(View):
+    """WOPI file metadata and lock endpoint for Collabora."""
+
+    def get_file(self, file_id):
+        file_id = int(file_id)
+        return get_object_or_404(StorageFile, id=file_id)
+
+    def get_payload(self, request, file_id):
+        file_id = int(file_id)
+        token = request.GET.get('access_token') or request.POST.get('access_token')
+        if not token:
+            raise Http404("Missing access token")
+        return parse_collabora_token(token, file_id)
+
+    def get(self, request, file_id, *args, **kwargs):
+        file_obj = self.get_file(file_id)
+        payload = self.get_payload(request, file_id)
+
+        return JsonResponse({
+            'BaseFileName': file_obj.name,
+            'OwnerId': str(file_obj.owner_id),
+            'Size': file_obj.size,
+            'UserId': str(payload['user_id']),
+            'UserFriendlyName': file_obj.owner.username,
+            'Version': str(file_obj.updated_at.timestamp()),
+            'UserCanWrite': bool(payload.get('can_write')),
+            'SupportsUpdate': True,
+            'SupportsLocks': True,
+        })
+
+    def post(self, request, file_id, *args, **kwargs):
+        self.get_payload(request, file_id)
+        lock_key = get_wopi_lock_key(file_id)
+        override = request.headers.get('X-WOPI-Override', '').upper()
+        requested_lock = request.headers.get('X-WOPI-Lock', '')
+        current_lock = cache.get(lock_key)
+
+        if override == 'LOCK':
+            if current_lock and current_lock != requested_lock:
+                response = HttpResponse(status=409)
+                response['X-WOPI-Lock'] = current_lock
+                return response
+            cache.set(lock_key, requested_lock, timeout=settings.COLLABORA_ACCESS_TOKEN_TTL)
+            return HttpResponse(status=200)
+
+        if override == 'REFRESH_LOCK':
+            if current_lock != requested_lock:
+                response = HttpResponse(status=409)
+                response['X-WOPI-Lock'] = current_lock or ''
+                return response
+            cache.set(lock_key, requested_lock, timeout=settings.COLLABORA_ACCESS_TOKEN_TTL)
+            return HttpResponse(status=200)
+
+        if override == 'UNLOCK':
+            if current_lock != requested_lock:
+                response = HttpResponse(status=409)
+                response['X-WOPI-Lock'] = current_lock or ''
+                return response
+            cache.delete(lock_key)
+            return HttpResponse(status=200)
+
+        if override == 'GET_LOCK':
+            response = HttpResponse(status=200)
+            response['X-WOPI-Lock'] = current_lock or ''
+            return response
+
+        return HttpResponse(status=200)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class WopiFileContentsView(View):
+    """WOPI file contents endpoint for Collabora."""
+
+    def get_file(self, file_id):
+        file_id = int(file_id)
+        return get_object_or_404(StorageFile, id=file_id)
+
+    def get_payload(self, request, file_id):
+        file_id = int(file_id)
+        token = request.GET.get('access_token') or request.POST.get('access_token')
+        if not token:
+            raise Http404("Missing access token")
+        return parse_collabora_token(token, file_id)
+
+    def get(self, request, file_id, *args, **kwargs):
+        file_obj = self.get_file(file_id)
+        self.get_payload(request, file_id)
+        return FileResponse(file_obj.file.open('rb'), as_attachment=False, content_type=file_obj.mime_type or 'application/octet-stream')
+
+    def post(self, request, file_id, *args, **kwargs):
+        file_obj = self.get_file(file_id)
+        payload = self.get_payload(request, file_id)
+        if not payload.get('can_write'):
+            return HttpResponse(status=403)
+
+        override = request.headers.get('X-WOPI-Override', '').upper()
+        if override != 'PUT':
+            return HttpResponse(status=200)
+
+        uploaded_content = request.body
+        file_obj.file.save(file_obj.name, ContentFile(uploaded_content), save=False)
+        file_obj.file_hash = ''
+        file_obj.save()
+        return HttpResponse(status=200)
 
 
 class FileRenameView(LoginRequiredMixin, DetailView):
@@ -387,6 +765,9 @@ class FileMoveView(LoginRequiredMixin, DetailView):
         file_obj.folder = new_folder
         file_obj.save()
 
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': True, 'folder_id': new_folder.id, 'folder_name': new_folder.name})
+
         return JsonResponse({'success': True})
 
 
@@ -421,11 +802,7 @@ class FolderCreateView(LoginRequiredMixin, CreateView):
 
     def form_valid(self, form):
         # Get or create root folder
-        root_folder, _ = StorageFolder.objects.get_or_create(
-            owner=self.request.user,
-            parent=None,
-            defaults={'name': 'Root', 'description': 'Root folder'}
-        )
+        root_folder = get_or_create_root_folder(self.request.user)
 
         form.instance.owner = self.request.user
         form.instance.parent = root_folder
@@ -455,6 +832,32 @@ class FolderDeleteView(LoginRequiredMixin, DeleteView):
 
     def get_queryset(self):
         return StorageFolder.objects.filter(owner=self.request.user)
+
+    def post(self, request, *args, **kwargs):
+        folder = self.get_object()
+
+        if folder.parent is None:
+            message = 'Der Root-Ordner kann nicht gelöscht werden.'
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'error': message}, status=400)
+
+            from django.contrib import messages
+            messages.error(request, message)
+            return redirect('storage:file_list')
+
+        folder_name = folder.name
+        folder.delete()
+
+        from django.contrib import messages
+        messages.success(request, f'Ordner "{folder_name}" gelöscht.')
+
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': True, 'message': f'Ordner "{folder_name}" gelöscht.'})
+
+        return redirect(self.success_url)
+
+    def get(self, request, *args, **kwargs):
+        return self.post(request, *args, **kwargs)
 
 
 class FileVersionsView(LoginRequiredMixin, ListView):
@@ -604,15 +1007,6 @@ class EmptyTrashView(LoginRequiredMixin, TemplateView):
         messages.success(request, f'{count} Datei(en) endgültig gelöscht.')
 
         return redirect('storage:trash')
-
-    def post(self, request, *args, **kwargs):
-        from storage.models import TrashBin
-        trash_item = get_object_or_404(TrashBin, id=self.kwargs.get('trash_id'), user=request.user)
-        # Permanently delete the file
-        if trash_item.file:
-            trash_item.file.file.delete()
-        trash_item.delete()
-        return JsonResponse({'success': True})
 
 
 class SearchView(LoginRequiredMixin, ListView):

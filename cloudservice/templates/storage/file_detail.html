@@ -25,7 +25,7 @@
                     <tr><td><strong>Name:</strong></td><td>{{ file.name }}</td></tr>
                     <tr><td><strong>MIME-Type:</strong></td><td>{{ file.mime_type|default:"(nicht gesetzt)" }}</td></tr>
                     <tr><td><strong>Datei vorhanden:</strong></td><td>{% if file.file %}Ja{% else %}Nein{% endif %}</td></tr>
-                    <tr><td><strong>Datei-URL:</strong></td><td>{% if file.file %}<a href="{{ file.file.url }}" target="_blank">{{ file.file.url }}</a>{% else %}(keine){% endif %}</td></tr>
+                    <tr><td><strong>Datei-URL:</strong></td><td>{% if file.file %}<a href="{% url 'storage:preview' file_id=file.id %}" target="_blank">{% url 'storage:preview' file_id=file.id %}</a>{% else %}(keine){% endif %}</td></tr>
                     <tr><td><strong>Datei-Pfad:</strong></td><td>{% if file.file %}{{ file.file.path }}{% else %}(keine){% endif %}</td></tr>
                     <tr><td><strong>is_image:</strong></td><td>{{ is_image }}</td></tr>
                     <tr><td><strong>is_video:</strong></td><td>{{ is_video }}</td></tr>
@@ -48,7 +48,7 @@
     </div>
 
     <div class="row">
-        <div class="col-md-8">
+        <div class="{% if plugins_left or plugins_center or plugins_right %}col-md-12{% else %}col-md-8{% endif %}">
             <div class="card mb-4">
                 <div class="card-header">
                     <h5 class="mb-0">📄 Dateivorschau</h5>
@@ -59,7 +59,7 @@
                             <!-- Image preview -->
                             <div class="text-center">
                                 {% if file.file %}
-                                <img src="{{ file.file.url }}" class="img-fluid rounded shadow-sm"
+                                <img src="{% url 'storage:preview' file_id=file.id %}" class="img-fluid rounded shadow-sm"
                                      style="max-height: 600px; object-fit: contain;"
                                      alt="{{ file.name }}"
                                      id="previewImage"
@@ -68,9 +68,9 @@
                                 <div id="imageError" class="alert alert-warning mt-3" style="display: none;">
                                     <i class="bi bi-exclamation-triangle me-2"></i>
                                     Bild konnte nicht geladen werden.
-                                    <br><small class="text-muted">URL: {{ file.file.url }}</small>
+                                    <br><small class="text-muted">URL: {% url 'storage:preview' file_id=file.id %}</small>
                                     <br>
-                                    <a href="{{ file.file.url }}" target="_blank" class="btn btn-sm btn-outline-primary mt-2">
+                                    <a href="{% url 'storage:preview' file_id=file.id %}" target="_blank" class="btn btn-sm btn-outline-primary mt-2">
                                         <i class="bi bi-box-arrow-up-right"></i> Direkt öffnen
                                     </a>
                                 </div>
@@ -88,9 +88,9 @@
                                 {% if file.file %}
                                 <video controls class="w-100 rounded shadow-sm" style="max-height: 600px;"
                                        onerror="document.getElementById('videoError').style.display='block'; this.style.display='none';">
-                                    <source src="{{ file.file.url }}" type="{{ file.mime_type|default:'video/mp4' }}">
-                                    <source src="{{ file.file.url }}" type="video/mp4">
-                                    <source src="{{ file.file.url }}" type="video/webm">
+                                    <source src="{% url 'storage:preview' file_id=file.id %}" type="{{ file.mime_type|default:'video/mp4' }}">
+                                    <source src="{% url 'storage:preview' file_id=file.id %}" type="video/mp4">
+                                    <source src="{% url 'storage:preview' file_id=file.id %}" type="video/webm">
                                 </video>
                                 <div id="videoError" class="alert alert-warning mt-3" style="display: none;">
                                     <i class="bi bi-exclamation-triangle me-2"></i>
@@ -121,10 +121,10 @@
                                 <h5 class="mb-3">{{ file.name }}</h5>
                                 <audio controls class="w-100" style="max-width: 500px;"
                                        onerror="document.getElementById('audioError').style.display='block'; this.style.display='none';">
-                                    <source src="{{ file.file.url }}" type="{{ file.mime_type|default:'audio/mpeg' }}">
-                                    <source src="{{ file.file.url }}" type="audio/mpeg">
-                                    <source src="{{ file.file.url }}" type="audio/wav">
-                                    <source src="{{ file.file.url }}" type="audio/ogg">
+                                    <source src="{% url 'storage:preview' file_id=file.id %}" type="{{ file.mime_type|default:'audio/mpeg' }}">
+                                    <source src="{% url 'storage:preview' file_id=file.id %}" type="audio/mpeg">
+                                    <source src="{% url 'storage:preview' file_id=file.id %}" type="audio/wav">
+                                    <source src="{% url 'storage:preview' file_id=file.id %}" type="audio/ogg">
                                 </audio>
                                 <div id="audioError" class="alert alert-warning mt-3" style="display: none;">
                                     <i class="bi bi-exclamation-triangle me-2"></i>
@@ -147,7 +147,52 @@
                             <div class="alert alert-info">
                                 PDF-Datei: <strong>{{ file.name }}</strong>
                             </div>
-                            <iframe src="{{ file.file.url }}" width="100%" height="600" frameborder="0"></iframe>
+                            <iframe src="{% url 'storage:preview' file_id=file.id %}" width="100%" height="600" frameborder="0"></iframe>
+
+                        {% elif single_plugin_preview %}
+                            <div class="plugin-fullwidth" style="width: 100%; min-height: 85vh;">
+                                {{ single_plugin_preview|safe }}
+                            </div>
+
+                        {% elif plugins_left or plugins_center or plugins_right %}
+                            <!-- Plugin layout: Left | Center | Right -->
+                            <div class="plugin-layout" style="display: grid; grid-template-columns: {% if plugins_left and plugins_right %}1fr 2fr 1fr{% elif plugins_left or plugins_right %}1fr 2fr{% else %}1fr{% endif %}; gap: 20px; min-height: 400px;">
+
+                                <!-- LEFT PLUGINS (vertical stack) -->
+                                {% if plugins_left %}
+                                    <div class="plugins-left" style="display: flex; flex-direction: column; gap: 15px;">
+                                        {% for plugin in plugins_left %}
+                                            <div class="plugin-item" style="padding: 15px; background-color: white; border: 1px solid #ddd; border-radius: 5px; overflow: auto;">
+                                                <small class="text-muted">📦 {{ plugin.name }}</small>
+                                                {{ plugin.html|safe }}
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+
+                                <!-- CENTER PLUGINS (horizontal then vertical) -->
+                                <div class="plugins-center" style="display: flex; flex-direction: column; gap: 15px; min-width: 0;">
+                                    {% for plugin in plugins_center %}
+                                        <div class="plugin-item" style="padding: 15px; background-color: white; border: 1px solid #ddd; border-radius: 5px; overflow: auto;">
+                                            <small class="text-muted">📦 {{ plugin.name }}</small>
+                                            {{ plugin.html|safe }}
+                                        </div>
+                                    {% endfor %}
+                                </div>
+
+                                <!-- RIGHT PLUGINS (vertical stack) -->
+                                {% if plugins_right %}
+                                    <div class="plugins-right" style="display: flex; flex-direction: column; gap: 15px;">
+                                        {% for plugin in plugins_right %}
+                                            <div class="plugin-item" style="padding: 15px; background-color: white; border: 1px solid #ddd; border-radius: 5px; overflow: auto;">
+                                                <small class="text-muted">📦 {{ plugin.name }}</small>
+                                                {{ plugin.html|safe }}
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+
+                            </div>
 
                         {% elif is_word %}
                             <!-- Word document preview -->
@@ -209,42 +254,6 @@
                             <!-- Text preview -->
                             <pre style="max-height: 500px; overflow-y: auto; background-color: #f5f5f5; padding: 15px; border-radius: 5px;"><code id="textPreview">Laden...</code></pre>
 
-                        {% elif plugins_left or plugins_center or plugins_right %}
-                            <!-- Plugin layout: Left | Center | Right -->
-                            <div class="plugin-layout" style="display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 20px; min-height: 400px;">
-
-                                <!-- LEFT PLUGINS (vertical stack) -->
-                                <div class="plugins-left" style="display: flex; flex-direction: column; gap: 15px;">
-                                    {% for plugin in plugins_left %}
-                                        <div class="plugin-item" style="padding: 15px; background-color: white; border: 1px solid #ddd; border-radius: 5px; overflow: auto;">
-                                            <small class="text-muted">📦 {{ plugin.name }}</small>
-                                            {{ plugin.html|safe }}
-                                        </div>
-                                    {% endfor %}
-                                </div>
-
-                                <!-- CENTER PLUGINS (horizontal then vertical) -->
-                                <div class="plugins-center" style="display: flex; flex-direction: column; gap: 15px;">
-                                    {% for plugin in plugins_center %}
-                                        <div class="plugin-item" style="padding: 15px; background-color: white; border: 1px solid #ddd; border-radius: 5px; overflow: auto;">
-                                            <small class="text-muted">📦 {{ plugin.name }}</small>
-                                            {{ plugin.html|safe }}
-                                        </div>
-                                    {% endfor %}
-                                </div>
-
-                                <!-- RIGHT PLUGINS (vertical stack) -->
-                                <div class="plugins-right" style="display: flex; flex-direction: column; gap: 15px;">
-                                    {% for plugin in plugins_right %}
-                                        <div class="plugin-item" style="padding: 15px; background-color: white; border: 1px solid #ddd; border-radius: 5px; overflow: auto;">
-                                            <small class="text-muted">📦 {{ plugin.name }}</small>
-                                            {{ plugin.html|safe }}
-                                        </div>
-                                    {% endfor %}
-                                </div>
-
-                            </div>
-
                         {% else %}
                             <!-- Other previewable files -->
                             <div class="alert alert-info">
@@ -276,7 +285,7 @@
             </div>
         </div>
 
-        <div class="col-md-4">
+        <div class="{% if plugins_left or plugins_center or plugins_right %}col-md-12{% else %}col-md-4{% endif %}">
             <div class="card mb-4">
                 <div class="card-header">
                     <h5 class="mb-0">📋 Details</h5>
@@ -320,23 +329,25 @@
                     <h5 class="mb-0">⚙️ Aktionen</h5>
                 </div>
                 <div class="card-body">
-                    <a href="/storage/file/{{ file.id }}/download/" class="btn btn-primary w-100 mb-2">
-                        📥 Download
-                    </a>
-                    {% if is_word or is_excel %}
-                    <button class="btn btn-warning w-100 mb-2" onclick="downloadForEdit({{ file.id }}, '{{ file.name }}')">
-                        ✏️ In Programm bearbeiten
-                    </button>
-                    {% endif %}
-                    <a href="/storage/file/{{ file.id }}/versions/" class="btn btn-outline-primary w-100 mb-2">
-                        📜 Versionen
-                    </a>
-                    <button class="btn btn-outline-secondary w-100 mb-2" data-bs-toggle="modal" data-bs-target="#shareModal">
-                        <i class="bi bi-share"></i> Teilen
-                    </button>
-                    <button class="btn btn-outline-danger w-100" onclick="if(confirm('Diese Datei wirklich löschen?')) window.location.href='/storage/file/{{ file.id }}/delete/'">
-                        🗑️ Löschen
-                    </button>
+                    <div class="{% if plugins_left or plugins_center or plugins_right %}d-flex flex-wrap gap-2{% endif %}">
+                        <a href="/storage/file/{{ file.id }}/download/" class="btn btn-primary {% if not plugins_left and not plugins_center and not plugins_right %}w-100 mb-2{% endif %}">
+                            📥 Download
+                        </a>
+                        {% if is_word or is_excel or is_ppt or plugins_left or plugins_center or plugins_right %}
+                        <a href="/storage/file/{{ file.id }}/office/" class="btn btn-warning {% if not plugins_left and not plugins_center and not plugins_right %}w-100 mb-2{% endif %}" target="_blank" rel="noopener">
+                            ✏️ Im Office bearbeiten
+                        </a>
+                        {% endif %}
+                        <a href="/storage/file/{{ file.id }}/versions/" class="btn btn-outline-primary {% if not plugins_left and not plugins_center and not plugins_right %}w-100 mb-2{% endif %}">
+                            📜 Versionen
+                        </a>
+                        <button class="btn btn-outline-secondary {% if not plugins_left and not plugins_center and not plugins_right %}w-100 mb-2{% endif %}" data-bs-toggle="modal" data-bs-target="#shareModal">
+                            <i class="bi bi-share"></i> Teilen
+                        </button>
+                        <button class="btn btn-outline-danger {% if not plugins_left and not plugins_center and not plugins_right %}w-100{% endif %}" onclick="if(confirm('Diese Datei wirklich löschen?')) window.location.href='/storage/file/{{ file.id }}/delete/'">
+                            🗑️ Löschen
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -445,7 +456,7 @@ function downloadForEdit(fileId, fileName) {
 <script>
 // Load text file preview
 document.addEventListener('DOMContentLoaded', function() {
-    const fileUrl = '{{ file.file.url }}';
+    const fileUrl = '{% url 'storage:preview' file_id=file.id %}';
     const previewElement = document.getElementById('textPreview');
 
     fetch(fileUrl)
@@ -477,7 +488,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <script>
 // Wait for docx library to load
 function loadWordPreview() {
-    const fileUrl = '{{ file.file.url }}';
+    const fileUrl = '{% url 'storage:preview' file_id=file.id %}';
     const previewElement = document.getElementById('wordPreview');
     const startTime = Date.now();
     const timeoutMs = 30000; // 30 second timeout
@@ -531,7 +542,7 @@ document.addEventListener('DOMContentLoaded', loadWordPreview);
 <script>
 // Wait for XLSX library to load
 function loadExcelPreview() {
-    const fileUrl = '{{ file.file.url }}';
+    const fileUrl = '{% url 'storage:preview' file_id=file.id %}';
     const previewElement = document.getElementById('excelPreview');
     const startTime = Date.now();
     const timeoutMs = 30000; // 30 second timeout

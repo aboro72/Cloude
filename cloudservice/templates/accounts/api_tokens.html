@@ -4,20 +4,65 @@
 
 {% block content %}
 <div class="container">
-    <div class="row mb-4">
-        <div class="col-md-8">
-            <h2>🔑 API Tokens</h2>
-        </div>
-        <div class="col-md-4 text-end">
-            <button class="btn btn-primary">+ Neuer Token</button>
-        </div>
-    </div>
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0"><i class="bi bi-key me-2"></i>API Tokens</h4>
+                    <button class="btn btn-primary" type="button" disabled>Neuer Token</button>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">
+                        Diese Seite ist jetzt als echter Verwaltungsbereich vorbereitet. Der naechste Ausbauschritt ist die sichere Erzeugung,
+                        Anzeige nur beim Erstellen, Ablaufdatum und das Widerrufen einzelner Tokens.
+                    </p>
 
-    <div class="card">
-        <div class="card-body">
-            <p class="text-muted text-center py-5">
-                🚧 API Tokens werden noch entwickelt.
-            </p>
+                    <div class="table-responsive">
+                        <table class="table align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Status</th>
+                                    <th>Scopes</th>
+                                    <th>Letzte Nutzung</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for token in tokens %}
+                                    <tr>
+                                        <td>{{ token.name }}</td>
+                                        <td><span class="badge bg-success">Aktiv</span></td>
+                                        <td>{{ token.scopes|default:"Standard" }}</td>
+                                        <td>{{ token.last_used|default:"Noch nie" }}</td>
+                                    </tr>
+                                {% empty %}
+                                    <tr>
+                                        <td colspan="4" class="text-center text-muted py-4">
+                                            Noch keine API Tokens vorhanden.
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="alert alert-info mb-0">
+                        Empfohlener Ausbau: Tokenname, Scopes, Ablaufdatum und sofortiges Deaktivieren.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Verwendung</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">Typische Nutzung fuer Integrationen, Automatisierung und externe Anwendungen.</p>
+                    <code>Authorization: Bearer &lt;token&gt;</code>
+                </div>
+            </div>
         </div>
     </div>
 </div>

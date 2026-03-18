@@ -10,6 +10,7 @@ app_name = 'core'
 urlpatterns = [
     path('', views.dashboard, name='dashboard'),
     path('landing/', views.landing, name='landing'),
+    path('apps/<slug:slug>/', views.plugin_app, name='plugin_app'),
     path('activity/', views.activity_log, name='activity_log'),
     path('search/', views.search, name='search'),
     path('settings/', views.settings, name='settings'),

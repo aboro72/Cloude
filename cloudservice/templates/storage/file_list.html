@@ -62,6 +62,30 @@
                             </tr>
                         </thead>
                         <tbody>
+                            {% if subfolders %}
+                                {% for folder in subfolders %}
+                                    <tr>
+                                        <td>
+                                            <i class="bi bi-folder-fill text-warning"></i>
+                                            <a href="{% url 'storage:folder' folder_id=folder.id %}">{{ folder.name }}</a>
+                                        </td>
+                                        <td>Ordner</td>
+                                        <td>{{ folder.updated_at|date:"d.m.Y H:i" }}</td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm">
+                                                <a href="{% url 'storage:folder' folder_id=folder.id %}" class="btn btn-outline-primary" title="Öffnen">
+                                                    <i class="bi bi-folder2-open"></i>
+                                                </a>
+                                                <button class="btn btn-outline-danger" title="Ordner löschen"
+                                                        onclick="deleteFolder({{ folder.id }}, '{{ folder.name|escapejs }}')">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            {% endif %}
+
                             {% if files %}
                                 {% for file in files %}
                                     <tr>
@@ -82,12 +106,44 @@
                                                 <a href="/storage/file/{{ file.id }}/download/" class="btn btn-outline-primary" title="Download">
                                                     <i class="bi bi-download"></i>
                                                 </a>
+                                                <button class="btn btn-outline-warning" title="Verschieben" data-bs-toggle="modal" data-bs-target="#moveModal{{ file.id }}">
+                                                    <i class="bi bi-folder-symlink"></i>
+                                                </button>
                                                 <button class="btn btn-outline-secondary" title="Teilen" data-bs-toggle="modal" data-bs-target="#shareModal{{ file.id }}">
                                                     <i class="bi bi-share"></i>
                                                 </button>
                                                 <button class="btn btn-outline-danger" title="Löschen" onclick="deleteFile({{ file.id }})">
                                                     <i class="bi bi-trash"></i>
                                                 </button>
+                                            </div>
+
+                                            <div class="modal fade" id="moveModal{{ file.id }}" tabindex="-1">
+                                                <div class="modal-dialog modal-sm">
+                                                    <div class="modal-content">
+                                                        <div class="modal-header">
+                                                            <h6 class="modal-title"><i class="bi bi-folder-symlink me-1"></i> Datei verschieben</h6>
+                                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                        </div>
+                                                        <div class="modal-body">
+                                                            <p class="small text-muted mb-3">{{ file.name|truncatechars:30 }}</p>
+                                                            <div class="mb-3">
+                                                                <label for="moveFolder{{ file.id }}" class="form-label">Zielordner</label>
+                                                                <select class="form-select" id="moveFolder{{ file.id }}">
+                                                                    {% for folder in move_targets %}
+                                                                        <option value="{{ folder.id }}" {% if folder.id == file.folder_id %}selected{% endif %}>
+                                                                            {{ folder.get_path }}
+                                                                        </option>
+                                                                    {% endfor %}
+                                                                </select>
+                                                            </div>
+                                                            <div id="moveError{{ file.id }}" class="alert alert-danger py-2 mb-0" style="display:none;"></div>
+                                                        </div>
+                                                        <div class="modal-footer">
+                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                                                            <button type="button" class="btn btn-primary" onclick="moveFile({{ file.id }})">Verschieben</button>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
 
                                             <!-- Share Modal for this file -->
@@ -115,10 +171,12 @@
                                         </td>
                                     </tr>
                                 {% endfor %}
-                            {% else %}
+                            {% endif %}
+
+                            {% if not subfolders and not files %}
                                 <tr>
                                     <td colspan="4" class="text-center text-muted py-4">
-                                        📭 Keine Dateien vorhanden
+                                        📭 Keine Dateien oder Ordner vorhanden
                                     </td>
                                 </tr>
                             {% endif %}
@@ -251,6 +309,7 @@ const uploadBtn = document.getElementById('uploadBtn');
 const uploadProgress = document.getElementById('uploadProgress');
 const progressBar = document.getElementById('progressBar');
 const uploadStatus = document.getElementById('uploadStatus');
+const currentFolderId = '{{ current_folder.id|default_if_none:"" }}';
 
 // Click zum Datei-Auswahl öffnen
 uploadArea.addEventListener('click', () => fileInput.click());
@@ -290,41 +349,226 @@ uploadBtn.addEventListener('click', () => {
 
     uploadProgress.style.display = 'block';
     uploadBtn.disabled = true;
-    let completed = 0;
     const csrfToken = getCookie('csrftoken');
 
-    // Upload jede Datei einzeln
-    Array.from(files).forEach((file, index) => {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('name', file.name);
+    const WS_CHUNK_SIZE = 256 * 1024; // 256 KB per message keeps WebSocket frames small
+    const HTTP_CHUNK_SIZE = 64 * 1024; // 64 KB per request for strict proxy limits
+    const fileArray = Array.from(files);
+    let completedFiles = 0;
 
-        fetch('/storage/upload/', {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': csrfToken
-            },
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            completed++;
-            const progress = (completed / files.length) * 100;
-            progressBar.style.width = progress + '%';
-            uploadStatus.textContent = `${completed}/${files.length} Datei(en) hochgeladen`;
+    function updateOverallProgress(fileIndex, chunksDone, chunksTotal) {
+        const fileProgress = (fileIndex + chunksDone / chunksTotal) / fileArray.length;
+        progressBar.style.width = (fileProgress * 100).toFixed(1) + '%';
+    }
 
-            if (completed === files.length) {
-                uploadStatus.textContent = 'Alle Dateien erfolgreich hochgeladen!';
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1500);
-            }
-        })
-        .catch(error => {
-            console.error('Upload error:', error);
-            uploadStatus.textContent = 'Fehler beim Hochladen!';
-            uploadBtn.disabled = false;
+    function buildWebSocketUrl(path) {
+        const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        return `${scheme}://${window.location.host}${path}`;
+    }
+
+    function blobToBase64(blob) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const result = String(reader.result || '');
+                const commaIndex = result.indexOf(',');
+                resolve(commaIndex >= 0 ? result.slice(commaIndex + 1) : result);
+            };
+            reader.onerror = () => reject(new Error('Chunk konnte nicht gelesen werden'));
+            reader.readAsDataURL(blob);
         });
+    }
+
+    function parseJsonResponse(r) {
+        const contentType = r.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+            return r.text().then(text => {
+                throw new Error(`Server-Fehler (HTTP ${r.status}): Keine JSON-Antwort erhalten. Antwort beginnt mit: ${text.slice(0, 100)}`);
+            });
+        }
+        return r.json();
+    }
+
+    function uploadViaHttpChunked(file, fileIndex) {
+        const totalChunks = Math.max(1, Math.ceil(file.size / HTTP_CHUNK_SIZE));
+        const uploadId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+            ? crypto.randomUUID()
+            : (Date.now() + '_' + Math.random().toString(36).slice(2));
+
+        function uploadChunk(chunkIdx) {
+            const start = chunkIdx * HTTP_CHUNK_SIZE;
+            const end = Math.min(start + HTTP_CHUNK_SIZE, file.size);
+            const chunk = file.slice(start, end);
+
+            const formData = new FormData();
+            formData.append('upload_id', uploadId);
+            formData.append('chunk_index', String(chunkIdx));
+            formData.append('total_chunks', String(totalChunks));
+            formData.append('total_size', String(file.size));
+            formData.append('filename', file.name);
+            formData.append('folder_id', currentFolderId || '');
+            formData.append('chunk', chunk, file.name + `.part${chunkIdx}`);
+
+            const mbDone = (end / 1024 / 1024).toFixed(1);
+            const mbTotal = (file.size / 1024 / 1024).toFixed(1);
+            uploadStatus.textContent = `${file.name}: ${mbDone} / ${mbTotal} MB (HTTP-Fallback ${chunkIdx + 1}/${totalChunks})`;
+            updateOverallProgress(fileIndex, chunkIdx, totalChunks);
+
+            return fetch('/storage/upload/chunk/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: formData
+            })
+            .then(parseJsonResponse)
+            .then(data => {
+                if (!data.success) {
+                    throw new Error(data.error || 'HTTP-Chunk-Upload fehlgeschlagen');
+                }
+                if (data.complete) {
+                    completedFiles++;
+                    updateOverallProgress(fileIndex + 1, 0, 1);
+                    return;
+                }
+                return uploadChunk(chunkIdx + 1);
+            });
+        }
+
+        return uploadChunk(0);
+    }
+
+    function uploadViaWebSocket(file, fileIndex) {
+        return new Promise((resolve, reject) => {
+            const totalChunks = Math.max(1, Math.ceil(file.size / WS_CHUNK_SIZE));
+            const uploadId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+                ? crypto.randomUUID()
+                : (Date.now() + '_' + Math.random().toString(36).slice(2));
+            const socket = new WebSocket(buildWebSocketUrl('/ws/file-upload/'));
+            let nextChunkIndex = 0;
+            let finished = false;
+
+            function fail(message) {
+                if (finished) {
+                    return;
+                }
+                finished = true;
+                try {
+                    socket.close();
+                } catch (e) {
+                    console.error(e);
+                }
+                reject(new Error(message));
+            }
+
+            async function sendNextChunk() {
+                if (finished) {
+                    return;
+                }
+                if (nextChunkIndex >= totalChunks) {
+                    return;
+                }
+
+                const chunkIdx = nextChunkIndex;
+                nextChunkIndex += 1;
+
+                const start = chunkIdx * WS_CHUNK_SIZE;
+                const end = Math.min(start + WS_CHUNK_SIZE, file.size);
+                const chunk = file.slice(start, end);
+                const mbDone = (end / 1024 / 1024).toFixed(1);
+                const mbTotal = (file.size / 1024 / 1024).toFixed(1);
+                uploadStatus.textContent = `${file.name}: ${mbDone} / ${mbTotal} MB (Teil ${chunkIdx + 1}/${totalChunks})`;
+                updateOverallProgress(fileIndex, chunkIdx, totalChunks);
+
+                try {
+                    const encodedChunk = await blobToBase64(chunk);
+                    socket.send(JSON.stringify({
+                        type: 'upload_chunk',
+                        upload_id: uploadId,
+                        chunk_index: chunkIdx,
+                        data: encodedChunk
+                    }));
+                } catch (error) {
+                    fail(error.message || 'Chunk-Upload fehlgeschlagen');
+                }
+            }
+
+            socket.onopen = () => {
+                uploadStatus.textContent = `Verbinde Upload: ${file.name}`;
+                socket.send(JSON.stringify({
+                    type: 'upload_start',
+                    upload_id: uploadId,
+                    file_name: file.name,
+                    total_size: file.size,
+                    total_chunks: totalChunks,
+                    folder_id: currentFolderId || null
+                }));
+            };
+
+            socket.onmessage = (event) => {
+                let data;
+                try {
+                    data = JSON.parse(event.data);
+                } catch (error) {
+                    fail('Ungueltige Server-Antwort beim Upload');
+                    return;
+                }
+
+                if (data.upload_id && data.upload_id !== uploadId) {
+                    return;
+                }
+
+                if (data.type === 'upload_started' || data.type === 'chunk_received') {
+                    sendNextChunk();
+                    return;
+                }
+
+                if (data.type === 'upload_complete') {
+                    finished = true;
+                    completedFiles++;
+                    updateOverallProgress(fileIndex + 1, 0, 1);
+                    socket.close();
+                    resolve();
+                    return;
+                }
+
+                if (data.type === 'upload_error') {
+                    fail(data.error || 'Upload fehlgeschlagen');
+                }
+            };
+
+            socket.onerror = () => {
+                fail('WebSocket-Upload fehlgeschlagen');
+            };
+
+            socket.onclose = () => {
+                if (!finished && nextChunkIndex < totalChunks) {
+                    fail('Upload-Verbindung unerwartet beendet');
+                }
+            };
+        });
+    }
+
+    // Upload files sequentially
+    fileArray.reduce((chain, file, idx) => {
+        return chain.then(() => {
+            return uploadViaWebSocket(file, idx).catch((error) => {
+                console.warn('WebSocket upload failed, falling back to HTTP chunks:', error);
+                uploadStatus.textContent = `${file.name}: WebSocket fehlgeschlagen, wechsle auf HTTP-Fallback...`;
+                return uploadViaHttpChunked(file, idx);
+            });
+        });
+    }, Promise.resolve())
+    .then(() => {
+        uploadStatus.textContent = 'Alle Dateien erfolgreich hochgeladen!';
+        progressBar.style.width = '100%';
+        setTimeout(() => window.location.reload(), 1500);
+    })
+    .catch(error => {
+        console.error('Upload error:', error);
+        uploadStatus.textContent = `Fehler: ${error.message}`;
+        uploadBtn.disabled = false;
     });
 });
 
@@ -385,6 +629,53 @@ function deleteFile(fileId) {
             method: 'POST',
             headers: {
                 'X-CSRFToken': csrfToken
+            }
+        }).then(() => window.location.reload());
+    }
+}
+
+function moveFile(fileId) {
+    const csrfToken = getCookie('csrftoken');
+    const folderSelect = document.getElementById(`moveFolder${fileId}`);
+    const errorBox = document.getElementById(`moveError${fileId}`);
+    const targetFolderId = folderSelect ? folderSelect.value : '';
+
+    fetch(`/storage/file/${fileId}/move/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken,
+            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: new URLSearchParams({
+            folder_id: targetFolderId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.reload();
+            return;
+        }
+        throw new Error(data.error || 'Datei konnte nicht verschoben werden');
+    })
+    .catch(error => {
+        console.error('Move error:', error);
+        if (errorBox) {
+            errorBox.style.display = 'block';
+            errorBox.textContent = error.message;
+        }
+    });
+}
+
+function deleteFolder(folderId, folderName) {
+    if (confirm(`Ordner "${folderName}" wirklich löschen?`)) {
+        const csrfToken = getCookie('csrftoken');
+        fetch(`/storage/folder/${folderId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest'
             }
         }).then(() => window.location.reload());
     }

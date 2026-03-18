@@ -1,0 +1,221 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ group.group_name }} - Team Site{% endblock %}
+
+{% block extra_css %}
+<style>
+    .site-hero {
+        position: relative;
+        overflow: hidden;
+        padding: 2rem;
+        border-radius: 24px;
+        background:
+            radial-gradient(circle at top right, rgba(255,255,255,0.18), transparent 30%),
+            linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+        color: #fff;
+    }
+
+    .site-hero-media,
+    .site-hero-overlay {
+        position: absolute;
+        inset: 0;
+    }
+
+    .site-hero-media img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .site-hero-media video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .site-hero-overlay {
+        background:
+            linear-gradient(135deg, rgba(15, 23, 42, 0.68) 0%, rgba(15, 23, 42, 0.38) 100%),
+            radial-gradient(circle at top right, rgba(255,255,255,0.12), transparent 30%);
+    }
+
+    .site-hero > * {
+        position: relative;
+        z-index: 1;
+    }
+
+    .site-surface {
+        border: 1px solid var(--border-color);
+        border-radius: 20px;
+        background: var(--surface-bg);
+        padding: 1.25rem;
+        height: 100%;
+    }
+
+    .site-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+
+    .site-tile {
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        background: color-mix(in srgb, var(--surface-bg) 90%, var(--primary-color) 10%);
+        padding: 1rem;
+    }
+
+    .site-list {
+        display: grid;
+        gap: 0.9rem;
+    }
+
+    .site-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.85rem;
+        padding-bottom: 0.85rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .site-row:last-child {
+        border-bottom: 0;
+        padding-bottom: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="site-hero mb-4">
+        {% if background_video_url %}
+            <div class="site-hero-media">
+                <video autoplay muted loop playsinline>
+                    <source src="{{ background_video_url }}">
+                </video>
+            </div>
+            <div class="site-hero-overlay"></div>
+        {% elif background_image_url %}
+            <div class="site-hero-media">
+                <img src="{{ background_image_url }}" alt="Hintergrundbild der Team Site">
+            </div>
+            <div class="site-hero-overlay"></div>
+        {% endif %}
+        <div class="d-flex flex-column flex-lg-row justify-content-between gap-4">
+            <div>
+                <div class="small text-white-50 mb-2">Team Site</div>
+                <h1 class="h2 mb-2">{{ group.group_name }}</h1>
+                <p class="mb-3 text-white-50">Zusammenarbeitsbereich mit Bibliothek, News, Mitgliedern und Webparts.</p>
+                <div class="d-flex flex-wrap gap-2">
+                    <span class="badge text-bg-light">Owner: {{ group.owner.username }}</span>
+                    <span class="badge text-bg-light">{{ group.members.count }} Mitglieder</span>
+                    <span class="badge text-bg-light">{{ group.get_permission_display }}</span>
+                </div>
+            </div>
+            <div class="d-flex flex-wrap align-content-start gap-2">
+                {% for link in quick_links %}
+                    <a href="{{ link.url }}" class="btn btn-light">{{ link.label }}</a>
+                {% endfor %}
+                <a href="{% url 'sharing:team_news_list' group.id %}" class="btn btn-outline-light">News</a>
+                {% if can_manage_site %}
+                    <a href="{% url 'sharing:group_edit' group.id %}" class="btn btn-outline-light">Team Site bearbeiten</a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-xl-7">
+            <div class="site-surface">
+                <h4 class="mb-3">News und Aktivitaeten</h4>
+                <div class="site-list">
+                    {% for item in site_news %}
+                        <a href="{% url 'sharing:team_news_detail' group.id item.id %}" class="site-row text-decoration-none text-body">
+                            <i class="bi bi-megaphone text-primary"></i>
+                            <div>
+                                <div class="fw-semibold">{{ item.title }}</div>
+                                <div class="text-muted">{{ item.summary|default:item.content|truncatechars:140 }}</div>
+                                <div class="small text-muted mt-1">{{ item.created_at|date:"d.m.Y H:i" }}</div>
+                            </div>
+                        </a>
+                    {% empty %}
+                        <div class="text-muted">Noch keine News fuer diese Team Site.</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-5">
+            <div class="site-surface h-100">
+                <h4 class="mb-3">Webparts</h4>
+                <div class="site-grid">
+                    {% for part in site_webparts %}
+                        <div class="site-tile">
+                            <i class="bi {{ part.icon }} text-primary"></i>
+                            <div class="fw-semibold mt-2">{{ part.title }}</div>
+                            <div class="text-muted small">{{ part.description }}</div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-xl-6">
+            <div class="site-surface">
+                <h4 class="mb-3">Dokumentbibliothek</h4>
+                {% if library %}
+                    <div class="mb-3 text-muted">{{ library.get_path }}</div>
+                    <div class="site-list">
+                        {% for folder in subfolders %}
+                            <div class="site-row">
+                                <i class="bi bi-folder2 text-primary"></i>
+                                <div>
+                                    <div class="fw-semibold">{{ folder.name }}</div>
+                                    <div class="text-muted small">{{ folder.description|default:"Unterordner der Team Site" }}</div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                        {% for file in library_files %}
+                            <div class="site-row">
+                                <i class="bi bi-file-earmark-text text-primary"></i>
+                                <div>
+                                    <div class="fw-semibold">{{ file.name }}</div>
+                                    <div class="text-muted small">{{ file.mime_type|default:"Datei" }} · {{ file.updated_at|date:"d.m.Y H:i" }}</div>
+                                </div>
+                            </div>
+                        {% empty %}
+                            <div class="text-muted">Noch keine Dateien in dieser Bibliothek.</div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-muted">Fuer diese Team Site ist noch keine Bibliothek verbunden.</div>
+                {% endif %}
+            </div>
+        </div>
+        <div class="col-xl-6">
+            <div class="site-surface">
+                <h4 class="mb-3">Mitglieder</h4>
+                <div class="site-list">
+                    <div class="site-row">
+                        <i class="bi bi-person-badge text-primary"></i>
+                        <div>
+                            <div class="fw-semibold">{{ group.owner.username }}</div>
+                            <div class="text-muted small">Owner</div>
+                        </div>
+                    </div>
+                    {% for member in group.members.all %}
+                        <div class="site-row">
+                            <i class="bi bi-person text-primary"></i>
+                            <div>
+                                <div class="fw-semibold">{{ member.username }}</div>
+                                <div class="text-muted small">Mitglied</div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -6,7 +6,7 @@ Django 5.x Features: Enhanced models with new field types.
 
 from django.db import models
 from django.contrib.auth.models import User, AbstractUser
-from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.validators import MinValueValidator, MaxValueValidator, RegexValidator
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 from django.db.models import Sum, F
@@ -28,6 +28,29 @@ class UserProfile(models.Model):
         ('en', 'English'),
         ('fr', 'Français'),
     ]
+
+    DESIGN_VARIANT_CHOICES = [
+        ('gradient', _('Gradient')),
+        ('minimal', _('Minimal')),
+        ('contrast', _('Contrast')),
+    ]
+    COLOR_PRESET_CHOICES = [
+        ('default', _('Default Blue')),
+        ('forest', _('Forest')),
+        ('sunset', _('Sunset')),
+        ('berry', _('Berry')),
+        ('slate', _('Slate')),
+        ('custom', _('Custom')),
+    ]
+    MYSITE_HERO_STYLE_CHOICES = [
+        ('gradient', _('Gradient')),
+        ('image', _('Image')),
+        ('video', _('Video')),
+    ]
+    HEX_COLOR_VALIDATOR = RegexValidator(
+        regex=r'^#[0-9A-Fa-f]{6}$',
+        message=_('Use a valid hex color like #667EEA.'),
+    )
 
     user = models.OneToOneField(
         User,
@@ -76,6 +99,48 @@ class UserProfile(models.Model):
         choices=[('light', _('Light')), ('dark', _('Dark')), ('auto', _('Auto'))],
         default='auto',
         verbose_name=_('Theme')
+    )
+    design_variant = models.CharField(
+        max_length=20,
+        choices=DESIGN_VARIANT_CHOICES,
+        default='gradient',
+        verbose_name=_('Design variant')
+    )
+    color_preset = models.CharField(
+        max_length=20,
+        choices=COLOR_PRESET_CHOICES,
+        default='default',
+        verbose_name=_('Color preset')
+    )
+    primary_color = models.CharField(
+        max_length=7,
+        default='#667eea',
+        validators=[HEX_COLOR_VALIDATOR],
+        verbose_name=_('Primary color')
+    )
+    secondary_color = models.CharField(
+        max_length=7,
+        default='#764ba2',
+        validators=[HEX_COLOR_VALIDATOR],
+        verbose_name=_('Secondary color')
+    )
+    mysite_hero_style = models.CharField(
+        max_length=20,
+        choices=MYSITE_HERO_STYLE_CHOICES,
+        default='gradient',
+        verbose_name=_('MySite hero style')
+    )
+    mysite_hero_image = models.ImageField(
+        upload_to='mysite/hero/%Y/%m/',
+        null=True,
+        blank=True,
+        verbose_name=_('MySite hero image')
+    )
+    mysite_hero_video = models.FileField(
+        upload_to='mysite/hero/%Y/%m/',
+        null=True,
+        blank=True,
+        verbose_name=_('MySite hero video')
     )
 
     # Storage quota
@@ -169,6 +234,16 @@ class UserProfile(models.Model):
     def is_moderator(self):
         """Check if user is moderator"""
         return self.role in ['admin', 'moderator']
+
+    @classmethod
+    def get_color_preset_map(cls):
+        return {
+            'default': {'primary': '#667eea', 'secondary': '#764ba2'},
+            'forest': {'primary': '#2f855a', 'secondary': '#276749'},
+            'sunset': {'primary': '#dd6b20', 'secondary': '#c53030'},
+            'berry': {'primary': '#b83280', 'secondary': '#702459'},
+            'slate': {'primary': '#4a5568', 'secondary': '#1a202c'},
+        }
 
 
 class UserSession(models.Model):

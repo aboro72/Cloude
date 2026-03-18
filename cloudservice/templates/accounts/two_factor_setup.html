@@ -4,26 +4,70 @@
 
 {% block content %}
 <div class="container">
-    <div class="row">
+    <div class="row g-4">
         <div class="col-md-3">
             <div class="sidebar">
-                <h5 class="mb-4">⚙️ Einstellungen</h5>
-                <a href="/accounts/profile/" class="sidebar-link">👤 Profil</a>
-                <a href="/accounts/profile/edit/" class="sidebar-link">✏️ Bearbeiten</a>
-                <a href="/accounts/profile/password/" class="sidebar-link">🔑 Passwort</a>
-                <a href="/accounts/settings/" class="sidebar-link">⚙️ Einstellungen</a>
+                <h5 class="mb-4"><i class="bi bi-gear me-2"></i>Einstellungen</h5>
+                <a href="/accounts/profile/" class="sidebar-link"><i class="bi bi-person me-2"></i>Profil</a>
+                <a href="/accounts/profile/edit/" class="sidebar-link"><i class="bi bi-pencil-square me-2"></i>Bearbeiten</a>
+                <a href="/accounts/profile/password/" class="sidebar-link"><i class="bi bi-key me-2"></i>Passwort</a>
+                <a href="/accounts/settings/" class="sidebar-link active"><i class="bi bi-shield-lock me-2"></i>2FA</a>
             </div>
         </div>
 
         <div class="col-md-9">
-            <div class="card">
+            <div class="card mb-4">
                 <div class="card-header">
-                    <h5 class="mb-0">🔐 Zwei-Faktor-Authentifizierung</h5>
+                    <h5 class="mb-0"><i class="bi bi-shield-lock me-2"></i>Zwei-Faktor-Authentifizierung</h5>
                 </div>
                 <div class="card-body">
-                    <p class="text-muted">
-                        🚧 Zwei-Faktor-Authentifizierung wird noch entwickelt.
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div>
+                            <div class="text-muted">Status</div>
+                            {% if user.profile.is_two_factor_enabled %}
+                                <span class="badge bg-success">Aktiv</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Noch nicht aktiv</span>
+                            {% endif %}
+                        </div>
+                        <a href="/accounts/profile/" class="btn btn-outline-primary">Zurueck zum Profil</a>
+                    </div>
+
+                    <p class="text-muted mb-4">
+                        Die technische Aktivierung kann als naechster Schritt an TOTP, E-Mail-Code oder SMS gekoppelt werden.
+                        Die Seite ist jetzt als echte Setup-Oberflaeche vorbereitet und erklaert den vorgesehenen Ablauf.
                     </p>
+
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h6>1. Methode waehlen</h6>
+                                    <p class="text-muted mb-0">TOTP-App wie Microsoft Authenticator oder Google Authenticator bevorzugen.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h6>2. Geraet koppeln</h6>
+                                    <p class="text-muted mb-0">QR-Code scannen oder Secret-Key hinterlegen und ersten Code pruefen.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h6>3. Backup sichern</h6>
+                                    <p class="text-muted mb-0">Recovery-Codes speichern, damit ein Geraeteverlust nicht zum Lockout fuehrt.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info mt-4 mb-0">
+                        <strong>Naechster technischer Ausbau:</strong> QR-Code, Code-Validierung, Backup-Codes und Aktivieren/Deaktivieren direkt in dieser Seite.
+                    </div>
                 </div>
             </div>
         </div>

@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+
+{% block title %}Team News bearbeiten - {{ group.group_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .tox-tinymce {
+        border-radius: 12px !important;
+        border-color: var(--border-color) !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        {% if form_mode == 'create' %}Neue Team News{% else %}Team News bearbeiten{% endif %}
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        {% for field in form %}
+                            <div class="mb-3">
+                                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                                {% if field.name == 'is_pinned' or field.name == 'is_published' %}
+                                    <div class="form-check">
+                                        {{ field }}
+                                        <label for="{{ field.id_for_label }}" class="form-check-label">{{ field.label }}</label>
+                                    </div>
+                                {% else %}
+                                    {{ field }}
+                                {% endif %}
+                                {% if field.errors %}
+                                    <div class="text-danger small mt-1">{{ field.errors|join:', ' }}</div>
+                                {% endif %}
+                                {% if field.name == 'publish_at' %}
+                                    <div class="form-text">Leer lassen fuer sofortige Sichtbarkeit nach dem Speichern.</div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                        <button type="submit" class="btn btn-primary">Speichern</button>
+                        <a href="{% url 'sharing:team_news_list' group.id %}" class="btn btn-secondary">Abbrechen</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/tinymce@7/tinymce.min.js" referrerpolicy="origin"></script>
+<script>
+    if (document.getElementById('id_content_editor')) {
+        tinymce.init({
+            selector: '#id_content_editor',
+            height: 380,
+            menubar: false,
+            branding: false,
+            plugins: 'lists link table code image autoresize',
+            toolbar: 'undo redo | blocks | bold italic underline | bullist numlist | link table | alignleft aligncenter alignright | code',
+            content_style: 'body { font-family: Segoe UI, sans-serif; font-size: 14px; }'
+        });
+    }
+</script>
+{% endblock %}

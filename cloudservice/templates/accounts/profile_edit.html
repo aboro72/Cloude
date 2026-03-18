@@ -22,7 +22,7 @@
                     <h5 class="mb-0">✏️ Profil bearbeiten</h5>
                 </div>
                 <div class="card-body">
-                    <form method="post">
+                    <form method="post" enctype="multipart/form-data">
                         {% csrf_token %}
 
                         {% if form.non_field_errors %}
@@ -38,6 +38,15 @@
                                 <label for="{{ field.id_for_label }}" class="form-label">
                                     {{ field.label }}
                                 </label>
+                                {% if field.name == 'avatar' and form.instance.avatar %}
+                                    <div class="mb-3">
+                                        <img
+                                            src="{{ form.instance.avatar.url }}"
+                                            alt="Aktuelles Profilbild"
+                                            style="width: 88px; height: 88px; object-fit: cover; border-radius: 20px; border: 1px solid var(--border-color);"
+                                        >
+                                    </div>
+                                {% endif %}
                                 {% if field.widget.input_type == "checkbox" %}
                                     <div class="form-check">
                                         {{ field }}

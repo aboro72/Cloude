@@ -220,6 +220,7 @@ FILE_UPLOAD_POSTPROCESS = 'file_upload_postprocess'
 UI_DASHBOARD_WIDGET = 'ui_dashboard_widget'
 UI_FILE_ACTION_BUTTON = 'ui_file_action_button'
 UI_MENU_ITEM = 'ui_menu_item'
+UI_APP_PAGE = 'ui_app_page'
 
 API_ENDPOINT_PROVIDER = 'api_endpoint_provider'
 API_SERIALIZER_EXTEND = 'api_serializer_extend'

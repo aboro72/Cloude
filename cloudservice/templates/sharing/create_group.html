@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+
+{% block title %}Team Site erstellen - CloudService{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0"><i class="bi bi-people-fill me-2"></i>Neue Team Site</h4>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        {% for field in form %}
+                            <div class="mb-3">
+                                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                                {{ field }}
+                                {% if field.errors %}
+                                    <div class="text-danger small mt-1">{{ field.errors|join:', ' }}</div>
+                                {% endif %}
+                                {% if field.name == 'background_video' %}
+                                    <div class="form-text">Optionales Hero-Video fuer diese Team Site.</div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                        <button type="submit" class="btn btn-primary">Erstellen</button>
+                        <a href="{% url 'sharing:groups_list' %}" class="btn btn-secondary">Abbrechen</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

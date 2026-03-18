@@ -7,9 +7,10 @@ from django.views.generic import TemplateView, ListView
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.shortcuts import render, redirect
 from django.contrib import messages
+from django.http import Http404
 from pathlib import Path
 from core.models import ActivityLog
-from plugins.hooks import hook_registry, UI_DASHBOARD_WIDGET
+from plugins.hooks import hook_registry, UI_DASHBOARD_WIDGET, UI_APP_PAGE
 import logging
 
 logger = logging.getLogger(__name__)
@@ -305,6 +306,31 @@ def landing(request):
         return redirect('accounts:login')
 
     return LandingView.as_view()(request)
+
+
+class PluginAppPageView(LoginRequiredMixin, TemplateView):
+    """Render plugin-provided app pages."""
+
+    def get(self, request, *args, **kwargs):
+        slug = kwargs['slug']
+        handlers = hook_registry.get_handlers(UI_APP_PAGE, slug=slug)
+        if not handlers:
+            raise Http404('Plugin page not found')
+
+        provider = handlers[0]()
+        if not provider.is_visible(request):
+            raise Http404('Plugin page not available')
+
+        context = provider.render(request)
+        return render(request, provider.get_template_name(), context)
+
+
+def plugin_app(request, slug):
+    """Plugin application page view."""
+    if not request.user.is_authenticated:
+        return redirect('accounts:login')
+
+    return PluginAppPageView.as_view()(request, slug=slug)
 
 
 def help_page(request):

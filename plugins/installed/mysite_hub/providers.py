@@ -1,0 +1,313 @@
+from django.db.models import Q
+from django.urls import reverse, reverse_lazy
+
+from core.models import ActivityLog, StorageFile, StorageFolder
+from plugins.ui import PluginMenuItemProvider, PluginPageProvider
+from sharing.models import GroupShare, UserShare
+
+
+class MySiteMenuProvider(PluginMenuItemProvider):
+    menu_label = 'MySite'
+    menu_icon = 'bi-grid-1x2-fill'
+    menu_order = 30
+
+    def get_url(self) -> str:
+        return reverse('core:plugin_app', kwargs={'slug': 'mysite'})
+
+
+def get_mysite_plugin_settings():
+    try:
+        from plugins.models import Plugin
+
+        plugin = Plugin.objects.get(slug='mysite-hub')
+        return plugin.settings or {}
+    except Exception:
+        return {}
+
+
+def parse_lines(value, fallback):
+    raw = value or fallback
+    return [line.strip() for line in raw.splitlines() if line.strip()]
+
+
+class DepartmentPageProvider(PluginPageProvider):
+    department_slug = ''
+    department_title = ''
+    department_owner = ''
+    department_icon = 'bi-building'
+    department_summary = ''
+    department_focus = None
+    department_links = None
+    settings_summary_key = ''
+    settings_focus_key = ''
+
+    def get_template_name(self) -> str:
+        return 'mysite_hub/department_page.html'
+
+    def get_context(self, request):
+        settings = get_mysite_plugin_settings()
+        return {
+            'hero_title': self.department_title,
+            'hero_subtitle': settings.get(self.settings_summary_key, self.department_summary),
+            'department_owner': self.department_owner,
+            'department_icon': self.department_icon,
+            'department_focus': parse_lines(settings.get(self.settings_focus_key, ''), '\n'.join(self.department_focus or [])),
+            'department_links': self.department_links or [],
+        }
+
+
+class DepartmentManagementPageProvider(DepartmentPageProvider):
+    page_slug = 'department-management'
+    page_title = 'Management'
+    page_icon = 'bi-bar-chart-line'
+    department_title = 'Management Site'
+    department_owner = 'Leitung'
+    department_icon = 'bi-bar-chart-line'
+    department_summary = 'Strategie, Unternehmensziele, Projektpriorisierung und Fuehrungsinformationen.'
+    department_focus = ['Quartalsziele', 'Roadmaps', 'Entscheidungen', 'Vorstandsvorlagen']
+    settings_summary_key = 'management_summary'
+    settings_focus_key = 'management_focus'
+    department_links = [
+        {'label': 'MySite Hub', 'url': reverse_lazy('core:plugin_app', kwargs={'slug': 'mysite'})},
+        {'label': 'Team Sites', 'url': reverse_lazy('sharing:groups_list')},
+    ]
+
+
+class DepartmentPeoplePageProvider(DepartmentPageProvider):
+    page_slug = 'department-people'
+    page_title = 'Personal'
+    page_icon = 'bi-person-vcard'
+    department_title = 'People & HR'
+    department_owner = 'HR'
+    department_icon = 'bi-person-vcard'
+    department_summary = 'Onboarding, Richtlinien, Vorlagen und interne Kommunikation fuer Mitarbeitende.'
+    department_focus = ['Onboarding', 'Richtlinien', 'Benefits', 'Interne Mitteilungen']
+    settings_summary_key = 'people_summary'
+    settings_focus_key = 'people_focus'
+    department_links = [
+        {'label': 'Profile', 'url': reverse_lazy('accounts:profile')},
+        {'label': 'MySite Hub', 'url': reverse_lazy('core:plugin_app', kwargs={'slug': 'mysite'})},
+    ]
+
+
+class DepartmentFinancePageProvider(DepartmentPageProvider):
+    page_slug = 'department-finance'
+    page_title = 'Finanzen'
+    page_icon = 'bi-cash-stack'
+    department_title = 'Finance Hub'
+    department_owner = 'Finance'
+    department_icon = 'bi-cash-stack'
+    department_summary = 'Budgets, Freigaben, Belege und Monatsabschluesse mit klarer Dokumentstruktur.'
+    department_focus = ['Budgetplanung', 'Freigaben', 'Monatsabschluss', 'Lieferantenablage']
+    settings_summary_key = 'finance_summary'
+    settings_focus_key = 'finance_focus'
+    department_links = [
+        {'label': 'Dokumentbibliotheken', 'url': reverse_lazy('storage:file_list')},
+        {'label': 'MySite Hub', 'url': reverse_lazy('core:plugin_app', kwargs={'slug': 'mysite'})},
+    ]
+
+
+class DepartmentEngineeringPageProvider(DepartmentPageProvider):
+    page_slug = 'department-engineering'
+    page_title = 'Entwicklung'
+    page_icon = 'bi-code-square'
+    department_title = 'Engineering Site'
+    department_owner = 'Engineering'
+    department_icon = 'bi-code-square'
+    department_summary = 'Releaseplanung, technische Dokumentation, Deployments und operative Wissenssammlung.'
+    department_focus = ['Releaseplaene', 'Architektur', 'Deployments', 'Runbooks']
+    settings_summary_key = 'engineering_summary'
+    settings_focus_key = 'engineering_focus'
+    department_links = [
+        {'label': 'Team Sites', 'url': reverse_lazy('sharing:groups_list')},
+        {'label': 'Landing Widgets', 'url': reverse_lazy('core:landing')},
+    ]
+
+
+class MySitePageProvider(PluginPageProvider):
+    page_slug = 'mysite'
+    page_title = 'MySite'
+    page_icon = 'bi-grid-1x2-fill'
+
+    def get_template_name(self) -> str:
+        return 'mysite_hub/page.html'
+
+    def _build_news_items(self, request):
+        settings = get_mysite_plugin_settings()
+        activities = ActivityLog.objects.filter(user=request.user).order_by('-created_at')[:4]
+        news = []
+        for activity in activities:
+            if activity.file_id and activity.file:
+                target_name = activity.file.name
+            elif activity.folder_id and activity.folder:
+                target_name = activity.folder.name
+            else:
+                target_name = 'Arbeitsbereich'
+
+            news.append({
+                'title': activity.get_activity_type_display(),
+                'summary': activity.description or f'Aktualisierung in {target_name}',
+                'time': activity.created_at,
+                'icon': {
+                    'upload': 'bi-cloud-upload',
+                    'share': 'bi-people',
+                    'create_folder': 'bi-folder-plus',
+                    'delete': 'bi-trash3',
+                    'rename': 'bi-input-cursor-text',
+                }.get(activity.activity_type, 'bi-bell'),
+            })
+
+        if news:
+            return news
+
+        return [
+            {
+                'title': settings.get('news_primary_title', 'Willkommen in MySite'),
+                'summary': settings.get('news_primary_summary', 'Hier laufen persoenliche Inhalte, Teamseiten und Dokumentbereiche zusammen.'),
+                'time': None,
+                'icon': 'bi-stars',
+            },
+            {
+                'title': settings.get('news_secondary_title', 'Naechster Ausbau'),
+                'summary': settings.get('news_secondary_summary', 'News, Team Sites und Abteilungsbereiche koennen jetzt direkt im Plugin weiter wachsen.'),
+                'time': None,
+                'icon': 'bi-megaphone',
+            },
+        ]
+
+    def _build_team_sites(self, request):
+        group_shares = GroupShare.objects.filter(Q(owner=request.user) | Q(members=request.user), is_active=True).distinct().order_by('-created_at')[:3]
+        team_sites = []
+
+        for share in group_shares:
+            team_sites.append({
+                'title': share.group_name,
+                'description': f'Gruppenbereich mit {share.members.count()} Mitgliedern und Berechtigung {share.get_permission_display()}.',
+                'meta': 'Team Site',
+                'url': reverse('sharing:group_detail', kwargs={'group_id': share.id}),
+                'icon': 'bi-people-fill',
+            })
+
+        if team_sites:
+            return team_sites
+
+        return [
+            {
+                'title': 'Projektboard',
+                'description': 'Vorlage fuer Status, Dokumente, Aufgaben und gemeinsame Ablage.',
+                'meta': 'Empfohlene Site',
+                'url': reverse('sharing:groups_list'),
+                'icon': 'bi-kanban',
+            },
+            {
+                'title': 'Vertrieb',
+                'description': 'Angebote, Freigaben, Kundendokumente und Team-News an einem Ort.',
+                'meta': 'Abteilungs-Site',
+                'url': reverse('sharing:groups_list'),
+                'icon': 'bi-briefcase',
+            },
+            {
+                'title': 'IT Operations',
+                'description': 'Runbooks, Releases, technische Doku und operative Uebersichten.',
+                'meta': 'Operations-Site',
+                'url': reverse('sharing:groups_list'),
+                'icon': 'bi-cpu',
+            },
+        ]
+
+    def _build_document_libraries(self, request):
+        folders = StorageFolder.objects.filter(owner=request.user, parent__isnull=True).order_by('-updated_at')[:4]
+        libraries = []
+
+        for folder in folders:
+            libraries.append({
+                'title': folder.name,
+                'description': folder.description or 'Persoenliche Dokumentbibliothek',
+                'count': folder.files.count(),
+                'meta': folder.get_path(),
+                'url': reverse('storage:folder', kwargs={'folder_id': folder.id}),
+            })
+
+        if libraries:
+            return libraries
+
+        return [
+            {'title': 'Vertraege', 'description': 'Vertragsunterlagen und Freigaben', 'count': 0, 'meta': '/Vertraege', 'url': reverse('storage:file_list')},
+            {'title': 'Projekte', 'description': 'Projektakten und Teamdokumente', 'count': 0, 'meta': '/Projekte', 'url': reverse('storage:file_list')},
+            {'title': 'Wissen', 'description': 'Richtlinien, Vorlagen und Handbuecher', 'count': 0, 'meta': '/Wissen', 'url': reverse('storage:file_list')},
+        ]
+
+    def _build_department_pages(self):
+        return [
+            {
+                'title': 'Management',
+                'description': 'Strategie, Roadmaps, Entscheidungen und Quartalsziele.',
+                'owner': 'Leitung',
+                'icon': 'bi-bar-chart-line',
+                'url': reverse('core:plugin_app', kwargs={'slug': 'department-management'}),
+            },
+            {
+                'title': 'Personal',
+                'description': 'Onboarding, Richtlinien, Vorlagen und interne Kommunikation.',
+                'owner': 'HR',
+                'icon': 'bi-person-vcard',
+                'url': reverse('core:plugin_app', kwargs={'slug': 'department-people'}),
+            },
+            {
+                'title': 'Finanzen',
+                'description': 'Budgets, Belege, Monatsabschluesse und Freigabeprozesse.',
+                'owner': 'Finance',
+                'icon': 'bi-cash-stack',
+                'url': reverse('core:plugin_app', kwargs={'slug': 'department-finance'}),
+            },
+            {
+                'title': 'Entwicklung',
+                'description': 'Releaseplaene, Architekturdoku, Checklisten und Deployments.',
+                'owner': 'Engineering',
+                'icon': 'bi-code-square',
+                'url': reverse('core:plugin_app', kwargs={'slug': 'department-engineering'}),
+            },
+        ]
+
+    def _build_webparts(self):
+        return [
+            {'title': 'News Feed', 'description': 'Aktuelle Meldungen prominent auf jeder Site.', 'icon': 'bi-newspaper'},
+            {'title': 'Dokumentenliste', 'description': 'Dateien, Bibliotheken und letzte Aenderungen.', 'icon': 'bi-journal-richtext'},
+            {'title': 'Schnelllinks', 'description': 'Wichtige Ziele fuer Team und Bereich.', 'icon': 'bi-link-45deg'},
+            {'title': 'Personen', 'description': 'Kontakte, Owner und Team-Mitglieder sichtbar machen.', 'icon': 'bi-people'},
+            {'title': 'Aktivitaeten', 'description': 'Uploads, Freigaben und aktuelle Arbeitsschritte.', 'icon': 'bi-activity'},
+            {'title': 'Widgets', 'description': 'Bestehende Dashboard-Widgets als Site-Bausteine nutzen.', 'icon': 'bi-grid-3x3-gap'},
+        ]
+
+    def get_template_name(self) -> str:
+        return 'mysite_hub/page.html'
+
+    def get_context(self, request):
+        settings = get_mysite_plugin_settings()
+        profile = request.user.profile
+        recent_files = StorageFile.objects.filter(owner=request.user).order_by('-updated_at')[:5]
+        incoming_shares = UserShare.objects.filter(shared_with=request.user, is_active=True).order_by('-created_at')[:4]
+
+        return {
+            'hero_title': f"MySite von {request.user.get_full_name() or request.user.username}",
+            'hero_subtitle': settings.get('mysite_intro', 'Persoenlicher Arbeitsbereich fuer Dokumente, Teams, News und moderne Bereichsseiten im SharePoint-Stil.'),
+            'hero_style': profile.mysite_hero_style,
+            'hero_image_url': profile.mysite_hero_image.url if profile.mysite_hero_image else '',
+            'hero_video_url': profile.mysite_hero_video.url if profile.mysite_hero_video else '',
+            'storage_used_mb': profile.get_storage_used_mb(),
+            'storage_remaining_mb': profile.get_storage_remaining_mb(),
+            'storage_percent': round(profile.get_storage_used_percentage(), 1),
+            'quick_links': [
+                {'title': 'Meine Dateien', 'description': 'Dokumente, Uploads und Ordner an einem Ort.', 'url': reverse('storage:file_list'), 'icon': 'bi-folder2-open'},
+                {'title': 'Geteilte Inhalte', 'description': 'Freigegebene Dateien und Zusammenarbeit.', 'url': reverse('sharing:shared_with_me'), 'icon': 'bi-people'},
+                {'title': 'Profil', 'description': 'Persoenliche Angaben, Avatar und Design verwalten.', 'url': reverse('accounts:profile'), 'icon': 'bi-person-badge'},
+                {'title': 'Landing', 'description': 'Widgets und persoenliche Startansicht.', 'url': reverse('core:landing'), 'icon': 'bi-speedometer2'},
+            ],
+            'news_items': self._build_news_items(request),
+            'team_sites': self._build_team_sites(request),
+            'document_libraries': self._build_document_libraries(request),
+            'department_pages': self._build_department_pages(),
+            'webparts': self._build_webparts(),
+            'recent_files': recent_files,
+            'incoming_shares': incoming_shares,
+        }

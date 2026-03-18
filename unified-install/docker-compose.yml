@@ -1,0 +1,218 @@
+services:
+  # ==================== Shared Services ====================
+
+  # MariaDB - Shared database server for both apps
+  mariadb:
+    image: mariadb:11-jammy
+    container_name: platform_mariadb
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpassword}
+      MYSQL_INITDB_SKIP_TZINFO: 'yes'
+      TZ: Europe/Berlin
+    ports:
+      - "3306:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ./db-init:/docker-entrypoint-initdb.d
+    networks:
+      - platform_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 30s
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --max_connections=500
+      --wait-timeout=28800
+      --sql-mode='STRICT_TRANS_TABLES'
+
+  # ==================== Cloude Services ====================
+
+  # Redis for Cloude
+  cloude_redis:
+    image: redis:7-alpine
+    container_name: cloude_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - cloude_redis_data:/data
+    networks:
+      - platform_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: redis-server --appendonly yes --loglevel notice
+
+  # Cloude Web Application (Django)
+  cloude_web:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: cloude_web
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py collectstatic --noinput &&
+             gunicorn --bind 0.0.0.0:8000 --workers 4 --timeout 120 config.wsgi:application"
+    environment:
+      # App Configuration
+      APP_NAME: cloude
+      DEBUG: ${CLOUDE_DEBUG:-False}
+      SECRET_KEY: ${CLOUDE_SECRET_KEY:-dev-secret-key}
+      ALLOWED_HOSTS: ${CLOUDE_ALLOWED_HOSTS:-cloude.localhost,localhost,127.0.0.1}
+
+      # Database - App Specific
+      DB_ENGINE: mysql
+      DB_NAME: cloude_db
+      DB_USER: ${DB_USER:-platform_user}
+      DB_PASSWORD: ${DB_PASSWORD:-password}
+      DB_HOST: mariadb
+      DB_PORT: 3306
+
+      # Redis Configuration
+      REDIS_URL: redis://cloude_redis:6379/0
+      CELERY_BROKER_URL: redis://cloude_redis:6379/1
+      CELERY_RESULT_BACKEND: redis://cloude_redis:6379/2
+
+      # JWT/SSO Configuration
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev-jwt-secret}
+      SSO_COOKIE_DOMAIN: ${SSO_COOKIE_DOMAIN:-.localhost}
+
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../Cloude:/app
+      - cloude_media:/app/media
+      - cloude_static:/app/staticfiles
+    depends_on:
+      - mariadb
+      - cloude_redis
+    networks:
+      - platform_network
+
+  # Cloude Celery Worker
+  cloude_celery:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: cloude_celery
+    command: celery -A config worker --loglevel=info --concurrency=4
+    environment:
+      APP_NAME: cloude
+      DB_ENGINE: mysql
+      DB_NAME: cloude_db
+      DB_USER: ${DB_USER:-platform_user}
+      DB_PASSWORD: ${DB_PASSWORD:-password}
+      DB_HOST: mariadb
+      DB_PORT: 3306
+      REDIS_URL: redis://cloude_redis:6379/0
+      CELERY_BROKER_URL: redis://cloude_redis:6379/1
+      CELERY_RESULT_BACKEND: redis://cloude_redis:6379/2
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev-jwt-secret}
+    volumes:
+      - ../Cloude:/app
+      - cloude_media:/app/media
+    depends_on:
+      - mariadb
+      - cloude_redis
+      - cloude_web
+    networks:
+      - platform_network
+
+  # Cloude Celery Beat (Task Scheduler)
+  cloude_celery_beat:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: cloude_celery_beat
+    command: celery -A config beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    environment:
+      APP_NAME: cloude
+      DB_ENGINE: mysql
+      DB_NAME: cloude_db
+      DB_USER: ${DB_USER:-platform_user}
+      DB_PASSWORD: ${DB_PASSWORD:-password}
+      DB_HOST: mariadb
+      DB_PORT: 3306
+      REDIS_URL: redis://cloude_redis:6379/0
+      CELERY_BROKER_URL: redis://cloude_redis:6379/1
+      CELERY_RESULT_BACKEND: redis://cloude_redis:6379/2
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev-jwt-secret}
+    volumes:
+      - ../Cloude:/app
+    depends_on:
+      - mariadb
+      - cloude_redis
+      - cloude_web
+    networks:
+      - platform_network
+
+  # Cloude Daphne (WebSocket Server)
+  cloude_daphne:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: cloude_daphne
+    command: daphne -b 0.0.0.0 -p 8001 config.asgi:application
+    environment:
+      APP_NAME: cloude
+      DEBUG: ${CLOUDE_DEBUG:-False}
+      SECRET_KEY: ${CLOUDE_SECRET_KEY:-dev-secret-key}
+      DB_ENGINE: mysql
+      DB_NAME: cloude_db
+      DB_USER: ${DB_USER:-platform_user}
+      DB_PASSWORD: ${DB_PASSWORD:-password}
+      DB_HOST: mariadb
+      DB_PORT: 3306
+      REDIS_URL: redis://cloude_redis:6379/0
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev-jwt-secret}
+    ports:
+      - "8001:8001"
+    volumes:
+      - ../Cloude:/app
+    depends_on:
+      - mariadb
+      - cloude_redis
+      - cloude_web
+    networks:
+      - platform_network
+
+  # ==================== Nginx Reverse Proxy ====================
+
+  nginx:
+    image: nginx:alpine
+    container_name: platform_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - cloude_static:/var/www/cloude/static:ro
+      - cloude_media:/var/www/cloude/media:ro
+    depends_on:
+      - cloude_web
+    networks:
+      - platform_network
+    restart: unless-stopped
+
+# Volumes for persistence
+volumes:
+  mariadb_data:
+    driver: local
+  cloude_redis_data:
+    driver: local
+  cloude_media:
+    driver: local
+  cloude_static:
+    driver: local
+
+# Network for container communication
+networks:
+  platform_network:
+    driver: bridge

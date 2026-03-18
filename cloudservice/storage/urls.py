@@ -2,7 +2,7 @@
 URL configuration for Storage app.
 """
 
-from django.urls import path
+from django.urls import path, re_path
 from storage import views
 
 app_name = 'storage'
@@ -12,11 +12,14 @@ urlpatterns = [
     path('', views.FileListView.as_view(), name='file_list'),
     path('folder/<int:folder_id>/', views.FolderView.as_view(), name='folder'),
     path('file/<int:file_id>/', views.FileDetailView.as_view(), name='file_detail'),
+    path('file/<int:file_id>/office/', views.CollaboraOfficeView.as_view(), name='office'),
 
     # File operations
     path('create/', views.CreateFileView.as_view(), name='create_file'),
     path('upload/', views.FileUploadView.as_view(), name='upload'),
+    path('upload/chunk/', views.ChunkUploadView.as_view(), name='upload_chunk'),
     path('file/<int:file_id>/download/', views.FileDownloadView.as_view(), name='download'),
+    path('file/<int:file_id>/preview/', views.FilePreviewView.as_view(), name='preview'),
     path('file/<int:file_id>/rename/', views.FileRenameView.as_view(), name='rename'),
     path('file/<int:file_id>/move/', views.FileMoveView.as_view(), name='move'),
     path('file/<int:file_id>/delete/', views.FileDeleteView.as_view(), name='delete'),
@@ -37,6 +40,10 @@ urlpatterns = [
 
     # Search
     path('search/', views.SearchView.as_view(), name='search'),
+    path('wopi/files/<int:file_id>', views.WopiFileView.as_view(), name='wopi_file'),
+    path('wopi/files/<int:file_id>/', views.WopiFileView.as_view(), name='wopi_file_legacy'),
+    re_path(r'^wopi/files/(?P<file_id>\d+)/contents$', views.WopiFileContentsView.as_view(), name='wopi_file_contents'),
+    re_path(r'^wopi/files/(?P<file_id>\d+)//contents$', views.WopiFileContentsView.as_view(), name='wopi_file_contents_legacy'),
 
     # Stats
     path('stats/', views.StorageStatsView.as_view(), name='stats'),

@@ -1,0 +1,26 @@
+{
+  "name": "Collabora Online Preview",
+  "slug": "collabora-online",
+  "version": "1.0.0",
+  "author": "CloudService Team",
+  "description": "Opens Office documents directly in Collabora Online via WOPI.",
+  "django_app": {
+    "app_config": "collabora_online.apps.CollaboraOnlineConfig"
+  },
+  "requirements": {
+    "django": ">=5.0,<7.0",
+    "python": ">=3.10",
+    "python_packages": []
+  },
+  "hooks": {
+    "file_preview_provider": {
+      "handler": "collabora_online.handlers.CollaboraPreviewProvider",
+      "priority": 5,
+      "mime_types": [
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+      ]
+    }
+  }
+}

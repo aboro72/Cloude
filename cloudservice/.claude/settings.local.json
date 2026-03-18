@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//home/storage/**)",
+      "Bash(systemctl list-units:*)",
+      "Bash(systemctl restart:*)",
+      "Bash(systemctl status:*)",
+      "Read(//var/log/gunicorn/**)",
+      "Bash(find /home/storage -name \"*.log\" 2>/dev/null | head -10)",
+      "Bash(source ../venv/bin/activate && python manage.py makemigrations core --name \"remove_file_hash_unique\" 2>&1)",
+      "Bash(source ../venv/bin/activate && python manage.py migrate 2>&1)",
+      "Bash(sudo systemctl:*)",
+      "Bash(source ../venv/bin/activate && python manage.py check 2>&1 | grep -v \"staticfiles.W004\")",
+      "Bash(source /home/storage/Cloude/venv/bin/activate && python manage.py shell -c \"\nfrom django.test import Client\nfrom django.contrib.auth.models import User\nfrom io import BytesIO\nimport os\n\nuser = User.objects.filter\\(username='aborowczak'\\).first\\(\\)\nclient = Client\\(\\)\nclient.force_login\\(user\\)\n\ntest_file = BytesIO\\(b'Hello World Test!'\\)\ntest_file.name = 'test_upload_fix.txt'\n\nresponse = client.post\\('/storage/upload/', {'file': test_file, 'name': 'test_upload_fix.txt'}\\)\nprint\\(f'Status: {response.status_code}'\\)\nprint\\(f'Response: {response.content.decode\\(\\)}'\\)\n\")",
+      "Bash(sudo nginx:*)",
+      "Bash(sudo sed:*)",
+      "Bash(source /home/storage/Cloude/venv/bin/activate && python manage.py shell -c \"\nfrom core.models import StorageFile\nfrom django.contrib.auth.models import User\nuser = User.objects.filter\\(username='aborowczak'\\).first\\(\\)\nfiles = StorageFile.objects.filter\\(owner=user\\).order_by\\('-created_at'\\)[:10]\nfor f in files:\n    print\\(f'{f.id} | {f.name} | {f.size} bytes | {f.created_at.strftime\\(\\\\\"%H:%M:%S\\\\\"\\)}'\\)\n\" 2>&1 | grep -v \"objects imported\")",
+      "Bash(source /home/storage/Cloude/venv/bin/activate && python manage.py shell -c \"\nfrom core.models import StorageFolder\nfrom django.contrib.auth.models import User\n\nfor user in User.objects.exclude\\(username='AnonymousUser'\\):\n    folders = StorageFolder.objects.filter\\(owner=user, parent=None\\)\n    print\\(f'{user.username}: {folders.count\\(\\)} Root-Ordner -> {[f.name for f in folders]}'\\)\n\" 2>&1 | grep -v \"objects imported\")",
+      "Bash(source /home/storage/Cloude/venv/bin/activate && python manage.py shell -c \"\nfrom django.contrib.auth.models import User\nfrom accounts.models import UserProfile\n\nfor user in User.objects.exclude\\(username='AnonymousUser'\\):\n    try:\n        profile = user.profile\n        used = profile.get_storage_used\\(\\)\n        quota = profile.storage_quota\n        print\\(f'{user.username}: {used/\\(1024**3\\):.2f}GB benutzt von {quota/\\(1024**3\\):.0f}GB Quota \\({profile.get_storage_used_percentage\\(\\):.1f}%\\)'\\)\n    except Exception as e:\n        print\\(f'{user.username}: Kein Profil - {e}'\\)\n\" 2>&1 | grep -v \"objects imported\")",
+      "Bash(ssh -o StrictHostKeyChecking=no root@192.168.0.200 \"nginx -T 2>/dev/null | grep -E 'client_max_body|proxy_body|server_name|listen'\" 2>&1)",
+      "Bash(sshpass -p 'quaSeu2i_ps2208b' ssh -o StrictHostKeyChecking=no root@192.168.0.200 \"nginx -T 2>/dev/null | grep -E 'client_max_body|proxy_body|server_name|listen'\" 2>&1 || echo \"sshpass nicht installiert, versuche anders...\")",
+      "Bash(sudo apt-get:*)",
+      "Bash(sshpass -p 'quaSeu2i_ps2208b' ssh -o StrictHostKeyChecking=no root@192.168.0.200 \"nginx -T 2>/dev/null | grep -A 50 'server_name storage1.aborosoft.com'\" 2>&1)",
+      "Bash(sshpass -p 'quaSeu2i_ps2208b' ssh -o StrictHostKeyChecking=no root@192.168.0.200 \"grep -rl 'storage1.aborosoft.com' /etc/nginx/ 2>/dev/null\" 2>&1)",
+      "Bash(sshpass -p 'quaSeu2i_ps2208b' ssh -o StrictHostKeyChecking=no root@192.168.0.200 \"cat /etc/nginx/sites-available/storage1.aborosoft.com.vhost\" 2>&1)",
+      "Bash(sshpass -p 'quaSeu2i_ps2208b' ssh -o StrictHostKeyChecking=no root@192.168.0.200 \"nginx -t && systemctl reload nginx && echo 'Nginx auf Proxy erfolgreich neu geladen!'\" 2>&1)",
+      "Bash(sshpass -p 'quaSeu2i_ps2208b' ssh -o StrictHostKeyChecking=no root@192.168.0.200 \"\necho '=== HTTP Block Limits ==='\ngrep -n 'client_max_body\\\\|proxy_read_timeout\\\\|proxy_send_timeout\\\\|proxy_request_buffering' /etc/nginx/nginx.conf 2>/dev/null\n\necho '=== Letzte Nginx Errors ==='\ntail -20 /var/log/nginx/error.log 2>/dev/null\n\necho '=== Letzte Nginx Access \\(Upload\\) ==='\ngrep 'storage/upload\\\\|413\\\\|502\\\\|504' /var/log/nginx/access.log 2>/dev/null | tail -10\n\" 2>&1)",
+      "Bash(/home/storage/Cloude/venv/bin/python -c \"from storage.views import ChunkUploadView; print\\('OK'\\)\")",
+      "Bash(DJANGO_SETTINGS_MODULE=config.settings /home/storage/Cloude/venv/bin/python -c \"import django; django.setup\\(\\); from storage.views import ChunkUploadView; print\\('OK'\\)\")",
+      "Bash(curl -s -X POST http://127.0.0.1:8000/storage/upload/chunk/ \\\\\n  -H \"X-CSRFToken: test\" \\\\\n  -H \"Cookie: csrftoken=test\" \\\\\n  -F \"upload_id=test123\" \\\\\n  -F \"chunk_index=0\" \\\\\n  -F \"total_chunks=1\" \\\\\n  -F \"filename=test.txt\" \\\\\n  -F \"chunk=@/etc/hostname\" 2>&1 | head -5)",
+      "Bash(DJANGO_SETTINGS_MODULE=config.settings /home/storage/Cloude/venv/bin/python -c \"\nimport django; django.setup\\(\\)\nfrom django.test import RequestFactory, override_settings\nfrom django.contrib.auth.models import User\nfrom storage.views import ChunkUploadView\nfrom django.core.files.uploadedfile import SimpleUploadedFile\n\nfactory = RequestFactory\\(\\)\nuser = User.objects.first\\(\\)\nprint\\('Test user:', user\\)\nprint\\('ChunkUploadView loaded OK'\\)\n\")",
+      "Bash(DJANGO_SETTINGS_MODULE=config.settings /home/storage/Cloude/venv/bin/python -c \"\nimport django; django.setup\\(\\)\nfrom django.contrib.auth.models import User\nu = User.objects.filter\\(is_superuser=True\\).first\\(\\)\nprint\\(u\\)\n\")",
+      "Bash(DJANGO_SETTINGS_MODULE=config.settings /home/storage/Cloude/venv/bin/python -c \"\nimport django; django.setup\\(\\)\nfrom storage.views import ChunkUploadView\nimport inspect\nsrc = inspect.getsource\\(ChunkUploadView.post\\)\nprint\\(src[:500]\\)\n\")"
+    ]
+  }
+}

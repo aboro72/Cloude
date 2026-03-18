@@ -5,9 +5,8 @@ Includes file management, storage structure and file versioning.
 
 from django.db import models
 from django.contrib.auth.models import User
-from django.core.validators import FileExtensionValidator, MaxValueValidator
 from django.utils.translation import gettext_lazy as _
-from django.db.models import F, Q, Sum, Count
+from django.db.models import F, Q, Sum
 from django.utils import timezone
 from django.conf import settings
 import os
@@ -158,16 +157,10 @@ class StorageFile(TimeStampedModel):
     file = models.FileField(
         upload_to='files/%Y/%m/%d/%H%M%S',
         verbose_name=_('File'),
-        validators=[
-            FileExtensionValidator(
-                allowed_extensions=settings.ALLOWED_FILE_EXTENSIONS
-            )
-        ]
     )
     size = models.BigIntegerField(
         verbose_name=_('File size (bytes)'),
         default=0,
-        validators=[MaxValueValidator(settings.FILE_UPLOAD_MAX_MEMORY_SIZE)]
     )
     mime_type = models.CharField(
         max_length=100,
@@ -179,7 +172,6 @@ class StorageFile(TimeStampedModel):
         max_length=64,
         verbose_name=_('SHA256 hash'),
         blank=True,
-        unique=True,
         db_index=True
     )
     description = models.TextField(
@@ -249,14 +241,23 @@ class StorageFile(TimeStampedModel):
         Override save to compute file hash and MIME type.
         Django 5.x: Simplified method using Path operations.
         """
-        if self.file:
+        update_fields = kwargs.get('update_fields')
+        should_refresh_file_metadata = update_fields is None or bool(
+            {'file', 'name', 'mime_type', 'size', 'file_hash'} & set(update_fields)
+        )
+
+        if self.file and should_refresh_file_metadata:
             # Get MIME type
             self.mime_type, _ = mimetypes.guess_type(self.file.name)
             if not self.mime_type:
                 self.mime_type = 'application/octet-stream'
 
             # Get file size
-            self.size = self.file.size
+            try:
+                self.size = self.file.size
+            except FileNotFoundError:
+                logger.warning("Skipping file metadata refresh for missing file: %s", self.file.name)
+                return super().save(*args, **kwargs)
 
             # Generate SHA256 hash
             if not self.file_hash:
@@ -268,8 +269,12 @@ class StorageFile(TimeStampedModel):
                     hash_object.update(str(timezone.now()).encode('utf-8'))
 
                 # Hash file content
-                for chunk in self.file.chunks():
-                    hash_object.update(chunk)
+                try:
+                    for chunk in self.file.chunks():
+                        hash_object.update(chunk)
+                except FileNotFoundError:
+                    logger.warning("Skipping file hash refresh for missing file: %s", self.file.name)
+                    return super().save(*args, **kwargs)
 
                 self.file_hash = hash_object.hexdigest()
 
@@ -408,9 +413,8 @@ class FileVersion(TimeStampedModel):
 
         if is_new:
             # Update file version count
-            StorageFile.objects.filter(pk=self.file.pk).update(
-                version_count=Count('versions')
-            )
+            count = FileVersion.objects.filter(file=self.file).count()
+            StorageFile.objects.filter(pk=self.file.pk).update(version_count=count)
 
 
 class ActivityLog(TimeStampedModel):

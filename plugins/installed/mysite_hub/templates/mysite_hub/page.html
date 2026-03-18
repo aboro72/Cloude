@@ -1,0 +1,363 @@
+{% extends 'base.html' %}
+
+{% block title %}MySite - CloudService{% endblock %}
+
+{% block extra_css %}
+<style>
+    .mysite-hero {
+        position: relative;
+        overflow: hidden;
+        padding: 2rem;
+        border-radius: 24px;
+        background:
+            radial-gradient(circle at top right, rgba(255,255,255,0.18), transparent 30%),
+            linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+        color: #fff;
+    }
+
+    .mysite-hero-media,
+    .mysite-hero-overlay {
+        position: absolute;
+        inset: 0;
+    }
+
+    .mysite-hero-media img,
+    .mysite-hero-media video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .mysite-hero-overlay {
+        background:
+            linear-gradient(135deg, rgba(15, 23, 42, 0.66) 0%, rgba(15, 23, 42, 0.34) 100%),
+            radial-gradient(circle at top right, rgba(255,255,255,0.12), transparent 30%);
+    }
+
+    .mysite-hero > * {
+        position: relative;
+        z-index: 1;
+    }
+
+    .mysite-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        gap: 1rem;
+    }
+
+    .mysite-surface {
+        border: 1px solid var(--border-color);
+        border-radius: 20px;
+        background: var(--surface-bg);
+        padding: 1.25rem;
+        height: 100%;
+    }
+
+    .mysite-link-card {
+        border: 1px solid var(--border-color);
+        border-radius: 18px;
+        background: var(--surface-bg);
+        padding: 1.15rem;
+        height: 100%;
+    }
+
+    .mysite-link-card i,
+    .mysite-mini-icon {
+        font-size: 1.35rem;
+        color: var(--primary-color);
+    }
+
+    .mysite-kpi {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 1rem;
+    }
+
+    .mysite-kpi-card {
+        background: rgba(255,255,255,0.14);
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 16px;
+        padding: 1rem;
+    }
+
+    .mysite-section-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .mysite-stack {
+        display: grid;
+        gap: 1rem;
+    }
+
+    .mysite-feed-item,
+    .mysite-list-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.85rem;
+        padding-bottom: 0.85rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .mysite-feed-item:last-child,
+    .mysite-list-item:last-child {
+        border-bottom: 0;
+        padding-bottom: 0;
+    }
+
+    .mysite-meta {
+        color: var(--text-muted);
+        font-size: 0.9rem;
+    }
+
+    .mysite-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.35rem 0.75rem;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--surface-bg) 86%, var(--primary-color) 14%);
+        color: var(--text-color);
+        font-size: 0.85rem;
+    }
+
+    .mysite-webparts {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 1rem;
+    }
+
+    .mysite-webpart {
+        border-radius: 16px;
+        background: color-mix(in srgb, var(--surface-bg) 90%, var(--primary-color) 10%);
+        padding: 1rem;
+        border: 1px solid var(--border-color);
+    }
+
+    .mysite-library-grid,
+    .mysite-department-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="mysite-hero mb-4">
+        {% if hero_style == 'image' and hero_image_url %}
+            <div class="mysite-hero-media">
+                <img src="{{ hero_image_url }}" alt="MySite Hero Hintergrund">
+            </div>
+            <div class="mysite-hero-overlay"></div>
+        {% elif hero_style == 'video' and hero_video_url %}
+            <div class="mysite-hero-media">
+                <video autoplay muted loop playsinline>
+                    <source src="{{ hero_video_url }}">
+                </video>
+            </div>
+            <div class="mysite-hero-overlay"></div>
+        {% endif %}
+        <div class="d-flex flex-column flex-xl-row justify-content-between gap-4">
+            <div>
+                <div class="small text-white-50 mb-2">SharePoint-inspirierter Bereich</div>
+                <h1 class="h2 mb-2">{{ hero_title }}</h1>
+                <p class="mb-3 text-white-50">{{ hero_subtitle }}</p>
+                <div class="d-flex flex-wrap gap-2">
+                    <span class="badge text-bg-light">MySite</span>
+                    <span class="badge text-bg-light">Team Sites</span>
+                    <span class="badge text-bg-light">Dokumentbibliotheken</span>
+                    <span class="badge text-bg-light">Webparts</span>
+                    <span class="badge text-bg-light">{{ hero_style|title }}</span>
+                </div>
+            </div>
+            <div class="mysite-kpi">
+                <div class="mysite-kpi-card">
+                    <div class="small text-white-50">Belegt</div>
+                    <div class="h4 mb-0">{{ storage_used_mb|floatformat:0 }} MB</div>
+                </div>
+                <div class="mysite-kpi-card">
+                    <div class="small text-white-50">Frei</div>
+                    <div class="h4 mb-0">{{ storage_remaining_mb|floatformat:0 }} MB</div>
+                </div>
+                <div class="mysite-kpi-card">
+                    <div class="small text-white-50">Auslastung</div>
+                    <div class="h4 mb-0">{{ storage_percent }}%</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mysite-grid mb-4">
+        {% for link in quick_links %}
+            <a class="mysite-link-card text-decoration-none" href="{{ link.url }}">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div>
+                        <h5 class="mb-1 text-body">{{ link.title }}</h5>
+                        <p class="mb-0 text-muted">{{ link.description }}</p>
+                    </div>
+                    <i class="bi {{ link.icon }}"></i>
+                </div>
+            </a>
+        {% endfor %}
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-xl-7">
+            <div class="mysite-surface">
+                <div class="mysite-section-head">
+                    <div>
+                        <h4 class="mb-1">News und Ankuendigungen</h4>
+                        <div class="mysite-meta">Aktuelle Aktivitaeten und redaktionelle Hinweise im Stil einer SharePoint-Newsleiste.</div>
+                    </div>
+                    <span class="mysite-pill"><i class="bi bi-megaphone"></i>News</span>
+                </div>
+                <div class="mysite-stack">
+                    {% for item in news_items %}
+                        <div class="mysite-feed-item">
+                            <i class="bi {{ item.icon }} mysite-mini-icon"></i>
+                            <div>
+                                <div class="fw-semibold">{{ item.title }}</div>
+                                <div class="mysite-meta">{{ item.summary }}</div>
+                                {% if item.time %}
+                                    <div class="small text-muted mt-1">{{ item.time|date:"d.m.Y H:i" }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-5">
+            <div class="mysite-surface h-100">
+                <div class="mysite-section-head">
+                    <div>
+                        <h4 class="mb-1">Webparts</h4>
+                        <div class="mysite-meta">Bausteine fuer Startseiten, Teambereiche und Abteilungsseiten.</div>
+                    </div>
+                    <span class="mysite-pill"><i class="bi bi-grid-3x3-gap"></i>Layout</span>
+                </div>
+                <div class="mysite-webparts">
+                    {% for part in webparts %}
+                        <div class="mysite-webpart">
+                            <i class="bi {{ part.icon }} mysite-mini-icon"></i>
+                            <div class="fw-semibold mt-2">{{ part.title }}</div>
+                            <div class="mysite-meta">{{ part.description }}</div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-xl-6">
+            <div class="mysite-surface">
+                <div class="mysite-section-head">
+                    <div>
+                        <h4 class="mb-1">Team Sites</h4>
+                        <div class="mysite-meta">Bereiche fuer Projekte, Gruppen und Zusammenarbeit.</div>
+                    </div>
+                    <span class="mysite-pill"><i class="bi bi-people-fill"></i>Teams</span>
+                </div>
+                <div class="mysite-stack">
+                    {% for site in team_sites %}
+                        <a class="mysite-list-item text-decoration-none text-body" href="{{ site.url }}">
+                            <i class="bi {{ site.icon }} mysite-mini-icon"></i>
+                            <div>
+                                <div class="fw-semibold">{{ site.title }}</div>
+                                <div class="mysite-meta">{{ site.description }}</div>
+                                <div class="small text-muted mt-1">{{ site.meta }}</div>
+                            </div>
+                        </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-6">
+            <div class="mysite-surface">
+                <div class="mysite-section-head">
+                    <div>
+                        <h4 class="mb-1">Zuletzt bearbeitet</h4>
+                        <div class="mysite-meta">Persoenliche Dokumente und gemeinsame Inhalte mit schnellem Zugriff.</div>
+                    </div>
+                    <span class="mysite-pill"><i class="bi bi-clock-history"></i>Aktuell</span>
+                </div>
+                <div class="mysite-stack">
+                    {% for file in recent_files %}
+                        <div class="mysite-list-item">
+                            <i class="bi bi-file-earmark-text mysite-mini-icon"></i>
+                            <div>
+                                <div class="fw-semibold">{{ file.name }}</div>
+                                <div class="mysite-meta">{{ file.mime_type|default:"Datei" }}</div>
+                                <div class="small text-muted mt-1">{{ file.updated_at|date:"d.m.Y H:i" }}</div>
+                            </div>
+                        </div>
+                    {% empty %}
+                        <div class="mysite-meta">Noch keine Dateien vorhanden.</div>
+                    {% endfor %}
+                    {% for share in incoming_shares %}
+                        <div class="mysite-list-item">
+                            <i class="bi bi-person-plus mysite-mini-icon"></i>
+                            <div>
+                                <div class="fw-semibold">{{ share.owner.username }} hat etwas geteilt</div>
+                                <div class="mysite-meta">{{ share.content_object }}</div>
+                                <div class="small text-muted mt-1">Berechtigung: {{ share.get_permission_display }}</div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mysite-surface mb-4">
+        <div class="mysite-section-head">
+            <div>
+                <h4 class="mb-1">Dokumentbibliotheken</h4>
+                <div class="mysite-meta">Bibliotheken fuer persoenliche, projektbezogene und Wissensinhalte.</div>
+            </div>
+            <span class="mysite-pill"><i class="bi bi-journal-richtext"></i>Libraries</span>
+        </div>
+        <div class="mysite-library-grid">
+            {% for library in document_libraries %}
+                <a class="mysite-link-card text-decoration-none text-body" href="{{ library.url }}">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <h5 class="mb-1">{{ library.title }}</h5>
+                            <div class="mysite-meta">{{ library.description }}</div>
+                        </div>
+                        <i class="bi bi-folder2-open mysite-mini-icon"></i>
+                    </div>
+                    <div class="small text-muted">{{ library.meta }}</div>
+                    <div class="fw-semibold mt-2">{{ library.count }} Dateien</div>
+                </a>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="mysite-surface">
+        <div class="mysite-section-head">
+            <div>
+                <h4 class="mb-1">Abteilungsseiten</h4>
+                <div class="mysite-meta">Struktur fuer Management, HR, Finance und Engineering als naechste Ausbaustufe.</div>
+            </div>
+            <span class="mysite-pill"><i class="bi bi-building"></i>Departments</span>
+        </div>
+        <div class="mysite-department-grid">
+            {% for page in department_pages %}
+                <a class="mysite-link-card text-decoration-none text-body" href="{{ page.url }}">
+                    <i class="bi {{ page.icon }} mysite-mini-icon"></i>
+                    <h5 class="mt-3 mb-1">{{ page.title }}</h5>
+                    <div class="mysite-meta">{{ page.description }}</div>
+                    <div class="small text-muted mt-2">Owner: {{ page.owner }}</div>
+                </a>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

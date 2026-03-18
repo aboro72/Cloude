@@ -25,6 +25,12 @@ urlpatterns = [
     # Group sharing
     path('groups/', views.GroupsListView.as_view(), name='groups_list'),
     path('group/create/', views.CreateGroupView.as_view(), name='create_group'),
+    path('group/<int:group_id>/', views.GroupDetailView.as_view(), name='group_detail'),
+    path('group/<int:group_id>/edit/', views.GroupUpdateView.as_view(), name='group_edit'),
+    path('group/<int:group_id>/news/', views.TeamSiteNewsListView.as_view(), name='team_news_list'),
+    path('group/<int:group_id>/news/create/', views.TeamSiteNewsCreateView.as_view(), name='team_news_create'),
+    path('group/<int:group_id>/news/<int:news_id>/', views.TeamSiteNewsDetailView.as_view(), name='team_news_detail'),
+    path('group/<int:group_id>/news/<int:news_id>/edit/', views.TeamSiteNewsUpdateView.as_view(), name='team_news_edit'),
     path('group/<int:group_id>/share/', views.GroupShareView.as_view(), name='group_share'),
 
     # Shared with me

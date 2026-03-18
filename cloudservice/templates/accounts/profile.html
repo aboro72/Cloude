@@ -2,96 +2,341 @@
 
 {% block title %}Profil - CloudService{% endblock %}
 
+{% block extra_css %}
+<style>
+    .profile-layout {
+        display: grid;
+        gap: 1.5rem;
+    }
+
+    .hero-card {
+        overflow: hidden;
+    }
+
+    .hero-banner {
+        padding: 2rem;
+        background:
+            radial-gradient(circle at top right, rgba(255, 255, 255, 0.18), transparent 35%),
+            linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+        color: #fff;
+    }
+
+    .profile-avatar {
+        width: 108px;
+        height: 108px;
+        border-radius: 28px;
+        background: rgba(255, 255, 255, 0.18);
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        font-size: 2.5rem;
+        font-weight: 700;
+        backdrop-filter: blur(10px);
+    }
+
+    .profile-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .stat-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+        gap: 1rem;
+    }
+
+    .stat-card {
+        border: 1px solid var(--border-color);
+        border-radius: 14px;
+        padding: 1rem;
+        background: var(--surface-bg);
+    }
+
+    .stat-label {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        margin-bottom: 0.4rem;
+    }
+
+    .stat-value {
+        font-size: 1.35rem;
+        font-weight: 700;
+    }
+
+    .section-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .info-list {
+        display: grid;
+        gap: 0.9rem;
+    }
+
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .info-row:last-child {
+        border-bottom: 0;
+        padding-bottom: 0;
+    }
+
+    .info-label {
+        color: var(--text-muted);
+        white-space: nowrap;
+    }
+
+    .profile-bio {
+        border: 1px solid var(--border-color);
+        border-radius: 14px;
+        padding: 1rem;
+        background: color-mix(in srgb, var(--surface-bg) 88%, var(--primary-color) 12%);
+    }
+
+    .progress {
+        height: 14px;
+        background-color: var(--surface-muted);
+    }
+
+    .progress-bar {
+        background: linear-gradient(90deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    }
+
+    .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.35rem 0.75rem;
+        border-radius: 999px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+
+    .status-ok {
+        background: rgba(34, 197, 94, 0.12);
+        color: #15803d;
+    }
+
+    .status-warn {
+        background: rgba(245, 158, 11, 0.15);
+        color: #b45309;
+    }
+
+    .quick-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container">
-    <div class="row">
-        <div class="col-md-3">
-            <!-- Sidebar -->
+    <div class="row g-4">
+        <div class="col-lg-3">
             <div class="sidebar">
-                <h5 class="mb-4">⚙️ Einstellungen</h5>
-                <a href="/accounts/profile/" class="sidebar-link active">👤 Profil</a>
-                <a href="/accounts/profile/edit/" class="sidebar-link">✏️ Bearbeiten</a>
-                <a href="/accounts/profile/password/" class="sidebar-link">🔑 Passwort</a>
-                <a href="/accounts/settings/" class="sidebar-link">⚙️ Einstellungen</a>
-                <a href="/accounts/logout/" class="sidebar-link">🚪 Logout</a>
+                <h5 class="mb-4"><i class="bi bi-gear me-2"></i>Konto</h5>
+                <a href="/accounts/profile/" class="sidebar-link active"><i class="bi bi-person me-2"></i>Profil</a>
+                <a href="/accounts/profile/edit/" class="sidebar-link"><i class="bi bi-pencil-square me-2"></i>Bearbeiten</a>
+                <a href="/accounts/profile/password/" class="sidebar-link"><i class="bi bi-key me-2"></i>Passwort</a>
+                <a href="/accounts/settings/" class="sidebar-link"><i class="bi bi-palette me-2"></i>Design</a>
+                <a href="/accounts/logout/" class="sidebar-link"><i class="bi bi-box-arrow-right me-2"></i>Logout</a>
             </div>
         </div>
 
-        <div class="col-md-9">
-            <!-- Profile Card -->
-            <div class="card mb-4">
-                <div class="card-body">
-                    <div class="row align-items-center">
-                        <div class="col-md-3 text-center">
-                            <div class="avatar-circle" style="width: 120px; height: 120px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 3rem; margin: 0 auto;">
-                                {{ user.username|upper|first }}
+        <div class="col-lg-9">
+            <div class="profile-layout">
+                <div class="card hero-card">
+                    <div class="hero-banner">
+                        <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-4">
+                            <div class="d-flex align-items-center gap-4">
+                                <div class="profile-avatar">
+                                    {% if profile.avatar %}
+                                        <img src="{{ profile.avatar.url }}" alt="Avatar von {{ user.username }}">
+                                    {% else %}
+                                        {{ user.username|upper|first }}
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    <div class="small text-white-50 mb-2">Benutzerprofil</div>
+                                    <h1 class="h2 mb-1">{{ user.get_full_name|default:user.username }}</h1>
+                                    <p class="mb-2 text-white-50">@{{ user.username }}</p>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        <span class="badge text-bg-light">{{ profile.get_role_display }}</span>
+                                        <span class="badge text-bg-light">{{ profile.get_theme_display }}</span>
+                                        <span class="badge text-bg-light">{{ profile.get_design_variant_display }}</span>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                        <div class="col-md-9">
-                            <h2>{{ user.get_full_name|default:user.username }}</h2>
-                            <p class="text-muted">@{{ user.username }}</p>
-                            <div class="mt-3">
-                                <p><strong>📧 E-Mail:</strong> {{ user.email }}</p>
-                                <p><strong>👤 Rolle:</strong> <span class="badge-custom">{{ profile.get_role_display }}</span></p>
-                                <p><strong>📅 Seit:</strong> {{ user.date_joined|date:"d.m.Y" }}</p>
-                            </div>
-                            <a href="/accounts/profile/edit/" class="btn btn-primary">✏️ Bearbeiten</a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Storage Info -->
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0">💾 Speicherplatz</h5>
-                </div>
-                <div class="card-body">
-                    <div class="mb-3">
-                        <div class="d-flex justify-content-between mb-2">
-                            <span>Verwendet</span>
-                            <span>{{ profile.get_storage_used_mb|floatformat:2 }} MB / {{ profile.storage_quota|floatformat:1 }} GB</span>
-                        </div>
-                        {% widthratio profile.get_storage_used profile.storage_quota 100 as storage_percentage %}
-                        <div class="progress" style="height: 25px;">
-                            <div class="progress-bar" role="progressbar"
-                                 style="width: {{ storage_percentage }}%; background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);"
-                                 aria-valuenow="{{ storage_percentage }}" aria-valuemin="0" aria-valuemax="100">
-                                {{ storage_percentage }}%
+                            <div class="quick-actions">
+                                <a href="/accounts/profile/edit/" class="btn btn-light">
+                                    <i class="bi bi-pencil-square me-2"></i>Profil bearbeiten
+                                </a>
+                                <a href="/accounts/settings/" class="btn btn-outline-light">
+                                    <i class="bi bi-palette me-2"></i>Design anpassen
+                                </a>
                             </div>
                         </div>
                     </div>
-                    {% if storage_percentage >= 80 %}
-                        <div class="alert alert-warning" role="alert">
-                            ⚠️ Sie haben mehr als 80% Ihres Speicherplatzes verwendet.
+                    <div class="card-body">
+                        <div class="stat-grid">
+                            <div class="stat-card">
+                                <div class="stat-label">Profilstatus</div>
+                                <div class="stat-value">{{ profile_completion }}%</div>
+                                <div class="small text-muted">Ausgefuellte Angaben im Konto</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-label">Mitglied seit</div>
+                                <div class="stat-value">{{ user.date_joined|date:"d.m.Y" }}</div>
+                                <div class="small text-muted">Registrierungsdatum</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-label">Freier Speicher</div>
+                                <div class="stat-value">{{ storage_remaining_mb|floatformat:0 }} MB</div>
+                                <div class="small text-muted">Von {{ storage_quota_gb|floatformat:1 }} GB verfuegbar</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-label">Sicherheitsstatus</div>
+                                {% if profile.is_email_verified and profile.is_two_factor_enabled %}
+                                    <div class="stat-value">Stark</div>
+                                    <div class="small text-muted">E-Mail und 2FA aktiv</div>
+                                {% elif profile.is_email_verified or profile.is_two_factor_enabled %}
+                                    <div class="stat-value">Mittel</div>
+                                    <div class="small text-muted">Ein Schutzfaktor aktiv</div>
+                                {% else %}
+                                    <div class="stat-value">Basis</div>
+                                    <div class="small text-muted">Absicherung ausbaehig</div>
+                                {% endif %}
+                            </div>
                         </div>
-                    {% endif %}
+                    </div>
                 </div>
-            </div>
 
-            <!-- Account Info -->
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0">🔒 Sicherheit</h5>
+                <div class="section-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="bi bi-person-lines-fill me-2"></i>Persoenliche Daten</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="info-list">
+                                <div class="info-row">
+                                    <span class="info-label">E-Mail</span>
+                                    <span>{{ user.email|default:"Nicht hinterlegt" }}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Telefon</span>
+                                    <span>{{ profile.phone_number|default:"Nicht hinterlegt" }}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Sprache</span>
+                                    <span>{{ profile.get_language_display }}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Zeitzone</span>
+                                    <span>{{ profile.timezone }}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Website</span>
+                                    <span>
+                                        {% if profile.website %}
+                                            <a href="{{ profile.website }}" target="_blank" rel="noopener noreferrer">{{ profile.website }}</a>
+                                        {% else %}
+                                            Nicht hinterlegt
+                                        {% endif %}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="profile-bio mt-4">
+                                <div class="small text-muted mb-2">Bio</div>
+                                <div>{{ profile.bio|default:"Noch keine Kurzbeschreibung hinterlegt." }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="bi bi-shield-lock me-2"></i>Sicherheit und Design</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="info-list">
+                                <div class="info-row">
+                                    <span class="info-label">E-Mail verifiziert</span>
+                                    {% if profile.is_email_verified %}
+                                        <span class="status-pill status-ok"><i class="bi bi-check-circle"></i>Ja</span>
+                                    {% else %}
+                                        <span class="status-pill status-warn"><i class="bi bi-exclamation-circle"></i>Nein</span>
+                                    {% endif %}
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Zwei-Faktor-Auth</span>
+                                    {% if profile.is_two_factor_enabled %}
+                                        <span class="status-pill status-ok"><i class="bi bi-shield-check"></i>Aktiv</span>
+                                    {% else %}
+                                        <span class="status-pill status-warn"><i class="bi bi-shield"></i>Inaktiv</span>
+                                    {% endif %}
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Designstil</span>
+                                    <span>{{ profile.get_design_variant_display }}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Farbpreset</span>
+                                    <span>{{ profile.get_color_preset_display }}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Farben</span>
+                                    <span class="d-inline-flex align-items-center gap-2">
+                                        <span class="rounded-circle border" style="width:18px;height:18px;background:{{ profile.primary_color }};"></span>
+                                        <span class="rounded-circle border" style="width:18px;height:18px;background:{{ profile.secondary_color }};"></span>
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="mt-4">
+                                <a href="/accounts/settings/" class="btn btn-primary">
+                                    <i class="bi bi-sliders me-2"></i>Einstellungen oeffnen
+                                </a>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <p>
-                        <strong>Zwei-Faktor-Authentifizierung:</strong>
-                        {% if profile.is_two_factor_enabled %}
-                            <span class="badge bg-success">Aktiviert</span>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-hdd-stack me-2"></i>Speicher und Nutzung</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
+                            <div>
+                                <div class="small text-muted">Aktuelle Auslastung</div>
+                                <div class="h4 mb-0">{{ storage_percentage|floatformat:1 }}%</div>
+                            </div>
+                            <div class="text-md-end">
+                                <div><strong>{{ storage_used_mb|floatformat:2 }} MB</strong> verwendet</div>
+                                <div class="text-muted">von {{ storage_quota_gb|floatformat:1 }} GB Gesamtspeicher</div>
+                            </div>
+                        </div>
+                        <div class="progress mb-3">
+                            <div class="progress-bar" role="progressbar" style="width: {{ storage_percentage }}%;" aria-valuenow="{{ storage_percentage }}" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                        {% if storage_percentage >= 80 %}
+                            <div class="alert alert-warning mb-0">
+                                Ihr Speicher ist bereits stark belegt. Loeschen Sie unnoetige Dateien oder erhoehen Sie das Limit.
+                            </div>
                         {% else %}
-                            <span class="badge bg-secondary">Deaktiviert</span>
+                            <div class="text-muted">
+                                Sie haben aktuell noch {{ storage_remaining_mb|floatformat:0 }} MB frei.
+                            </div>
                         {% endif %}
-                    </p>
-                    <p>
-                        <strong>E-Mail verifiziert:</strong>
-                        {% if profile.is_email_verified %}
-                            <span class="badge bg-success">Ja</span>
-                        {% else %}
-                            <span class="badge bg-warning">Nein</span>
-                        {% endif %}
-                    </p>
-                    <a href="/accounts/settings/" class="btn btn-sm btn-primary">Ändern</a>
+                    </div>
                 </div>
             </div>
         </div>

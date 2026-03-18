@@ -338,6 +338,24 @@ class GroupShare(models.Model):
         related_name='group_shares_member_of',
         verbose_name=_('Members')
     )
+    team_leaders = models.ManyToManyField(
+        User,
+        related_name='group_shares_led',
+        blank=True,
+        verbose_name=_('Team leaders')
+    )
+    background_image = models.ImageField(
+        upload_to='groups/backgrounds/%Y/%m/',
+        null=True,
+        blank=True,
+        verbose_name=_('Background image')
+    )
+    background_video = models.FileField(
+        upload_to='groups/backgrounds/%Y/%m/',
+        null=True,
+        blank=True,
+        verbose_name=_('Background video')
+    )
 
     # Generic relation to file or folder
     content_type = models.ForeignKey(
@@ -374,6 +392,84 @@ class GroupShare(models.Model):
 
     def __str__(self):
         return f"Group: {self.group_name}"
+
+    def user_can_manage(self, user):
+        return bool(
+            user
+            and user.is_authenticated
+            and (
+                self.owner_id == user.id
+                or self.team_leaders.filter(id=user.id).exists()
+            )
+        )
+
+
+class TeamSiteNews(models.Model):
+    group = models.ForeignKey(
+        GroupShare,
+        on_delete=models.CASCADE,
+        related_name='news_items',
+        verbose_name=_('Group')
+    )
+    title = models.CharField(
+        max_length=255,
+        verbose_name=_('Title')
+    )
+    category = models.CharField(
+        max_length=120,
+        blank=True,
+        verbose_name=_('Category')
+    )
+    summary = models.TextField(
+        blank=True,
+        verbose_name=_('Summary')
+    )
+    content = models.TextField(
+        blank=True,
+        verbose_name=_('Content')
+    )
+    cover_image = models.ImageField(
+        upload_to='groups/news/%Y/%m/',
+        null=True,
+        blank=True,
+        verbose_name=_('Cover image')
+    )
+    author = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='team_site_news_authored',
+        verbose_name=_('Author')
+    )
+    is_published = models.BooleanField(
+        default=True,
+        verbose_name=_('Is published')
+    )
+    is_pinned = models.BooleanField(
+        default=False,
+        verbose_name=_('Is pinned')
+    )
+    publish_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name=_('Publish at')
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name=_('Created at')
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name=_('Updated at')
+    )
+
+    class Meta:
+        ordering = ['-is_pinned', '-publish_at', '-created_at']
+        verbose_name = _('Team Site News')
+        verbose_name_plural = _('Team Site News')
+
+    def __str__(self):
+        return self.title
 
 
 class ShareLog(models.Model):

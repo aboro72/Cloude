@@ -7,18 +7,94 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <style>
+        {% if user.is_authenticated and user.profile %}
+            :root {
+                --primary-color: {{ user.profile.primary_color|default:'#667eea' }};
+                --secondary-color: {{ user.profile.secondary_color|default:'#764ba2' }};
+            }
+        {% else %}
+            :root {
+                --primary-color: #667eea;
+                --secondary-color: #764ba2;
+            }
+        {% endif %}
+
         :root {
-            --primary-color: #667eea;
-            --secondary-color: #764ba2;
+            --page-bg: #f8f9fa;
+            --card-bg: #ffffff;
+            --surface-bg: #ffffff;
+            --surface-muted: #f0f0f0;
+            --text-color: #333333;
+            --text-muted: #6c757d;
+            --border-color: #e5e7eb;
+            --footer-bg: #2c3e50;
+            --shadow-color: rgba(15, 23, 42, 0.08);
+            --card-radius: 15px;
+            --hero-surface: linear-gradient(90deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            --page-tint-left: color-mix(in srgb, var(--primary-color) 10%, transparent);
+            --page-tint-right: color-mix(in srgb, var(--secondary-color) 12%, transparent);
+        }
+
+        {% if user.is_authenticated and user.profile.theme == 'dark' %}
+            :root {
+                --page-bg: #0f172a;
+                --card-bg: #111827;
+                --surface-bg: #111827;
+                --surface-muted: #1f2937;
+                --text-color: #e5e7eb;
+                --text-muted: #9ca3af;
+                --border-color: #334155;
+                --footer-bg: #020617;
+                --shadow-color: rgba(2, 6, 23, 0.45);
+            }
+        {% elif user.is_authenticated and user.profile.theme == 'auto' %}
+            @media (prefers-color-scheme: dark) {
+                :root {
+                    --page-bg: #0f172a;
+                    --card-bg: #111827;
+                    --surface-bg: #111827;
+                    --surface-muted: #1f2937;
+                    --text-color: #e5e7eb;
+                    --text-muted: #9ca3af;
+                    --border-color: #334155;
+                    --footer-bg: #020617;
+                    --shadow-color: rgba(2, 6, 23, 0.45);
+                }
+            }
+        {% endif %}
+
+        {% if user.is_authenticated and user.profile.design_variant == 'minimal' %}
+            :root {
+                --card-radius: 10px;
+                --hero-surface: var(--primary-color);
+                --page-tint-left: transparent;
+                --page-tint-right: transparent;
+            }
+        {% elif user.is_authenticated and user.profile.design_variant == 'contrast' %}
+            :root {
+                --card-radius: 18px;
+                --shadow-color: rgba(15, 23, 42, 0.18);
+                --hero-surface: linear-gradient(135deg, var(--primary-color) 0%, #111827 100%);
+                --page-tint-left: color-mix(in srgb, var(--primary-color) 22%, transparent);
+                --page-tint-right: color-mix(in srgb, var(--secondary-color) 24%, transparent);
+            }
+        {% endif %}
+
+        html, body {
+            min-height: 100%;
         }
 
         body {
-            background-color: #f8f9fa;
+            background:
+                radial-gradient(circle at top left, var(--page-tint-left) 0, transparent 35%),
+                radial-gradient(circle at top right, var(--page-tint-right) 0, transparent 30%),
+                var(--page-bg);
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: var(--text-color);
         }
 
         .navbar {
-            background: linear-gradient(90deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            background: var(--hero-surface);
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
 
@@ -42,9 +118,10 @@
         }
 
         .card {
-            border: none;
-            border-radius: 15px;
-            box-shadow: 0 2px 15px rgba(0,0,0,0.08);
+            border: 1px solid var(--border-color);
+            background: var(--card-bg);
+            border-radius: var(--card-radius);
+            box-shadow: 0 2px 15px var(--shadow-color);
             transition: transform 0.3s, box-shadow 0.3s;
         }
 
@@ -54,14 +131,14 @@
         }
 
         .btn-primary {
-            background: linear-gradient(90deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            background: var(--hero-surface);
             border: none;
             padding: 10px 25px;
             border-radius: 25px;
         }
 
         .btn-primary:hover {
-            background: linear-gradient(90deg, #5568d3 0%, #6a3d8f 100%);
+            filter: brightness(0.96);
         }
 
         .alert {
@@ -71,26 +148,29 @@
 
         .form-control, .form-select {
             border-radius: 8px;
-            border: 1px solid #e0e0e0;
+            border: 1px solid var(--border-color);
             padding: 10px 15px;
+            background-color: var(--surface-bg);
+            color: var(--text-color);
         }
 
-        .form-control:focus {
+        .form-control:focus, .form-select:focus {
             border-color: var(--primary-color);
             box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
         }
 
         .sidebar {
-            background: white;
-            border-radius: 15px;
+            background: var(--surface-bg);
+            border-radius: var(--card-radius);
             padding: 20px;
-            box-shadow: 0 2px 15px rgba(0,0,0,0.08);
+            border: 1px solid var(--border-color);
+            box-shadow: 0 2px 15px var(--shadow-color);
         }
 
         .sidebar-link {
             display: block;
             padding: 12px 15px;
-            color: #333;
+            color: var(--text-color);
             text-decoration: none;
             border-radius: 8px;
             margin-bottom: 5px;
@@ -98,17 +178,17 @@
         }
 
         .sidebar-link:hover {
-            background-color: #f0f0f0;
+            background-color: var(--surface-muted);
             color: var(--primary-color);
         }
 
         .sidebar-link.active {
-            background: linear-gradient(90deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            background: var(--hero-surface);
             color: white;
         }
 
         footer {
-            background-color: #2c3e50;
+            background-color: var(--footer-bg);
             color: white;
             padding: 20px 0;
             margin-top: 50px;
@@ -116,7 +196,7 @@
         }
 
         .badge-custom {
-            background: linear-gradient(90deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            background: var(--hero-surface);
             padding: 5px 12px;
             border-radius: 20px;
         }
@@ -135,7 +215,74 @@
             justify-content: center;
             font-weight: 700;
             cursor: pointer;
+            overflow: hidden;
         }
+
+        .user-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .dropdown-menu {
+            background: var(--surface-bg);
+            border: 1px solid var(--border-color);
+        }
+
+        .dropdown-item {
+            color: var(--text-color);
+        }
+
+        .dropdown-item:hover {
+            background-color: var(--surface-muted);
+        }
+
+        .text-muted, .form-text {
+            color: var(--text-muted) !important;
+        }
+
+        .card-header {
+            background-color: color-mix(in srgb, var(--surface-bg) 88%, var(--primary-color) 12%);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        {% if user.is_authenticated and user.profile.design_variant == 'minimal' %}
+        body {
+            background: var(--page-bg);
+        }
+        .navbar,
+        .btn-primary,
+        .sidebar-link.active,
+        .badge-custom {
+            background: var(--primary-color);
+        }
+        .card,
+        .sidebar,
+        .dropdown-menu {
+            box-shadow: none;
+        }
+        .card:hover {
+            transform: none;
+            box-shadow: none;
+        }
+        .card-header {
+            background-color: var(--surface-bg);
+        }
+        {% elif user.is_authenticated and user.profile.design_variant == 'contrast' %}
+        .card {
+            border-width: 2px;
+            box-shadow: 0 10px 30px var(--shadow-color);
+        }
+        .sidebar-link.active,
+        .badge-custom {
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.24);
+        }
+        .navbar {
+            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.28);
+        }
+        .card-header {
+            background-color: color-mix(in srgb, var(--primary-color) 18%, var(--surface-bg) 82%);
+        }
+        {% endif %}
     </style>
     {% block extra_css %}{% endblock %}
 </head>
@@ -159,6 +306,13 @@
                         <li class="nav-item">
                             <a class="nav-link" href="/storage/">📁 Dateien</a>
                         </li>
+                        {% for plugin_item in plugin_menu_items %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ plugin_item.url }}">
+                                <i class="bi {{ plugin_item.icon }} me-1"></i>{{ plugin_item.label }}
+                            </a>
+                        </li>
+                        {% endfor %}
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
                                 👤 {{ user.username }}
@@ -172,7 +326,12 @@
                                     <li><a class="dropdown-item" href="/admin/">🔧 Django Admin</a></li>
                                 {% endif %}
                                 <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item" href="/accounts/logout/">Logout</a></li>
+                                <li>
+                                    <form method="post" action="{% url 'accounts:logout' %}" class="m-0">
+                                        {% csrf_token %}
+                                        <button type="submit" class="dropdown-item">Logout</button>
+                                    </form>
+                                </li>
                             </ul>
                         </li>
                     {% else %}

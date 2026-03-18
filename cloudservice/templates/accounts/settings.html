@@ -2,31 +2,289 @@
 
 {% block title %}Einstellungen - CloudService{% endblock %}
 
+{% block extra_css %}
+<style>
+    .settings-grid {
+        display: grid;
+        gap: 1.5rem;
+    }
+
+    .settings-section + .settings-section {
+        margin-top: 1.5rem;
+    }
+
+    .preview-shell {
+        background: linear-gradient(135deg, {{ profile.primary_color }} 0%, {{ profile.secondary_color }} 100%);
+        border-radius: 20px;
+        padding: 1.5rem;
+        color: #fff;
+    }
+
+    .preview-card {
+        background: rgba(255, 255, 255, 0.16);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.24);
+        border-radius: 16px;
+        padding: 1rem;
+    }
+
+    .preset-swatches {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+    }
+
+    .preset-swatches span {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        display: inline-block;
+        border: 2px solid rgba(255, 255, 255, 0.35);
+    }
+
+    .hint-list {
+        display: grid;
+        gap: 0.75rem;
+    }
+
+    .hint-item {
+        background: rgba(102, 126, 234, 0.08);
+        border-radius: 12px;
+        padding: 0.85rem 1rem;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container">
-    <div class="row">
-        <div class="col-md-3">
+    <div class="row g-4">
+        <div class="col-lg-3">
             <div class="sidebar">
-                <h5 class="mb-4">⚙️ Einstellungen</h5>
-                <a href="/accounts/profile/" class="sidebar-link">👤 Profil</a>
-                <a href="/accounts/profile/edit/" class="sidebar-link">✏️ Bearbeiten</a>
-                <a href="/accounts/profile/password/" class="sidebar-link">🔑 Passwort</a>
-                <a href="/accounts/settings/" class="sidebar-link active">⚙️ Einstellungen</a>
+                <h5 class="mb-4"><i class="bi bi-gear me-2"></i>Einstellungen</h5>
+                <a href="/accounts/profile/" class="sidebar-link"><i class="bi bi-person me-2"></i>Profil</a>
+                <a href="/accounts/profile/edit/" class="sidebar-link"><i class="bi bi-pencil-square me-2"></i>Bearbeiten</a>
+                <a href="/accounts/profile/password/" class="sidebar-link"><i class="bi bi-key me-2"></i>Passwort</a>
+                <a href="/accounts/settings/" class="sidebar-link active"><i class="bi bi-palette me-2"></i>Design</a>
             </div>
         </div>
 
-        <div class="col-md-9">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0">⚙️ Allgemeine Einstellungen</h5>
+        <div class="col-lg-9">
+            <div class="settings-grid">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-palette me-2"></i>Design und Farben</h5>
+                    </div>
+                    <div class="card-body">
+                        <form method="post" enctype="multipart/form-data">
+                            {% csrf_token %}
+
+                            {% if form.non_field_errors %}
+                                <div class="alert alert-danger">
+                                    {{ form.non_field_errors|join:', ' }}
+                                </div>
+                            {% endif %}
+
+                            <div class="settings-section">
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <label for="{{ form.theme.id_for_label }}" class="form-label">Modus</label>
+                                        {{ form.theme }}
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="{{ form.design_variant.id_for_label }}" class="form-label">Designstil</label>
+                                        {{ form.design_variant }}
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="{{ form.color_preset.id_for_label }}" class="form-label">Farbpreset</label>
+                                        {{ form.color_preset }}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="settings-section">
+                                <div class="row g-3 align-items-end">
+                                    <div class="col-md-6">
+                                        <label for="{{ form.primary_color.id_for_label }}" class="form-label">Primaerfarbe</label>
+                                        {{ form.primary_color }}
+                                        {% if form.primary_color.errors %}
+                                            <div class="text-danger small mt-1">{{ form.primary_color.errors|join:', ' }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="{{ form.secondary_color.id_for_label }}" class="form-label">Sekundarfarbe</label>
+                                        {{ form.secondary_color }}
+                                        {% if form.secondary_color.errors %}
+                                            <div class="text-danger small mt-1">{{ form.secondary_color.errors|join:', ' }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="form-text mt-2">
+                                    Bei einem Preset werden die Farben automatisch gesetzt. Fuer freie Farben bitte "Custom" waehlen.
+                                </div>
+                            </div>
+
+                            <div class="settings-section">
+                                <h6 class="mb-3"><i class="bi bi-image me-2"></i>MySite Hero</h6>
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <label for="{{ form.mysite_hero_style.id_for_label }}" class="form-label">Hero-Hintergrund</label>
+                                        {{ form.mysite_hero_style }}
+                                    </div>
+                                    <div class="col-md-4 hero-image-field">
+                                        <label for="{{ form.mysite_hero_image.id_for_label }}" class="form-label">Hintergrundbild</label>
+                                        {{ form.mysite_hero_image }}
+                                        {% if profile.mysite_hero_image %}
+                                            <div class="form-text">Aktuell: {{ profile.mysite_hero_image.name }}</div>
+                                        {% endif %}
+                                        {% if form.mysite_hero_image.errors %}
+                                            <div class="text-danger small mt-1">{{ form.mysite_hero_image.errors|join:', ' }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-4 hero-video-field">
+                                        <label for="{{ form.mysite_hero_video.id_for_label }}" class="form-label">Hintergrundvideo</label>
+                                        {{ form.mysite_hero_video }}
+                                        {% if profile.mysite_hero_video %}
+                                            <div class="form-text">Aktuell: {{ profile.mysite_hero_video.name }}</div>
+                                        {% endif %}
+                                        {% if form.mysite_hero_video.errors %}
+                                            <div class="text-danger small mt-1">{{ form.mysite_hero_video.errors|join:', ' }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="form-text mt-2">
+                                    Fuer den SharePoint-inspirierten Hero in MySite koennen Sie alternativ ein Bild oder ein Video hochladen.
+                                </div>
+                            </div>
+
+                            <div class="settings-section d-flex justify-content-end">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-save me-2"></i>Design speichern
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <p class="text-muted">
-                        🚧 Einstellungsseite wird noch entwickelt.
-                    </p>
+
+                <div class="row g-4">
+                    <div class="col-md-7">
+                        <div class="preview-shell">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div>
+                                    <div class="small text-white-50">Live-Vorschau</div>
+                                    <h5 class="mb-0">Ihr aktuelles Erscheinungsbild</h5>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <span class="badge text-bg-light">{{ profile.get_theme_display }}</span>
+                                    <span class="badge text-bg-light">{{ profile.get_design_variant_display }}</span>
+                                </div>
+                            </div>
+                            <div class="preview-card">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <strong>CloudService</strong>
+                                    <span>{{ user.username }}</span>
+                                </div>
+                                <p class="mb-3">Navigation, Buttons und Karten uebernehmen direkt diese Farbkombination.</p>
+                                <p class="mb-3 small text-white-50">MySite Hero: {{ profile.get_mysite_hero_style_display }}</p>
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-light btn-sm">Primare Aktion</button>
+                                    <button type="button" class="btn btn-outline-light btn-sm">Sekundaer</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-5">
+                        <div class="card h-100">
+                            <div class="card-header">
+                                <h6 class="mb-0"><i class="bi bi-lightbulb me-2"></i>Empfohlene Kombinationen</h6>
+                            </div>
+                            <div class="card-body hint-list">
+                                <div class="hint-item">
+                                    <strong>Default Blue</strong>
+                                    <div class="preset-swatches">
+                                        <span style="background:#667eea;"></span>
+                                        <span style="background:#764ba2;"></span>
+                                    </div>
+                                </div>
+                                <div class="hint-item">
+                                    <strong>Forest</strong>
+                                    <div class="preset-swatches">
+                                        <span style="background:#2f855a;"></span>
+                                        <span style="background:#276749;"></span>
+                                    </div>
+                                </div>
+                                <div class="hint-item">
+                                    <strong>Sunset</strong>
+                                    <div class="preset-swatches">
+                                        <span style="background:#dd6b20;"></span>
+                                        <span style="background:#c53030;"></span>
+                                    </div>
+                                </div>
+                                <div class="hint-item">
+                                    <strong>Berry</strong>
+                                    <div class="preset-swatches">
+                                        <span style="background:#b83280;"></span>
+                                        <span style="background:#702459;"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    (() => {
+        const presetField = document.getElementById('id_color_preset');
+        const heroStyleField = document.getElementById('id_mysite_hero_style');
+        const primaryField = document.getElementById('{{ form.primary_color.id_for_label }}');
+        const secondaryField = document.getElementById('{{ form.secondary_color.id_for_label }}');
+        const heroImageField = document.querySelector('.hero-image-field');
+        const heroVideoField = document.querySelector('.hero-video-field');
+        const presetMap = {
+            default: ['#667eea', '#764ba2'],
+            forest: ['#2f855a', '#276749'],
+            sunset: ['#dd6b20', '#c53030'],
+            berry: ['#b83280', '#702459'],
+            slate: ['#4a5568', '#1a202c']
+        };
+
+        function syncColorInputs() {
+            const isCustom = presetField.value === 'custom';
+            primaryField.toggleAttribute('disabled', !isCustom);
+            secondaryField.toggleAttribute('disabled', !isCustom);
+
+            if (!isCustom && presetMap[presetField.value]) {
+                primaryField.value = presetMap[presetField.value][0];
+                secondaryField.value = presetMap[presetField.value][1];
+            }
+        }
+
+        function syncHeroMediaFields() {
+            if (!heroStyleField || !heroImageField || !heroVideoField) {
+                return;
+            }
+
+            const isImage = heroStyleField.value === 'image';
+            const isVideo = heroStyleField.value === 'video';
+            heroImageField.style.display = isImage ? '' : 'none';
+            heroVideoField.style.display = isVideo ? '' : 'none';
+        }
+
+        if (presetField && primaryField && secondaryField) {
+            presetField.addEventListener('change', syncColorInputs);
+            syncColorInputs();
+        }
+
+        if (heroStyleField) {
+            heroStyleField.addEventListener('change', syncHeroMediaFields);
+            syncHeroMediaFields();
+        }
+    })();
+</script>
 {% endblock %}

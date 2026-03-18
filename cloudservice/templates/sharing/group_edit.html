@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+
+{% block title %}Team Site bearbeiten - CloudService{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0"><i class="bi bi-pencil-square me-2"></i>Team Site bearbeiten</h4>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        {% for field in form %}
+                            <div class="mb-3">
+                                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                                {% if field.name == 'background_image' and form.instance.background_image %}
+                                    <div class="mb-3">
+                                        <img src="{{ form.instance.background_image.url }}" alt="Aktueller Seitenhintergrund" style="width: 100%; max-height: 220px; object-fit: cover; border-radius: 16px;">
+                                    </div>
+                                {% endif %}
+                                {% if field.name == 'background_video' and form.instance.background_video %}
+                                    <div class="mb-3 small text-muted">Aktuelles Video: {{ form.instance.background_video.name }}</div>
+                                {% endif %}
+                                {{ field }}
+                                {% if field.errors %}
+                                    <div class="text-danger small mt-1">{{ field.errors|join:', ' }}</div>
+                                {% endif %}
+                                {% if field.name == 'team_leaders' %}
+                                    <div class="form-text">Team Leader duerfen die Team Site und Team-News ebenfalls pflegen.</div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                        <button type="submit" class="btn btn-primary">Speichern</button>
+                        <a href="{% url 'sharing:group_detail' object.id %}" class="btn btn-secondary">Abbrechen</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,116 @@
+{
+  "name": "MySite Hub",
+  "slug": "mysite-hub",
+  "version": "1.1.0",
+  "author": "CloudService Team",
+  "description": "SharePoint-inspirierter MySite Bereich mit persoenlichem Hub, Schnelllinks und Team-Einstiegen.",
+  "django_app": {
+    "app_config": "mysite_hub.apps.MySiteHubConfig"
+  },
+  "hooks": {
+    "ui_menu_item": {
+      "handler": "mysite_hub.providers.MySiteMenuProvider",
+      "priority": 30
+    },
+    "ui_app_page": {
+      "handler": "mysite_hub.providers.MySitePageProvider",
+      "priority": 30,
+      "slug": "mysite"
+    },
+    "department_management": {
+      "handler": "mysite_hub.providers.DepartmentManagementPageProvider",
+      "priority": 31,
+      "slug": "department-management"
+    },
+    "department_people": {
+      "handler": "mysite_hub.providers.DepartmentPeoplePageProvider",
+      "priority": 31,
+      "slug": "department-people"
+    },
+    "department_finance": {
+      "handler": "mysite_hub.providers.DepartmentFinancePageProvider",
+      "priority": 31,
+      "slug": "department-finance"
+    },
+    "department_engineering": {
+      "handler": "mysite_hub.providers.DepartmentEngineeringPageProvider",
+      "priority": 31,
+      "slug": "department-engineering"
+    }
+  },
+  "settings": {
+    "has_settings": true,
+    "schema": {
+      "mysite_intro": {
+        "type": "textarea",
+        "label": "MySite Intro",
+        "help": "Freitext fuer den Hero-Bereich von MySite.",
+        "default": "Persoenlicher Arbeitsbereich fuer Dokumente, Teams, News und moderne Bereichsseiten im SharePoint-Stil."
+      },
+      "news_primary_title": {
+        "type": "text",
+        "label": "News 1 Titel",
+        "default": "Willkommen in MySite"
+      },
+      "news_primary_summary": {
+        "type": "textarea",
+        "label": "News 1 Text",
+        "default": "Hier laufen persoenliche Inhalte, Teamseiten und Dokumentbereiche zusammen."
+      },
+      "news_secondary_title": {
+        "type": "text",
+        "label": "News 2 Titel",
+        "default": "Naechster Ausbau"
+      },
+      "news_secondary_summary": {
+        "type": "textarea",
+        "label": "News 2 Text",
+        "default": "News, Team Sites und Abteilungsbereiche koennen jetzt direkt im Plugin weiter wachsen."
+      },
+      "management_summary": {
+        "type": "textarea",
+        "label": "Management Zusammenfassung",
+        "default": "Strategie, Unternehmensziele, Projektpriorisierung und Fuehrungsinformationen."
+      },
+      "management_focus": {
+        "type": "textarea",
+        "label": "Management Fokus",
+        "help": "Ein Punkt pro Zeile.",
+        "default": "Quartalsziele\nRoadmaps\nEntscheidungen\nVorstandsvorlagen"
+      },
+      "people_summary": {
+        "type": "textarea",
+        "label": "People & HR Zusammenfassung",
+        "default": "Onboarding, Richtlinien, Vorlagen und interne Kommunikation fuer Mitarbeitende."
+      },
+      "people_focus": {
+        "type": "textarea",
+        "label": "People & HR Fokus",
+        "help": "Ein Punkt pro Zeile.",
+        "default": "Onboarding\nRichtlinien\nBenefits\nInterne Mitteilungen"
+      },
+      "finance_summary": {
+        "type": "textarea",
+        "label": "Finance Zusammenfassung",
+        "default": "Budgets, Freigaben, Belege und Monatsabschluesse mit klarer Dokumentstruktur."
+      },
+      "finance_focus": {
+        "type": "textarea",
+        "label": "Finance Fokus",
+        "help": "Ein Punkt pro Zeile.",
+        "default": "Budgetplanung\nFreigaben\nMonatsabschluss\nLieferantenablage"
+      },
+      "engineering_summary": {
+        "type": "textarea",
+        "label": "Engineering Zusammenfassung",
+        "default": "Releaseplanung, technische Dokumentation, Deployments und operative Wissenssammlung."
+      },
+      "engineering_focus": {
+        "type": "textarea",
+        "label": "Engineering Fokus",
+        "help": "Ein Punkt pro Zeile.",
+        "default": "Releaseplaene\nArchitektur\nDeployments\nRunbooks"
+      }
+    }
+  }
+}

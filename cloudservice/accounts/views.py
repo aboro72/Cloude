@@ -6,24 +6,30 @@ User authentication and profile management.
 from django.views.generic import CreateView, UpdateView, TemplateView, ListView
 from django.contrib.auth.views import LoginView as DjangoLoginView
 from django.contrib.auth.views import PasswordChangeView as DjangoPasswordChangeView
+from django.contrib.auth import logout
+from django.contrib import messages
 from django.contrib.auth.models import User
 from django.shortcuts import redirect, get_object_or_404
 from django.urls import reverse_lazy
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.decorators.cache import never_cache
+from django.views import View
 from accounts.models import UserProfile
+from accounts.forms import AppearanceSettingsForm
 import logging
 
 logger = logging.getLogger(__name__)
 
 
 @method_decorator(ensure_csrf_cookie, name='dispatch')
+@method_decorator(never_cache, name='dispatch')
 class LoginView(DjangoLoginView):
     """User login"""
     template_name = 'accounts/login.html'
     redirect_authenticated_user = False
-    success_url = reverse_lazy('core:landing')
+    success_url = reverse_lazy('core:plugin_app', kwargs={'slug': 'mysite'})
 
     def get(self, request, *args, **kwargs):
         """Handle GET requests - show login form"""
@@ -34,6 +40,20 @@ class LoginView(DjangoLoginView):
     def form_valid(self, form):
         """Called when login form is valid"""
         return super().form_valid(form)
+
+
+class LogoutView(View):
+    """Log out the current user and redirect to login."""
+
+    next_page = reverse_lazy('accounts:login')
+
+    def get(self, request, *args, **kwargs):
+        logout(request)
+        return redirect(self.next_page)
+
+    def post(self, request, *args, **kwargs):
+        logout(request)
+        return redirect(self.next_page)
 
 
 class RegisterView(CreateView):
@@ -55,7 +75,22 @@ class ProfileView(LoginRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['profile'] = self.request.user.profile
+        profile = self.request.user.profile
+        context['profile'] = profile
+        context['storage_used_mb'] = profile.get_storage_used_mb()
+        context['storage_quota_gb'] = profile.storage_quota / (1024 ** 3)
+        context['storage_remaining_mb'] = profile.get_storage_remaining_mb()
+        context['storage_percentage'] = round(profile.get_storage_used_percentage(), 1)
+
+        completed_fields = [
+            bool(self.request.user.first_name or self.request.user.last_name),
+            bool(self.request.user.email),
+            bool(profile.phone_number),
+            bool(profile.bio),
+            bool(profile.website),
+            bool(profile.avatar),
+        ]
+        context['profile_completion'] = int((sum(completed_fields) / len(completed_fields)) * 100)
         return context
 
 
@@ -83,7 +118,19 @@ class SettingsView(LoginRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['profile'] = self.request.user.profile
+        context['form'] = kwargs.get('form') or AppearanceSettingsForm(instance=self.request.user.profile)
         return context
+
+    def post(self, request, *args, **kwargs):
+        form = AppearanceSettingsForm(request.POST, request.FILES, instance=request.user.profile)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Design-Einstellungen wurden gespeichert.')
+            return redirect('accounts:settings')
+
+        messages.error(request, 'Bitte pruefen Sie die Eingaben in den Design-Einstellungen.')
+        context = self.get_context_data(form=form)
+        return self.render_to_response(context)
 
 
 class TwoFactorSetupView(LoginRequiredMixin, TemplateView):

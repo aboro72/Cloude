@@ -1,0 +1,17 @@
+[Unit]
+Description=Daphne – CloudService ASGI / WebSocket
+After=network.target
+
+[Service]
+User=storage
+Group=storage
+WorkingDirectory=/home/storage/Cloude/cloudservice
+ExecStart=/home/storage/Cloude/venv/bin/daphne \
+    --bind 127.0.0.1 \
+    --port 8001 \
+    config.asgi:application
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
