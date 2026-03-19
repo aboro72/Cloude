@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Impressum – CloudService</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    {% if lp_css %}<style>{{ lp_css|safe }}</style>{% endif %}
+    <style>
+        :root {
+            --primary: {{ lp.color_primary|default:"#667eea" }};
+            --secondary: {{ lp.color_secondary|default:"#764ba2" }};
+            --grad: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            --dark: #0f172a;
+            --text: #1e293b;
+            --muted: #64748b;
+            --surface: #f8fafc;
+            --border: #e2e8f0;
+        }
+        *, *::before, *::after { box-sizing: border-box; }
+        html, body { min-height: 100%; margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: var(--text); background: var(--surface); }
+
+        .lp-nav {
+            position: sticky; top: 0; z-index: 100;
+            background: rgba(255,255,255,0.88);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            padding: 0.75rem 0;
+        }
+        .lp-nav .brand {
+            font-size: 1.35rem; font-weight: 800;
+            background: var(--grad);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+            text-decoration: none;
+        }
+        .page-hero {
+            background: var(--dark); color: #fff;
+            padding: 4rem 0 3rem;
+        }
+        .page-hero h1 { font-size: clamp(1.75rem, 4vw, 2.5rem); font-weight: 900; margin-bottom: 0.5rem; }
+        .page-hero p { color: #94a3b8; margin: 0; }
+        .content-section { padding: 4rem 0 5rem; }
+        .imp-card {
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 2rem 2.25rem;
+            margin-bottom: 1.5rem;
+        }
+        .imp-card h2 {
+            font-size: 1.1rem; font-weight: 700;
+            margin-bottom: 1rem;
+            display: flex; align-items: center; gap: 0.5rem;
+        }
+        .imp-card h2 i {
+            font-size: 1.2rem;
+            background: var(--grad);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+        .imp-card p, .imp-card address { margin: 0; line-height: 1.8; color: var(--text); font-style: normal; }
+        .imp-card a { color: var(--primary); text-decoration: none; }
+        .imp-card a:hover { text-decoration: underline; }
+        .notice-box {
+            background: #eff6ff; border: 1px solid #bfdbfe;
+            border-radius: 10px; padding: 1rem 1.25rem;
+            font-size: 0.9rem; color: #1d4ed8; margin-top: 1rem;
+        }
+        .lp-footer { background: #020617; color: #475569; padding: 1.75rem 0; font-size: 0.88rem; }
+        .lp-footer a { color: #64748b; text-decoration: none; }
+        .lp-footer a:hover { color: #94a3b8; }
+    </style>
+</head>
+<body>
+
+{% if lp_html %}
+{{ lp_html|safe }}
+{% else %}
+<!-- ══ Navbar ═══════════════════════════════════════════ -->
+<nav class="lp-nav">
+    <div class="container d-flex align-items-center justify-content-between">
+        <a href="/" class="brand">&#x2601;&#xFE0F; CloudService</a>
+        <div class="d-flex gap-2 align-items-center">
+            <a href="/accounts/login/" class="btn btn-sm btn-outline-secondary rounded-pill px-3">
+                <i class="bi bi-box-arrow-in-right me-1"></i>Anmelden
+            </a>
+        </div>
+    </div>
+</nav>
+
+<!-- ══ Page Hero ═════════════════════════════════════════ -->
+<section class="page-hero">
+    <div class="container">
+        <a href="/" class="text-secondary text-decoration-none small mb-3 d-inline-block">
+            <i class="bi bi-arrow-left me-1"></i>Zurück zur Startseite
+        </a>
+        <h1><i class="bi bi-file-text me-2" style="font-size:0.85em;opacity:0.6;"></i>Impressum</h1>
+        <p>Angaben gemäß § 5 TMG</p>
+    </div>
+</section>
+
+<!-- ══ Content ═══════════════════════════════════════════ -->
+<section class="content-section">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+
+                <!-- Anbieter -->
+                <div class="imp-card">
+                    <h2><i class="bi bi-building"></i>Anbieter &amp; Verantwortlicher</h2>
+                    <address>
+                        <strong>{{ lp.footer_company|default:"CloudService – ABoro IT" }}</strong><br>
+                        Andreas Borowczak<br>
+                        <!-- Adresse hier eintragen -->
+                        [Straße und Hausnummer]<br>
+                        [PLZ Ort]<br>
+                        Deutschland
+                    </address>
+                </div>
+
+                <!-- Kontakt -->
+                <div class="imp-card">
+                    <h2><i class="bi bi-envelope"></i>Kontakt</h2>
+                    <p>
+                        Webseite: <a href="{{ lp.footer_developer_url|default:'https://aboro-it.net' }}" target="_blank">{{ lp.footer_developer_url|default:"https://aboro-it.net" }}</a><br>
+                        E-Mail: <!-- E-Mail-Adresse hier eintragen, z.B. info@aboro-it.net -->[E-Mail-Adresse]
+                    </p>
+                </div>
+
+                <!-- Haftungsausschluss -->
+                <div class="imp-card">
+                    <h2><i class="bi bi-shield-check"></i>Haftungsausschluss</h2>
+                    <p>
+                        <strong>Haftung für Inhalte</strong><br>
+                        Die Inhalte dieser Software wurden mit größter Sorgfalt erstellt. Für die Richtigkeit, Vollständigkeit
+                        und Aktualität der Inhalte können wir jedoch keine Gewähr übernehmen.
+                    </p>
+                    <p class="mt-3">
+                        <strong>Haftung für Links</strong><br>
+                        Unser Angebot enthält Links zu externen Websites Dritter, auf deren Inhalte wir keinen Einfluss haben.
+                        Deshalb können wir für diese fremden Inhalte auch keine Gewähr übernehmen. Für die Inhalte
+                        der verlinkten Seiten ist stets der jeweilige Anbieter oder Betreiber der Seiten verantwortlich.
+                    </p>
+                </div>
+
+                <!-- Urheberrecht -->
+                <div class="imp-card">
+                    <h2><i class="bi bi-c-circle"></i>Urheberrecht</h2>
+                    <p>
+                        Die durch den Betreiber erstellten Inhalte und Werke auf diesen Seiten unterliegen dem deutschen
+                        Urheberrecht. Die Vervielfältigung, Bearbeitung, Verbreitung und jede Art der Verwertung außerhalb
+                        der Grenzen des Urheberrechts bedürfen der schriftlichen Zustimmung des jeweiligen Autors bzw.
+                        Erstellers.
+                    </p>
+                </div>
+
+                <!-- Datenschutz -->
+                <div class="imp-card">
+                    <h2><i class="bi bi-lock"></i>Datenschutz</h2>
+                    <p>
+                        Diese Anwendung wird <strong>vollständig self-hosted</strong> betrieben. Es werden keine
+                        personenbezogenen Daten an Dritte weitergegeben. Die Verarbeitung der Nutzerdaten erfolgt
+                        ausschließlich auf dem eigenen Server.
+                    </p>
+                    <div class="notice-box">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Diese Anwendung verwendet keine externen Tracking-Dienste, keine Cookies von Drittanbietern
+                        und keine Cloud-Speicherdienste außerhalb des eigenen Servers.
+                    </div>
+                </div>
+
+                <!-- Technischer Hinweis -->
+                <div class="imp-card">
+                    <h2><i class="bi bi-code-slash"></i>Technischer Hinweis</h2>
+                    <p>
+                        CloudService ist eine selbst gehostete Intranet-Plattform, entwickelt von
+                        <a href="{{ lp.footer_developer_url|default:'https://aboro-it.net' }}" target="_blank">{{ lp.footer_developer|default:"Andreas Borowczak" }}</a>.
+                        Die Anwendung läuft vollständig auf Ihrer eigenen Infrastruktur.
+                    </p>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ══ Footer ════════════════════════════════════════════ -->
+<footer class="lp-footer">
+    <div class="container d-flex flex-column flex-md-row justify-content-between align-items-center gap-2">
+        <span>© 2026 <strong style="color:#94a3b8;">{{ lp.footer_company|default:"CloudService – ABoro IT" }}</strong></span>
+        <span>
+            Entwickelt von <a href="{{ lp.footer_developer_url|default:'https://aboro-it.net' }}" target="_blank">{{ lp.footer_developer|default:"Andreas Borowczak" }}</a>
+            &nbsp;|&nbsp;
+            <a href="/">Startseite</a>
+            &nbsp;|&nbsp;
+            <a href="/accounts/login/">Anmelden</a>
+        </span>
+    </div>
+</footer>
+
+{% endif %}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
