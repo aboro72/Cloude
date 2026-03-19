@@ -16,6 +16,50 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def impressum(request):
+    """Öffentliche Impressum-Seite (kein Login erforderlich)."""
+    try:
+        from landing_editor.providers import get_landing_settings
+        lp = get_landing_settings()
+    except Exception:
+        lp = {}
+    try:
+        from landing_editor.providers import get_page_content
+        page = get_page_content('impressum')
+    except Exception:
+        page = {}
+    return render(request, 'impressum.html', {
+        'lp': lp,
+        'lp_html': page.get('html', ''),
+        'lp_css':  page.get('css', ''),
+    })
+
+
+def home(request):
+    """
+    Öffentliche Startseite.
+    - Nicht eingeloggt → Landingpage (Marketing / Feature-Showcase)
+    - Eingeloggt        → MySite Hub
+    """
+    if request.user.is_authenticated:
+        return redirect('core:plugin_app', slug='mysite')
+    try:
+        from landing_editor.providers import get_landing_settings
+        lp = get_landing_settings()
+    except Exception:
+        lp = {}
+    try:
+        from landing_editor.providers import get_page_content
+        page = get_page_content('landing')
+    except Exception:
+        page = {}
+    return render(request, 'home.html', {
+        'lp': lp,
+        'lp_html': page.get('html', ''),
+        'lp_css':  page.get('css', ''),
+    })
+
+
 class DashboardView(LoginRequiredMixin, TemplateView):
     """Main dashboard"""
     template_name = 'core/dashboard.html'

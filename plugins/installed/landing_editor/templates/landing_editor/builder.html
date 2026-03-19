@@ -1,0 +1,711 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Landing Page Builder{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/grapesjs@0.21.13/dist/css/grapes.min.css">
+<style>
+/* ── Override base layout for full-screen builder ─────────────── */
+body { overflow: hidden !important; }
+.container-main { margin: 0 !important; padding: 0 !important; }
+.navbar { display: none !important; }
+footer { display: none !important; }
+
+/* ── Top bar ──────────────────────────────────────────────────── */
+#lpe-topbar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
+    height: 52px;
+    background: #1e293b;
+    border-bottom: 1px solid #334155;
+    display: flex; align-items: center; gap: 0; padding: 0 12px;
+    color: #e2e8f0;
+}
+.lpe-brand {
+    font-weight: 800; font-size: 0.95rem;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text; margin-right: 16px; white-space: nowrap;
+}
+.lpe-page-btn {
+    background: transparent; border: none; color: #94a3b8;
+    padding: 6px 14px; border-radius: 6px; font-size: 0.82rem; font-weight: 600;
+    cursor: pointer; transition: all .15s;
+}
+.lpe-page-btn:hover { color: #e2e8f0; background: rgba(255,255,255,0.06); }
+.lpe-page-btn.active { color: #fff; background: rgba(102,126,234,0.25); }
+.lpe-sep { width: 1px; background: #334155; height: 28px; margin: 0 8px; }
+.lpe-icon-btn {
+    background: transparent; border: 1px solid #334155; color: #94a3b8;
+    padding: 4px 10px; border-radius: 6px; font-size: 0.78rem;
+    cursor: pointer; transition: all .15s; display: flex; align-items: center; gap: 4px;
+}
+.lpe-icon-btn:hover { color: #e2e8f0; border-color: #64748b; }
+.lpe-icon-btn.active { color: #fff; border-color: #667eea; background: rgba(102,126,234,0.2); }
+.lpe-spacer { flex: 1; }
+#lpe-status {
+    font-size: 0.75rem; padding: 3px 10px; border-radius: 20px;
+    transition: all .3s;
+}
+#lpe-status.saved   { background: rgba(34,197,94,0.15); color: #86efac; }
+#lpe-status.saving  { background: rgba(251,191,36,0.15); color: #fde68a; }
+#lpe-status.error   { background: rgba(239,68,68,0.15); color: #fca5a5; }
+.lpe-save-btn {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border: none; color: #fff; padding: 6px 18px;
+    border-radius: 6px; font-weight: 700; font-size: 0.82rem;
+    cursor: pointer; transition: opacity .2s;
+}
+.lpe-save-btn:hover { opacity: .88; }
+
+/* ── Main editor area ─────────────────────────────────────────── */
+#lpe-editor {
+    position: fixed; top: 52px; left: 0; right: 0; bottom: 0;
+    display: flex;
+}
+
+/* ── GrapesJS left panels ─────────────────────────────────────── */
+#lpe-left {
+    width: 220px; background: #1e293b;
+    border-right: 1px solid #334155;
+    display: flex; flex-direction: column; overflow: hidden;
+}
+#lpe-left-tabs {
+    display: flex; border-bottom: 1px solid #334155;
+}
+.lpe-tab {
+    flex: 1; padding: 8px 4px; text-align: center;
+    font-size: 0.7rem; font-weight: 600; color: #64748b;
+    cursor: pointer; border: none; background: transparent;
+    transition: all .15s; text-transform: uppercase; letter-spacing: .06em;
+}
+.lpe-tab.active { color: #a5b4fc; border-bottom: 2px solid #667eea; }
+#lpe-blocks-panel, #lpe-layers-panel { flex: 1; overflow-y: auto; }
+#lpe-layers-panel { display: none; }
+
+/* ── GrapesJS canvas area ─────────────────────────────────────── */
+#lpe-canvas { flex: 1; background: #0f172a; overflow: hidden; }
+#gjs { width: 100%; height: 100%; }
+
+/* GrapesJS overrides */
+.gjs-editor { height: 100%; }
+.gjs-cv-canvas { top: 0; width: 100%; height: 100%; }
+.gjs-toolbar { z-index: 100; }
+.gjs-block { background: #1e293b; border-color: #334155; color: #e2e8f0; border-radius: 8px; }
+.gjs-block:hover { background: #263448; border-color: #667eea; }
+.gjs-block-category .gjs-title { background: #1e293b; color: #94a3b8; border-color: #334155; font-size: 0.7rem; letter-spacing: .06em; }
+.gjs-one-bg { background: #1e293b; }
+.gjs-two-bg { background: #1e293b; }
+.gjs-pn-panel { background: transparent; border: none; padding: 0; }
+
+/* ── Right style panel ────────────────────────────────────────── */
+#lpe-right {
+    width: 240px; background: #1e293b;
+    border-left: 1px solid #334155;
+    overflow-y: auto;
+}
+.gjs-sm-sector { background: transparent; border-color: #334155; }
+.gjs-sm-sector-title { background: #0f172a; color: #94a3b8; border-color: #334155; font-size: 0.7rem; letter-spacing: .06em; }
+.gjs-sm-property { border-color: #334155; }
+.gjs-sm-field { background: #0f172a; border-color: #334155; color: #e2e8f0; }
+.gjs-field { background: #0f172a; border-color: #334155; color: #e2e8f0; }
+.gjs-field input, .gjs-field select { color: #e2e8f0; background: transparent; }
+
+/* ── MySite configurator ──────────────────────────────────────── */
+#lpe-mysite {
+    display: none; flex: 1; overflow-y: auto;
+    background: #f8fafc; padding: 24px;
+}
+.wgt-list { list-style: none; padding: 0; margin: 0; max-width: 600px; }
+.wgt-item {
+    display: flex; align-items: center; gap: 12px;
+    background: white; border: 1px solid #e2e8f0;
+    border-radius: 10px; padding: 12px 16px; margin-bottom: 8px;
+    cursor: grab; transition: box-shadow .15s;
+}
+.wgt-item:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+.wgt-item.dragging { opacity: 0.5; }
+.wgt-handle { color: #94a3b8; font-size: 1.1rem; }
+.wgt-icon { width: 36px; height: 36px; border-radius: 8px;
+    background: linear-gradient(135deg,#667eea,#764ba2);
+    color: white; display: flex; align-items: center; justify-content: center; }
+.wgt-label { flex: 1; font-weight: 600; font-size: 0.9rem; }
+.wgt-toggle { cursor: pointer; }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- ══ Top Bar ════════════════════════════════════════════════ -->
+<div id="lpe-topbar">
+    <span class="lpe-brand">&#x2601;&#xFE0F; PageBuilder</span>
+    <div class="lpe-sep"></div>
+
+    <button class="lpe-page-btn active" data-page="landing" title="Öffentliche Startseite">
+        &#x1F3E0; Landing Page
+    </button>
+    <button class="lpe-page-btn" data-page="impressum" title="Impressum">
+        &#x1F4C4; Impressum
+    </button>
+    <button class="lpe-page-btn" data-page="mysite" title="MySite Hub Widget-Konfiguration">
+        &#x1F5A5; MySite Hub
+    </button>
+
+    <div class="lpe-sep"></div>
+
+    <div id="device-btns" class="d-flex gap-1">
+        <button class="lpe-icon-btn active" id="btn-desktop" onclick="setDevice('desktop')">
+            <i class="bi bi-display"></i>
+        </button>
+        <button class="lpe-icon-btn" id="btn-tablet" onclick="setDevice('tablet')">
+            <i class="bi bi-tablet"></i>
+        </button>
+        <button class="lpe-icon-btn" id="btn-mobile" onclick="setDevice('mobile')">
+            <i class="bi bi-phone"></i>
+        </button>
+    </div>
+
+    <div class="lpe-sep"></div>
+
+    <button class="lpe-icon-btn" onclick="doUndo()" title="Rückgängig (Ctrl+Z)">
+        <i class="bi bi-arrow-counterclockwise"></i>
+    </button>
+    <button class="lpe-icon-btn" onclick="doRedo()" title="Wiederholen (Ctrl+Y)">
+        <i class="bi bi-arrow-clockwise"></i>
+    </button>
+
+    <div class="lpe-sep"></div>
+
+    <button class="lpe-icon-btn" onclick="openPreview()" title="Vorschau öffnen">
+        <i class="bi bi-eye"></i> Vorschau
+    </button>
+
+    <div class="lpe-spacer"></div>
+
+    <span id="lpe-status"></span>
+    <button class="lpe-save-btn ms-2" onclick="saveAll()">
+        <i class="bi bi-floppy me-1"></i>Speichern
+    </button>
+</div>
+
+<!-- ══ Editor Area ════════════════════════════════════════════ -->
+<div id="lpe-editor">
+
+    <div id="lpe-left">
+        <div id="lpe-left-tabs">
+            <button class="lpe-tab active" onclick="switchPanel('blocks', event)">
+                <i class="bi bi-grid-3x3-gap"></i><br>Blöcke
+            </button>
+            <button class="lpe-tab" onclick="switchPanel('layers', event)">
+                <i class="bi bi-layers"></i><br>Layer
+            </button>
+        </div>
+        <div id="lpe-blocks-panel"></div>
+        <div id="lpe-layers-panel"></div>
+    </div>
+
+    <div id="lpe-canvas">
+        <div id="gjs"></div>
+    </div>
+
+    <div id="lpe-right"></div>
+
+    <div id="lpe-mysite">
+        <h5 class="fw-bold mb-1">MySite Hub &#x2013; Widget-Layout</h5>
+        <p class="text-muted small mb-4">Schiebe Widgets in die gewünschte Reihenfolge und aktiviere/deaktiviere sie.</p>
+        <ul class="wgt-list" id="wgt-list"></ul>
+        <button class="btn btn-primary rounded-pill px-4 mt-3" onclick="saveMySite()">
+            <i class="bi bi-floppy me-2"></i>MySite speichern
+        </button>
+    </div>
+
+</div>
+
+<script>
+const SAVE_URL       = "{{ save_url }}";
+const CSRF_TOKEN     = "{{ csrf_token }}";
+const PAGES_DATA     = {{ pages_json|safe }};
+const MYSITE_WIDGETS = {{ mysite_widgets_json|safe }};
+
+const PAGE_URLS = {
+    landing:   '/',
+    impressum: '/core/impressum/',
+    mysite:    '/core/apps/mysite/',
+};
+</script>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/grapesjs@0.21.13/dist/grapes.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script>
+'use strict';
+
+// ── Default page HTML ─────────────────────────────────────────────────────────
+var DEFAULT_HTML = {
+
+landing: '<nav style="position:sticky;top:0;z-index:100;background:rgba(255,255,255,0.92);backdrop-filter:blur(12px);border-bottom:1px solid #e2e8f0;padding:.75rem 0;"><div style="max-width:1200px;margin:0 auto;padding:0 24px;display:flex;align-items:center;justify-content:space-between;"><a href="/" style="font-weight:800;font-size:1.35rem;background:linear-gradient(135deg,#667eea,#764ba2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-decoration:none;">&#x2601;&#xFE0F; CloudService</a><div style="display:flex;gap:8px;"><a href="/accounts/login/" class="btn btn-sm btn-outline-secondary rounded-pill px-3">Anmelden</a><a href="/accounts/register/" class="btn btn-sm rounded-pill px-3 text-white" style="background:linear-gradient(135deg,#667eea,#764ba2);border:none;">Registrieren</a></div></div></nav>'
++ '<section class="py-5" style="background:#0f172a;color:#fff;min-height:80vh;display:flex;align-items:center;"><div class="container py-4"><div class="row align-items-center g-5"><div class="col-lg-7"><span class="badge rounded-pill px-3 py-2 mb-4 d-inline-block" style="background:rgba(102,126,234,.2);border:1px solid rgba(102,126,234,.4);color:#a5b4fc;font-size:.8rem;"><i class="bi bi-stars me-1"></i>Moderner Cloud-Arbeitsbereich</span><h1 class="fw-black mb-3" style="font-size:clamp(2rem,5vw,3.25rem);line-height:1.15;">Dokumente. Teams.<br><span style="background:linear-gradient(135deg,#667eea,#764ba2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">News. Alles an einem Ort.</span></h1><p class="mb-4" style="color:#94a3b8;font-size:1.08rem;max-width:520px;line-height:1.7;">CloudService vereint Dateiablage, Team-Zusammenarbeit, internes Newsportal und pers&ouml;nliche Arbeitsbereiche &ndash; direkt im Browser.</p><div class="d-flex gap-3 flex-wrap"><a href="/accounts/register/" class="btn btn-lg rounded-pill px-4" style="background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;"><i class="bi bi-rocket-takeoff me-2"></i>Jetzt loslegen</a><a href="/accounts/login/" class="btn btn-lg btn-outline-light rounded-pill px-4"><i class="bi bi-box-arrow-in-right me-2"></i>Anmelden</a></div></div></div></div></section>'
++ '<section class="py-5 text-white text-center" style="background:linear-gradient(135deg,#667eea,#764ba2);"><div class="container"><div class="row g-4"><div class="col-6 col-md-3"><div class="fw-black" style="font-size:2.2rem;">100%</div><div style="opacity:.85;font-size:.85rem;">Self-hosted &amp; datenschutzkonform</div></div><div class="col-6 col-md-3"><div class="fw-black" style="font-size:2.2rem;">&infin;</div><div style="opacity:.85;font-size:.85rem;">Benutzer &amp; Teams</div></div><div class="col-6 col-md-3"><div class="fw-black" style="font-size:2.2rem;">REST</div><div style="opacity:.85;font-size:.85rem;">Vollst&auml;ndige API inklusive</div></div><div class="col-6 col-md-3"><div class="fw-black" style="font-size:2.2rem;">0 &euro;</div><div style="opacity:.85;font-size:.85rem;">Keine Cloud-Abo-Kosten</div></div></div></div></section>'
++ '<section class="py-5" style="background:#f8fafc;"><div class="container"><div class="text-center mb-5"><div class="small fw-bold text-uppercase mb-2" style="background:linear-gradient(135deg,#667eea,#764ba2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:.12em;">Funktionen</div><h2 class="fw-black">Alles was ein modernes Intranet braucht</h2><p class="text-muted mx-auto" style="max-width:540px;">Von der pers&ouml;nlichen Dateiablage bis zu teamweiten Newsartikeln.</p></div><div class="row g-4"><div class="col-sm-6 col-lg-4"><div class="h-100 p-4 bg-white border rounded-4"><div class="d-flex align-items-center justify-content-center rounded-3 mb-3" style="width:48px;height:48px;background:linear-gradient(135deg,#667eea,#764ba2);"><i class="bi bi-folder2-open text-white fs-5"></i></div><h5 class="fw-bold">Cloud-Speicher</h5><p class="text-muted small mb-0">Dateien sicher speichern, versionieren und von &uuml;berall abrufen.</p></div></div><div class="col-sm-6 col-lg-4"><div class="h-100 p-4 bg-white border rounded-4"><div class="d-flex align-items-center justify-content-center rounded-3 mb-3" style="width:48px;height:48px;background:linear-gradient(135deg,#667eea,#764ba2);"><i class="bi bi-people-fill text-white fs-5"></i></div><h5 class="fw-bold">Team Sites</h5><p class="text-muted small mb-0">Dedizierte Arbeitsbereiche f&uuml;r jedes Team oder Projekt.</p></div></div><div class="col-sm-6 col-lg-4"><div class="h-100 p-4 bg-white border rounded-4"><div class="d-flex align-items-center justify-content-center rounded-3 mb-3" style="width:48px;height:48px;background:linear-gradient(135deg,#667eea,#764ba2);"><i class="bi bi-newspaper text-white fs-5"></i></div><h5 class="fw-bold">Newsportal</h5><p class="text-muted small mb-0">Unternehmensmeldungen mit Kategorien und Kommentaren.</p></div></div><div class="col-sm-6 col-lg-4"><div class="h-100 p-4 bg-white border rounded-4"><div class="d-flex align-items-center justify-content-center rounded-3 mb-3" style="width:48px;height:48px;background:linear-gradient(135deg,#667eea,#764ba2);"><i class="bi bi-grid-1x2-fill text-white fs-5"></i></div><h5 class="fw-bold">MySite Hub</h5><p class="text-muted small mb-0">Pers&ouml;nlicher Arbeitsbereich im SharePoint-Stil.</p></div></div><div class="col-sm-6 col-lg-4"><div class="h-100 p-4 bg-white border rounded-4"><div class="d-flex align-items-center justify-content-center rounded-3 mb-3" style="width:48px;height:48px;background:linear-gradient(135deg,#667eea,#764ba2);"><i class="bi bi-share-fill text-white fs-5"></i></div><h5 class="fw-bold">Flexibles Sharing</h5><p class="text-muted small mb-0">Dateien per Link, Passwortschutz oder direkt mit Nutzern.</p></div></div><div class="col-sm-6 col-lg-4"><div class="h-100 p-4 bg-white border rounded-4"><div class="d-flex align-items-center justify-content-center rounded-3 mb-3" style="width:48px;height:48px;background:linear-gradient(135deg,#667eea,#764ba2);"><i class="bi bi-plug-fill text-white fs-5"></i></div><h5 class="fw-bold">Plugin-System</h5><p class="text-muted small mb-0">Erweiterbar durch Plugins ohne &Auml;nderung am Kernsystem.</p></div></div></div></div></section>'
++ '<section class="py-5" style="background:#0f172a;color:#fff;"><div class="container"><div class="text-center mb-5"><h2 class="fw-black text-white">In drei Schritten startklar</h2></div><div class="row g-5 justify-content-center text-center"><div class="col-md-4"><div class="d-flex align-items-center justify-content-center rounded-circle mb-3 mx-auto fw-black" style="width:56px;height:56px;background:linear-gradient(135deg,#667eea,#764ba2);font-size:1.35rem;">1</div><h5 class="text-white fw-bold">Konto registrieren</h5><p style="color:#64748b;">Benutzernamen und Passwort &ndash; in Sekunden einsatzbereit.</p></div><div class="col-md-4"><div class="d-flex align-items-center justify-content-center rounded-circle mb-3 mx-auto fw-black" style="width:56px;height:56px;background:linear-gradient(135deg,#667eea,#764ba2);font-size:1.35rem;">2</div><h5 class="text-white fw-bold">MySite Hub &ouml;ffnen</h5><p style="color:#64748b;">Pers&ouml;nlicher Arbeitsbereich sofort verf&uuml;gbar.</p></div><div class="col-md-4"><div class="d-flex align-items-center justify-content-center rounded-circle mb-3 mx-auto fw-black" style="width:56px;height:56px;background:linear-gradient(135deg,#667eea,#764ba2);font-size:1.35rem;">3</div><h5 class="text-white fw-bold">Team einladen</h5><p style="color:#64748b;">Team Sites erstellen und gemeinsam arbeiten.</p></div></div></div></section>'
++ '<section class="py-5 text-center" style="background:#0f172a;color:#fff;border-top:1px solid rgba(255,255,255,.06);"><div class="container"><h2 class="fw-black mb-3">Bereit f&uuml;r Ihren Cloud-Arbeitsbereich?</h2><p style="color:#94a3b8;font-size:1.05rem;margin-bottom:2.5rem;">Kostenlos starten &ndash; kein Abo, keine versteckten Kosten, vollst&auml;ndig self-hosted.</p><div class="d-flex gap-3 justify-content-center flex-wrap"><a href="/accounts/register/" class="btn btn-lg rounded-pill px-4" style="background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;"><i class="bi bi-rocket-takeoff me-2"></i>Jetzt registrieren</a><a href="/accounts/login/" class="btn btn-lg btn-outline-light rounded-pill px-4"><i class="bi bi-box-arrow-in-right me-2"></i>Bereits registriert? Anmelden</a></div></div></section>'
++ '<footer style="background:#020617;color:#475569;padding:1.75rem 0;font-size:.88rem;"><div class="container d-flex flex-column flex-md-row justify-content-between align-items-center gap-2"><span>&copy; 2026 <strong style="color:#94a3b8;">CloudService &ndash; ABoro IT</strong></span><span><a href="https://aboro-it.net" target="_blank" style="color:#64748b;text-decoration:none;">Andreas Borowczak</a> &nbsp;|&nbsp; <a href="/core/impressum/" style="color:#64748b;text-decoration:none;">Impressum</a> &nbsp;|&nbsp; <a href="/accounts/login/" style="color:#64748b;text-decoration:none;">Anmelden</a></span></div></footer>',
+
+impressum: '<nav style="position:sticky;top:0;z-index:100;background:rgba(255,255,255,0.92);backdrop-filter:blur(12px);border-bottom:1px solid #e2e8f0;padding:.75rem 0;"><div style="max-width:1200px;margin:0 auto;padding:0 24px;display:flex;align-items:center;justify-content:space-between;"><a href="/" style="font-weight:800;font-size:1.35rem;background:linear-gradient(135deg,#667eea,#764ba2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-decoration:none;">&#x2601;&#xFE0F; CloudService</a><a href="/accounts/login/" class="btn btn-sm btn-outline-secondary rounded-pill px-3">Anmelden</a></div></nav>'
++ '<section class="py-5" style="background:#0f172a;color:#fff;padding:4rem 0 3rem;"><div class="container"><a href="/" class="text-secondary text-decoration-none small mb-3 d-inline-block"><i class="bi bi-arrow-left me-1"></i>Zur&uuml;ck zur Startseite</a><h1 class="fw-black mt-2">Impressum</h1><p style="color:#94a3b8;">Angaben gem&auml;&szlig; &sect; 5 TMG</p></div></section>'
++ '<section class="py-5" style="background:#f8fafc;"><div class="container"><div class="row justify-content-center"><div class="col-lg-8"><div class="bg-white border rounded-4 p-4 mb-4"><h2 class="fw-bold fs-5 mb-3"><i class="bi bi-building me-2" style="color:#667eea;"></i>Anbieter &amp; Verantwortlicher</h2><address class="mb-0" style="line-height:1.8;font-style:normal;"><strong>CloudService &ndash; ABoro IT</strong><br>Andreas Borowczak<br>[Stra&szlig;e und Hausnummer]<br>[PLZ Ort]<br>Deutschland</address></div><div class="bg-white border rounded-4 p-4 mb-4"><h2 class="fw-bold fs-5 mb-3"><i class="bi bi-envelope me-2" style="color:#667eea;"></i>Kontakt</h2><p class="mb-0">Webseite: <a href="https://aboro-it.net" target="_blank">https://aboro-it.net</a><br>E-Mail: [E-Mail-Adresse eintragen]</p></div><div class="bg-white border rounded-4 p-4 mb-4"><h2 class="fw-bold fs-5 mb-3"><i class="bi bi-shield-check me-2" style="color:#667eea;"></i>Haftungsausschluss</h2><p><strong>Haftung f&uuml;r Inhalte:</strong> Die Inhalte wurden mit gr&ouml;&szlig;ter Sorgfalt erstellt. F&uuml;r die Richtigkeit k&ouml;nnen wir keine Gew&auml;hr &uuml;bernehmen.</p><p class="mb-0"><strong>Haftung f&uuml;r Links:</strong> F&uuml;r die Inhalte verlinkter Seiten ist stets der jeweilige Anbieter verantwortlich.</p></div><div class="bg-white border rounded-4 p-4 mb-4"><h2 class="fw-bold fs-5 mb-3"><i class="bi bi-lock me-2" style="color:#667eea;"></i>Datenschutz</h2><p class="mb-2">Diese Anwendung wird <strong>vollst&auml;ndig self-hosted</strong> betrieben. Es werden keine personenbezogenen Daten an Dritte weitergegeben.</p><div class="rounded-3 p-3" style="background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;font-size:.9rem;"><i class="bi bi-info-circle me-1"></i>Kein Tracking, keine Third-Party-Cookies, keine externe Cloud-Speicherung.</div></div></div></div></div></section>'
++ '<footer style="background:#020617;color:#475569;padding:1.75rem 0;font-size:.88rem;"><div class="container d-flex justify-content-between align-items-center flex-wrap gap-2"><span>&copy; 2026 <strong style="color:#94a3b8;">CloudService &ndash; ABoro IT</strong></span><span><a href="/" style="color:#64748b;text-decoration:none;">Startseite</a> &nbsp;|&nbsp; <a href="/accounts/login/" style="color:#64748b;text-decoration:none;">Anmelden</a></span></div></footer>'
+
+};
+
+// ── State ─────────────────────────────────────────────────────────────────────
+var editor = null;
+var currentPage = 'landing';
+var pageCache = {};
+
+// ── Init GrapesJS ─────────────────────────────────────────────────────────────
+function initEditor(htmlContent, cssContent) {
+    if (editor) {
+        editor.destroy();
+        editor = null;
+    }
+    editor = grapesjs.init({
+        container: '#gjs',
+        height: '100%',
+        storageManager: false,
+        undoManager: { trackComponents: true },
+        blockManager: { appendTo: '#lpe-blocks-panel' },
+        layerManager:  { appendTo: '#lpe-layers-panel' },
+        styleManager:  { appendTo: '#lpe-right' },
+        traitManager:  { appendTo: '#lpe-right' },
+        panels: { defaults: [] },
+        deviceManager: {
+            devices: [
+                { name: 'desktop', width: '' },
+                { name: 'tablet',  width: '768px', widthMedia: '992px' },
+                { name: 'mobile',  width: '375px', widthMedia: '480px' },
+            ]
+        },
+        canvas: {
+            styles: [
+                'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css',
+                'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css',
+            ],
+            scripts: [
+                'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js',
+            ],
+        },
+        components: htmlContent,
+        style: cssContent || '',
+    });
+
+    addCustomBlocks(editor);
+}
+
+// ── Custom Bootstrap 5 blocks ─────────────────────────────────────────────────
+function addCustomBlocks(ed) {
+    var bm = ed.BlockManager;
+
+    function blk(id, label, cat, icon, html) {
+        bm.add(id, {
+            label: '<div style="font-size:1.4rem;margin-bottom:4px;">' + icon + '</div><div style="font-size:.7rem;">' + label + '</div>',
+            category: cat,
+            content: html,
+            attributes: { class: 'fa fa-th' }
+        });
+    }
+
+    // ── Navigation ────────────────────────────────────────────
+    blk('bs5-navbar', 'Navbar', 'Navigation', '&#x1F9ED;',
+        '<nav style="position:sticky;top:0;z-index:100;background:rgba(255,255,255,0.92);backdrop-filter:blur(12px);border-bottom:1px solid #e2e8f0;padding:.75rem 0;">'
+        + '<div class="container d-flex align-items-center justify-content-between">'
+        + '<a href="/" style="font-weight:800;font-size:1.35rem;background:linear-gradient(135deg,#667eea,#764ba2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-decoration:none;">&#x2601;&#xFE0F; Meine App</a>'
+        + '<div class="d-flex gap-2"><a href="#" class="btn btn-sm btn-outline-secondary rounded-pill px-3">Anmelden</a>'
+        + '<a href="#" class="btn btn-sm rounded-pill px-3 text-white" style="background:linear-gradient(135deg,#667eea,#764ba2);border:none;">Registrieren</a></div></div></nav>');
+
+    blk('bs5-navbar-dark', 'Navbar Dark', 'Navigation', '&#x1F311;',
+        '<nav class="navbar navbar-dark px-0 py-3" style="background:#0f172a;border-bottom:1px solid #1e293b;">'
+        + '<div class="container d-flex align-items-center justify-content-between">'
+        + '<a href="/" class="navbar-brand fw-bold">&#x2601;&#xFE0F; Meine App</a>'
+        + '<div class="d-flex gap-2"><a href="#" class="btn btn-sm btn-outline-light rounded-pill px-3">Anmelden</a>'
+        + '<a href="#" class="btn btn-sm btn-primary rounded-pill px-3">Registrieren</a></div></div></nav>');
+
+    // ── Hero / Header ─────────────────────────────────────────
+    blk('bs5-hero-dark', 'Hero Dark', 'Hero', '&#x1F9B8;',
+        '<section class="py-5" style="background:#0f172a;color:#fff;min-height:70vh;display:flex;align-items:center;">'
+        + '<div class="container py-4"><div class="row"><div class="col-lg-7">'
+        + '<span class="badge rounded-pill px-3 py-2 mb-4 d-inline-block" style="background:rgba(102,126,234,.2);border:1px solid rgba(102,126,234,.4);color:#a5b4fc;"><i class="bi bi-stars me-1"></i>Badge Text</span>'
+        + '<h1 class="fw-black mb-3" style="font-size:clamp(2rem,5vw,3.25rem);line-height:1.15;">Gro&szlig;er Titel<br><span style="background:linear-gradient(135deg,#667eea,#764ba2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Highlight Text</span></h1>'
+        + '<p class="mb-4" style="color:#94a3b8;font-size:1.08rem;max-width:520px;line-height:1.7;">Dein Untertitel und Beschreibungstext kommt hier.</p>'
+        + '<div class="d-flex gap-3 flex-wrap"><a href="#" class="btn btn-lg rounded-pill px-4" style="background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;"><i class="bi bi-rocket-takeoff me-2"></i>Prim&auml;re Aktion</a>'
+        + '<a href="#" class="btn btn-lg btn-outline-light rounded-pill px-4">Sekund&auml;re Aktion</a></div></div></div></div></section>');
+
+    blk('bs5-hero-split', 'Hero Split', 'Hero', '&#x2194;&#xFE0F;',
+        '<section class="py-5" style="background:#0f172a;color:#fff;"><div class="container py-4"><div class="row align-items-center g-5">'
+        + '<div class="col-lg-6"><h1 class="fw-black mb-3" style="font-size:clamp(1.75rem,4vw,2.75rem);">Ihr Titel hier</h1>'
+        + '<p style="color:#94a3b8;line-height:1.7;margin-bottom:2rem;">Beschreibung des Produkts oder Services.</p>'
+        + '<a href="#" class="btn btn-lg rounded-pill px-4" style="background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;">Jetzt starten</a></div>'
+        + '<div class="col-lg-6"><div class="rounded-4 p-4 d-flex align-items-center justify-content-center" style="background:#1e293b;border:1px solid #334155;min-height:300px;">'
+        + '<div class="text-center text-secondary"><i class="bi bi-image" style="font-size:3rem;"></i><p class="mt-2 small">Bild oder Screenshot hier</p></div></div></div>'
+        + '</div></div></section>');
+
+    blk('bs5-jumbotron', 'Jumbotron', 'Hero', '&#x1F4E2;',
+        '<section class="py-5 bg-white"><div class="container">'
+        + '<div class="p-5 rounded-4" style="background:linear-gradient(135deg,rgba(102,126,234,.08),rgba(118,75,162,.08));border:1px solid rgba(102,126,234,.2);">'
+        + '<span class="badge bg-primary rounded-pill mb-3">Ank&uuml;ndigung</span>'
+        + '<h2 class="fw-black mb-3">Wichtige &Uuml;berschrift</h2>'
+        + '<p class="lead text-muted mb-4">Dein Text hier. Ideal f&uuml;r wichtige Ank&uuml;ndigungen.</p>'
+        + '<a href="#" class="btn btn-primary rounded-pill px-4">Mehr erfahren</a>'
+        + '</div></div></section>');
+
+    // ── Content ───────────────────────────────────────────────
+    blk('bs5-features-3col', 'Features 3-Spalten', 'Content', '&#x26A1;',
+        '<section class="py-5" style="background:#f8fafc;"><div class="container">'
+        + '<div class="text-center mb-5"><div class="small fw-bold text-uppercase mb-2 text-primary" style="letter-spacing:.12em;">Funktionen</div>'
+        + '<h2 class="fw-black">Abschnitts&uuml;berschrift</h2>'
+        + '<p class="text-muted mx-auto" style="max-width:540px;">Kurze Beschreibung der Sektion.</p></div>'
+        + '<div class="row g-4">'
+        + '<div class="col-sm-6 col-lg-4"><div class="h-100 p-4 bg-white border rounded-4 text-center"><div class="d-inline-flex align-items-center justify-content-center rounded-3 mb-3" style="width:56px;height:56px;background:linear-gradient(135deg,#667eea,#764ba2);"><i class="bi bi-star-fill text-white fs-4"></i></div><h5 class="fw-bold">Feature 1</h5><p class="text-muted small mb-0">Beschreibung des ersten Features.</p></div></div>'
+        + '<div class="col-sm-6 col-lg-4"><div class="h-100 p-4 bg-white border rounded-4 text-center"><div class="d-inline-flex align-items-center justify-content-center rounded-3 mb-3" style="width:56px;height:56px;background:linear-gradient(135deg,#667eea,#764ba2);"><i class="bi bi-lightning-fill text-white fs-4"></i></div><h5 class="fw-bold">Feature 2</h5><p class="text-muted small mb-0">Beschreibung des zweiten Features.</p></div></div>'
+        + '<div class="col-sm-6 col-lg-4"><div class="h-100 p-4 bg-white border rounded-4 text-center"><div class="d-inline-flex align-items-center justify-content-center rounded-3 mb-3" style="width:56px;height:56px;background:linear-gradient(135deg,#667eea,#764ba2);"><i class="bi bi-shield-fill text-white fs-4"></i></div><h5 class="fw-bold">Feature 3</h5><p class="text-muted small mb-0">Beschreibung des dritten Features.</p></div></div>'
+        + '</div></div></section>');
+
+    blk('bs5-features-2col', 'Features 2-Spalten', 'Content', '&#x26A1;&#x26A1;',
+        '<section class="py-5 bg-white"><div class="container"><div class="text-center mb-5"><h2 class="fw-black">Unsere Vorteile</h2></div><div class="row g-4">'
+        + '<div class="col-md-6"><div class="d-flex gap-3 p-4 border rounded-4"><div class="flex-shrink-0 d-flex align-items-center justify-content-center rounded-3" style="width:48px;height:48px;background:linear-gradient(135deg,#667eea,#764ba2);"><i class="bi bi-check2-circle text-white fs-5"></i></div><div><h5 class="fw-bold mb-1">Vorteil 1</h5><p class="text-muted small mb-0">Beschreibung des ersten Vorteils.</p></div></div></div>'
+        + '<div class="col-md-6"><div class="d-flex gap-3 p-4 border rounded-4"><div class="flex-shrink-0 d-flex align-items-center justify-content-center rounded-3" style="width:48px;height:48px;background:linear-gradient(135deg,#667eea,#764ba2);"><i class="bi bi-check2-circle text-white fs-5"></i></div><div><h5 class="fw-bold mb-1">Vorteil 2</h5><p class="text-muted small mb-0">Beschreibung des zweiten Vorteils.</p></div></div></div>'
+        + '<div class="col-md-6"><div class="d-flex gap-3 p-4 border rounded-4"><div class="flex-shrink-0 d-flex align-items-center justify-content-center rounded-3" style="width:48px;height:48px;background:linear-gradient(135deg,#667eea,#764ba2);"><i class="bi bi-check2-circle text-white fs-5"></i></div><div><h5 class="fw-bold mb-1">Vorteil 3</h5><p class="text-muted small mb-0">Beschreibung des dritten Vorteils.</p></div></div></div>'
+        + '<div class="col-md-6"><div class="d-flex gap-3 p-4 border rounded-4"><div class="flex-shrink-0 d-flex align-items-center justify-content-center rounded-3" style="width:48px;height:48px;background:linear-gradient(135deg,#667eea,#764ba2);"><i class="bi bi-check2-circle text-white fs-5"></i></div><div><h5 class="fw-bold mb-1">Vorteil 4</h5><p class="text-muted small mb-0">Beschreibung des vierten Vorteils.</p></div></div></div>'
+        + '</div></div></section>');
+
+    blk('bs5-cards-row', '3 Karten', 'Content', '&#x1F0CF;',
+        '<section class="py-5" style="background:#f8fafc;"><div class="container"><div class="row g-4">'
+        + '<div class="col-md-4"><div class="card h-100 border-0 shadow-sm rounded-4 overflow-hidden"><div style="height:160px;background:linear-gradient(135deg,#667eea,#764ba2);"></div><div class="card-body"><h5 class="card-title fw-bold">Karte 1</h5><p class="card-text text-muted small">Beschreibungstext f&uuml;r die erste Karte.</p><a href="#" class="btn btn-sm btn-primary rounded-pill">Mehr</a></div></div></div>'
+        + '<div class="col-md-4"><div class="card h-100 border-0 shadow-sm rounded-4 overflow-hidden"><div style="height:160px;background:linear-gradient(135deg,#764ba2,#667eea);"></div><div class="card-body"><h5 class="card-title fw-bold">Karte 2</h5><p class="card-text text-muted small">Beschreibungstext f&uuml;r die zweite Karte.</p><a href="#" class="btn btn-sm btn-primary rounded-pill">Mehr</a></div></div></div>'
+        + '<div class="col-md-4"><div class="card h-100 border-0 shadow-sm rounded-4 overflow-hidden"><div style="height:160px;background:linear-gradient(135deg,#667eea,#764ba2);"></div><div class="card-body"><h5 class="card-title fw-bold">Karte 3</h5><p class="card-text text-muted small">Beschreibungstext f&uuml;r die dritte Karte.</p><a href="#" class="btn btn-sm btn-primary rounded-pill">Mehr</a></div></div></div>'
+        + '</div></div></section>');
+
+    blk('bs5-text-block', 'Text Sektion', 'Content', '&#x1F4DD;',
+        '<section class="py-5 bg-white"><div class="container"><div class="row justify-content-center"><div class="col-lg-8 text-center">'
+        + '<div class="small fw-bold text-uppercase text-primary mb-2" style="letter-spacing:.12em;">Kategorie</div>'
+        + '<h2 class="fw-black mb-3">Abschnitts&uuml;berschrift</h2>'
+        + '<p class="text-muted lead mb-4">Dein Text hier. Erkl&auml;re dein Produkt, deine Dienstleistung oder deinen Inhalt.</p>'
+        + '<a href="#" class="btn btn-primary rounded-pill px-4">Mehr erfahren</a>'
+        + '</div></div></div></section>');
+
+    blk('bs5-text-image-right', 'Text + Bild (rechts)', 'Content', '&#x2192;&#xFE0F;',
+        '<section class="py-5 bg-white"><div class="container"><div class="row align-items-center g-5">'
+        + '<div class="col-lg-6"><h2 class="fw-black mb-3">&Uuml;berschrift</h2>'
+        + '<p class="text-muted mb-4" style="line-height:1.7;">Beschreibung des Inhalts.</p>'
+        + '<ul class="list-unstyled mb-4"><li class="d-flex align-items-center gap-2 mb-2"><i class="bi bi-check-circle-fill text-success"></i>Punkt 1</li>'
+        + '<li class="d-flex align-items-center gap-2 mb-2"><i class="bi bi-check-circle-fill text-success"></i>Punkt 2</li>'
+        + '<li class="d-flex align-items-center gap-2 mb-2"><i class="bi bi-check-circle-fill text-success"></i>Punkt 3</li></ul>'
+        + '<a href="#" class="btn btn-primary rounded-pill px-4">Aktion</a></div>'
+        + '<div class="col-lg-6"><div class="rounded-4 d-flex align-items-center justify-content-center" style="background:#f1f5f9;border:2px dashed #cbd5e1;min-height:320px;">'
+        + '<div class="text-center text-muted"><i class="bi bi-image" style="font-size:3rem;"></i><p class="mt-2 small">Bild einf&uuml;gen</p></div></div></div>'
+        + '</div></div></section>');
+
+    blk('bs5-text-image-left', 'Text + Bild (links)', 'Content', '&#x2190;&#xFE0F;',
+        '<section class="py-5 bg-white"><div class="container"><div class="row align-items-center g-5">'
+        + '<div class="col-lg-6 order-lg-1"><div class="rounded-4 d-flex align-items-center justify-content-center" style="background:#f1f5f9;border:2px dashed #cbd5e1;min-height:320px;">'
+        + '<div class="text-center text-muted"><i class="bi bi-image" style="font-size:3rem;"></i><p class="mt-2 small">Bild einf&uuml;gen</p></div></div></div>'
+        + '<div class="col-lg-6 order-lg-2"><h2 class="fw-black mb-3">&Uuml;berschrift</h2>'
+        + '<p class="text-muted mb-4" style="line-height:1.7;">Beschreibung des Inhalts.</p>'
+        + '<a href="#" class="btn btn-primary rounded-pill px-4">Aktion</a></div>'
+        + '</div></div></section>');
+
+    blk('bs5-accordion', 'FAQ / Accordion', 'Content', '&#x2753;',
+        '<section class="py-5" style="background:#f8fafc;"><div class="container">'
+        + '<div class="text-center mb-5"><h2 class="fw-black">H&auml;ufige Fragen</h2></div>'
+        + '<div class="row justify-content-center"><div class="col-lg-8">'
+        + '<div class="accordion border-0" id="faqAccordion">'
+        + '<div class="accordion-item border rounded-3 mb-2"><h2 class="accordion-header"><button class="accordion-button fw-semibold rounded-3" type="button" data-bs-toggle="collapse" data-bs-target="#faq1">Frage 1: Wie funktioniert das?</button></h2><div id="faq1" class="accordion-collapse collapse show" data-bs-parent="#faqAccordion"><div class="accordion-body text-muted">Antwort auf die erste Frage.</div></div></div>'
+        + '<div class="accordion-item border rounded-3 mb-2"><h2 class="accordion-header"><button class="accordion-button fw-semibold rounded-3 collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">Frage 2: Was kostet es?</button></h2><div id="faq2" class="accordion-collapse collapse" data-bs-parent="#faqAccordion"><div class="accordion-body text-muted">Antwort auf die zweite Frage.</div></div></div>'
+        + '<div class="accordion-item border rounded-3 mb-2"><h2 class="accordion-header"><button class="accordion-button fw-semibold rounded-3 collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq3">Frage 3: Gibt es Support?</button></h2><div id="faq3" class="accordion-collapse collapse" data-bs-parent="#faqAccordion"><div class="accordion-body text-muted">Antwort auf die dritte Frage.</div></div></div>'
+        + '</div></div></div></div></section>');
+
+    blk('bs5-alert', 'Alert Box', 'Content', '&#x26A0;&#xFE0F;',
+        '<div class="container my-4"><div class="alert alert-info d-flex align-items-center gap-3 rounded-3 border-0" style="background:#eff6ff;color:#1e40af;">'
+        + '<i class="bi bi-info-circle-fill fs-4"></i>'
+        + '<div><strong>Hinweis:</strong> Hier steht ein wichtiger Hinweis f&uuml;r den Nutzer.</div>'
+        + '</div></div>');
+
+    blk('bs5-badge-row', 'Badge Reihe', 'Content', '&#x1F3F7;&#xFE0F;',
+        '<section class="py-4 bg-white"><div class="container text-center">'
+        + '<h5 class="fw-bold mb-3 text-muted text-uppercase" style="font-size:.75rem;letter-spacing:.12em;">Technologien &amp; Integrationen</h5>'
+        + '<div class="d-flex flex-wrap gap-2 justify-content-center">'
+        + '<span class="badge rounded-pill bg-primary bg-opacity-10 text-primary px-3 py-2 fs-6 fw-semibold">Django</span>'
+        + '<span class="badge rounded-pill bg-success bg-opacity-10 text-success px-3 py-2 fs-6 fw-semibold">Python</span>'
+        + '<span class="badge rounded-pill bg-warning bg-opacity-10 text-warning px-3 py-2 fs-6 fw-semibold">JavaScript</span>'
+        + '<span class="badge rounded-pill bg-info bg-opacity-10 text-info px-3 py-2 fs-6 fw-semibold">Bootstrap 5</span>'
+        + '<span class="badge rounded-pill bg-danger bg-opacity-10 text-danger px-3 py-2 fs-6 fw-semibold">REST API</span>'
+        + '</div></div></section>');
+
+    // ── Stats ─────────────────────────────────────────────────
+    blk('bs5-stats-gradient', 'Stats (Gradient)', 'Stats', '&#x1F4CA;',
+        '<section class="py-5 text-white text-center" style="background:linear-gradient(135deg,#667eea,#764ba2);"><div class="container"><div class="row g-4">'
+        + '<div class="col-6 col-md-3"><div class="fw-black" style="font-size:2.5rem;">100%</div><div style="opacity:.85;">Zuverl&auml;ssigkeit</div></div>'
+        + '<div class="col-6 col-md-3"><div class="fw-black" style="font-size:2.5rem;">&infin;</div><div style="opacity:.85;">Skalierbarkeit</div></div>'
+        + '<div class="col-6 col-md-3"><div class="fw-black" style="font-size:2.5rem;">24/7</div><div style="opacity:.85;">Verf&uuml;gbarkeit</div></div>'
+        + '<div class="col-6 col-md-3"><div class="fw-black" style="font-size:2.5rem;">0 &euro;</div><div style="opacity:.85;">Grundkosten</div></div>'
+        + '</div></div></section>');
+
+    blk('bs5-stats-light', 'Stats (Hell)', 'Stats', '&#x1F4C8;',
+        '<section class="py-5 bg-white"><div class="container"><div class="row g-4 text-center">'
+        + '<div class="col-6 col-md-3"><div class="p-4 border rounded-4"><div class="fw-black text-primary" style="font-size:2rem;">1.000+</div><div class="text-muted small">Nutzer</div></div></div>'
+        + '<div class="col-6 col-md-3"><div class="p-4 border rounded-4"><div class="fw-black text-primary" style="font-size:2rem;">50 TB</div><div class="text-muted small">Gespeicherte Daten</div></div></div>'
+        + '<div class="col-6 col-md-3"><div class="p-4 border rounded-4"><div class="fw-black text-primary" style="font-size:2rem;">99.9%</div><div class="text-muted small">Uptime SLA</div></div></div>'
+        + '<div class="col-6 col-md-3"><div class="p-4 border rounded-4"><div class="fw-black text-primary" style="font-size:2rem;">5&#x2605;</div><div class="text-muted small">Kundenzufriedenheit</div></div></div>'
+        + '</div></div></section>');
+
+    // ── Media ─────────────────────────────────────────────────
+    blk('bs5-carousel', 'Bild-Karussell', 'Media', '&#x1F3A0;',
+        '<section class="py-5 bg-white"><div class="container"><div class="text-center mb-4"><h2 class="fw-black">Galerie</h2></div>'
+        + '<div id="carouselMain" class="carousel slide rounded-4 overflow-hidden shadow" data-bs-ride="carousel">'
+        + '<div class="carousel-indicators">'
+        + '<button type="button" data-bs-target="#carouselMain" data-bs-slide-to="0" class="active"></button>'
+        + '<button type="button" data-bs-target="#carouselMain" data-bs-slide-to="1"></button>'
+        + '<button type="button" data-bs-target="#carouselMain" data-bs-slide-to="2"></button>'
+        + '</div>'
+        + '<div class="carousel-inner">'
+        + '<div class="carousel-item active"><div style="height:400px;background:linear-gradient(135deg,#667eea,#764ba2);display:flex;align-items:center;justify-content:center;"><div class="text-center text-white"><h4 class="fw-bold">Folie 1</h4><p>Untertitel der ersten Folie</p></div></div></div>'
+        + '<div class="carousel-item"><div style="height:400px;background:linear-gradient(135deg,#764ba2,#f59e0b);display:flex;align-items:center;justify-content:center;"><div class="text-center text-white"><h4 class="fw-bold">Folie 2</h4><p>Untertitel der zweiten Folie</p></div></div></div>'
+        + '<div class="carousel-item"><div style="height:400px;background:linear-gradient(135deg,#0ea5e9,#667eea);display:flex;align-items:center;justify-content:center;"><div class="text-center text-white"><h4 class="fw-bold">Folie 3</h4><p>Untertitel der dritten Folie</p></div></div></div>'
+        + '</div>'
+        + '<button class="carousel-control-prev" type="button" data-bs-target="#carouselMain" data-bs-slide="prev"><span class="carousel-control-prev-icon"></span></button>'
+        + '<button class="carousel-control-next" type="button" data-bs-target="#carouselMain" data-bs-slide="next"><span class="carousel-control-next-icon"></span></button>'
+        + '</div></div></section>');
+
+    blk('bs5-image-full', 'Vollbild-Bild', 'Media', '&#x1F5BC;&#xFE0F;',
+        '<section class="py-5 bg-white"><div class="container">'
+        + '<div class="rounded-4 overflow-hidden" style="background:#f1f5f9;border:2px dashed #cbd5e1;min-height:300px;display:flex;align-items:center;justify-content:center;">'
+        + '<div class="text-center text-muted p-5"><i class="bi bi-image" style="font-size:3rem;"></i><p class="mt-2">Klicke hier und &auml;ndere die Bild-URL</p></div>'
+        + '</div></div></section>');
+
+    blk('bs5-video-embed', 'Video Einbettung', 'Media', '&#x1F3AC;',
+        '<section class="py-5 bg-white"><div class="container"><div class="text-center mb-4"><h2 class="fw-black">Video</h2></div>'
+        + '<div class="ratio ratio-16x9 rounded-4 overflow-hidden shadow">'
+        + '<iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ" title="Video" allowfullscreen></iframe>'
+        + '</div></div></section>');
+
+    // ── Steps ─────────────────────────────────────────────────
+    blk('bs5-steps-dark', 'Schritte (Dunkel)', 'Steps', '&#x31;&#xFE0F;&#x20E3;',
+        '<section class="py-5" style="background:#0f172a;color:#fff;"><div class="container">'
+        + '<div class="text-center mb-5"><h2 class="fw-black text-white">In 3 Schritten starten</h2></div>'
+        + '<div class="row g-5 justify-content-center text-center">'
+        + '<div class="col-md-4"><div class="d-flex align-items-center justify-content-center rounded-circle mx-auto mb-3 fw-black" style="width:56px;height:56px;background:linear-gradient(135deg,#667eea,#764ba2);font-size:1.35rem;">1</div><h5 class="text-white fw-bold">Schritt 1</h5><p style="color:#64748b;">Beschreibung des ersten Schritts.</p></div>'
+        + '<div class="col-md-4"><div class="d-flex align-items-center justify-content-center rounded-circle mx-auto mb-3 fw-black" style="width:56px;height:56px;background:linear-gradient(135deg,#667eea,#764ba2);font-size:1.35rem;">2</div><h5 class="text-white fw-bold">Schritt 2</h5><p style="color:#64748b;">Beschreibung des zweiten Schritts.</p></div>'
+        + '<div class="col-md-4"><div class="d-flex align-items-center justify-content-center rounded-circle mx-auto mb-3 fw-black" style="width:56px;height:56px;background:linear-gradient(135deg,#667eea,#764ba2);font-size:1.35rem;">3</div><h5 class="text-white fw-bold">Schritt 3</h5><p style="color:#64748b;">Beschreibung des dritten Schritts.</p></div>'
+        + '</div></div></section>');
+
+    blk('bs5-steps-light', 'Schritte (Hell)', 'Steps', '&#x32;&#xFE0F;&#x20E3;',
+        '<section class="py-5 bg-white"><div class="container"><div class="text-center mb-5"><h2 class="fw-black">So funktioniert es</h2></div><div class="row g-4">'
+        + '<div class="col-md-4"><div class="d-flex gap-3 align-items-start"><span class="badge rounded-circle d-flex align-items-center justify-content-center fw-black flex-shrink-0" style="width:40px;height:40px;font-size:1.1rem;background:linear-gradient(135deg,#667eea,#764ba2);">1</span><div><h5 class="fw-bold">Schritt 1</h5><p class="text-muted small mb-0">Beschreibung des ersten Schritts.</p></div></div></div>'
+        + '<div class="col-md-4"><div class="d-flex gap-3 align-items-start"><span class="badge rounded-circle d-flex align-items-center justify-content-center fw-black flex-shrink-0" style="width:40px;height:40px;font-size:1.1rem;background:linear-gradient(135deg,#667eea,#764ba2);">2</span><div><h5 class="fw-bold">Schritt 2</h5><p class="text-muted small mb-0">Beschreibung des zweiten Schritts.</p></div></div></div>'
+        + '<div class="col-md-4"><div class="d-flex gap-3 align-items-start"><span class="badge rounded-circle d-flex align-items-center justify-content-center fw-black flex-shrink-0" style="width:40px;height:40px;font-size:1.1rem;background:linear-gradient(135deg,#667eea,#764ba2);">3</span><div><h5 class="fw-bold">Schritt 3</h5><p class="text-muted small mb-0">Beschreibung des dritten Schritts.</p></div></div></div>'
+        + '</div></div></section>');
+
+    // ── CTA ───────────────────────────────────────────────────
+    blk('bs5-cta-dark', 'CTA Dunkel', 'CTA', '&#x1F680;',
+        '<section class="py-5 text-center" style="background:#0f172a;color:#fff;border-top:1px solid rgba(255,255,255,.06);">'
+        + '<div class="container"><h2 class="fw-black mb-3">Bereit loszulegen?</h2>'
+        + '<p style="color:#94a3b8;font-size:1.05rem;margin-bottom:2.5rem;">Kostenlos starten &ndash; kein Abo, keine versteckten Kosten.</p>'
+        + '<div class="d-flex gap-3 justify-content-center flex-wrap">'
+        + '<a href="#" class="btn btn-lg rounded-pill px-4" style="background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;"><i class="bi bi-rocket-takeoff me-2"></i>Prim&auml;re Aktion</a>'
+        + '<a href="#" class="btn btn-lg btn-outline-light rounded-pill px-4">Sekund&auml;re Aktion</a>'
+        + '</div></div></section>');
+
+    blk('bs5-cta-gradient', 'CTA Gradient', 'CTA', '&#x2728;',
+        '<section class="py-5 text-white text-center" style="background:linear-gradient(135deg,#667eea,#764ba2);">'
+        + '<div class="container"><h2 class="fw-black mb-3">Starte jetzt mit CloudService</h2>'
+        + '<p style="opacity:.9;font-size:1.05rem;margin-bottom:2rem;">Alle Features. Kostenlos. Self-hosted.</p>'
+        + '<a href="#" class="btn btn-lg btn-light rounded-pill px-4 fw-bold text-primary shadow">Kostenlos registrieren</a>'
+        + '</div></section>');
+
+    // ── Layout ────────────────────────────────────────────────
+    blk('bs5-spacer-sm', 'Abstand S', 'Layout', '&#x2195;&#xFE0F;', '<div style="height:40px;"></div>');
+    blk('bs5-spacer-lg', 'Abstand L', 'Layout', '&#x2195;&#xFE0F;', '<div style="height:80px;"></div>');
+    blk('bs5-divider', 'Trennlinie', 'Layout', '&#x2796;', '<div class="container"><hr class="border-secondary my-4"></div>');
+
+    blk('bs5-2col', '2 Spalten', 'Layout', '&#x2B1C;&#x2B1C;',
+        '<section class="py-5 bg-white"><div class="container"><div class="row g-4">'
+        + '<div class="col-md-6"><div class="p-4 border rounded-4 h-100"><h5 class="fw-bold">Spalte 1</h5><p class="text-muted">Inhalt der ersten Spalte.</p></div></div>'
+        + '<div class="col-md-6"><div class="p-4 border rounded-4 h-100"><h5 class="fw-bold">Spalte 2</h5><p class="text-muted">Inhalt der zweiten Spalte.</p></div></div>'
+        + '</div></div></section>');
+
+    blk('bs5-3col', '3 Spalten', 'Layout', '&#x2B1C;&#x2B1C;&#x2B1C;',
+        '<section class="py-5 bg-white"><div class="container"><div class="row g-4">'
+        + '<div class="col-md-4"><div class="p-4 border rounded-4 h-100"><h5 class="fw-bold">Spalte 1</h5><p class="text-muted">Inhalt der ersten Spalte.</p></div></div>'
+        + '<div class="col-md-4"><div class="p-4 border rounded-4 h-100"><h5 class="fw-bold">Spalte 2</h5><p class="text-muted">Inhalt der zweiten Spalte.</p></div></div>'
+        + '<div class="col-md-4"><div class="p-4 border rounded-4 h-100"><h5 class="fw-bold">Spalte 3</h5><p class="text-muted">Inhalt der dritten Spalte.</p></div></div>'
+        + '</div></div></section>');
+
+    // ── Footer ────────────────────────────────────────────────
+    blk('bs5-footer-dark', 'Footer Dunkel', 'Footer', '&#x1F53B;',
+        '<footer style="background:#020617;color:#475569;padding:2rem 0;font-size:.88rem;">'
+        + '<div class="container d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">'
+        + '<div><span class="fw-bold" style="color:#94a3b8;font-size:1.1rem;">&#x2601;&#xFE0F; CloudService</span>'
+        + '<br><span style="font-size:.8rem;">&copy; 2026 ABoro IT. Alle Rechte vorbehalten.</span></div>'
+        + '<div class="d-flex gap-3 flex-wrap justify-content-center">'
+        + '<a href="/" style="color:#64748b;text-decoration:none;">Startseite</a>'
+        + '<a href="/core/impressum/" style="color:#64748b;text-decoration:none;">Impressum</a>'
+        + '<a href="/accounts/login/" style="color:#64748b;text-decoration:none;">Anmelden</a>'
+        + '<a href="https://aboro-it.net" target="_blank" style="color:#64748b;text-decoration:none;">aboro-it.net</a>'
+        + '</div></div></footer>');
+
+    blk('bs5-footer-minimal', 'Footer Minimal', 'Footer', '&#x2796;',
+        '<footer class="py-3 text-center" style="background:#020617;color:#475569;font-size:.85rem;">'
+        + '<span>&copy; 2026 CloudService &ndash; ABoro IT &nbsp;|&nbsp; <a href="/core/impressum/" style="color:#64748b;">Impressum</a></span>'
+        + '</footer>');
+}
+
+// ── Page switching ────────────────────────────────────────────────────────────
+function switchPage(page) {
+    if (currentPage !== 'mysite' && editor) {
+        pageCache[currentPage] = { html: editor.getHtml(), css: editor.getCss() };
+    }
+    currentPage = page;
+
+    document.querySelectorAll('.lpe-page-btn').forEach(function(b) {
+        b.classList.toggle('active', b.dataset.page === page);
+    });
+
+    var isMysite = (page === 'mysite');
+    document.getElementById('lpe-left').style.display   = isMysite ? 'none' : '';
+    document.getElementById('lpe-canvas').style.display = isMysite ? 'none' : '';
+    document.getElementById('lpe-right').style.display  = isMysite ? 'none' : '';
+    document.getElementById('lpe-mysite').style.display = isMysite ? '' : 'none';
+    document.getElementById('device-btns').style.visibility = isMysite ? 'hidden' : 'visible';
+
+    if (!isMysite) {
+        var cached = pageCache[page];
+        var saved  = PAGES_DATA[page] || {};
+        var html = (cached && cached.html) || saved.html || DEFAULT_HTML[page] || '';
+        var css  = (cached && cached.css)  || saved.css  || '';
+        initEditor(html, css);
+    }
+}
+
+// ── Panel tab switching ───────────────────────────────────────────────────────
+function switchPanel(tab, evt) {
+    if (evt) {
+        document.querySelectorAll('.lpe-tab').forEach(function(t) { t.classList.remove('active'); });
+        evt.currentTarget.classList.add('active');
+    }
+    document.getElementById('lpe-blocks-panel').style.display = tab === 'blocks' ? '' : 'none';
+    document.getElementById('lpe-layers-panel').style.display = tab === 'layers' ? '' : 'none';
+}
+
+// ── Device switching ──────────────────────────────────────────────────────────
+function setDevice(device) {
+    if (!editor) return;
+    editor.setDevice(device === 'desktop' ? 'desktop' : device === 'tablet' ? 'tablet' : 'mobile');
+    document.querySelectorAll('[id^="btn-"]').forEach(function(b) { b.classList.remove('active'); });
+    var btn = document.getElementById('btn-' + device);
+    if (btn) btn.classList.add('active');
+}
+
+// ── Undo / Redo ───────────────────────────────────────────────────────────────
+function doUndo() { if (editor) editor.runCommand('core:undo'); }
+function doRedo() { if (editor) editor.runCommand('core:redo'); }
+
+// ── Preview ───────────────────────────────────────────────────────────────────
+function openPreview() {
+    window.open(PAGE_URLS[currentPage] || '/', '_blank');
+}
+
+// ── Status helper ─────────────────────────────────────────────────────────────
+function setStatus(state, msg) {
+    var el = document.getElementById('lpe-status');
+    el.className = state;
+    el.textContent = msg;
+}
+
+// ── Save ──────────────────────────────────────────────────────────────────────
+async function saveAll() {
+    setStatus('saving', '\u23F3 Speichern...');
+    try {
+        if (currentPage !== 'mysite' && editor) {
+            pageCache[currentPage] = { html: editor.getHtml(), css: editor.getCss() };
+        }
+        if (currentPage !== 'mysite') {
+            var data = pageCache[currentPage] || {};
+            var resp = await fetch(SAVE_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+                body: JSON.stringify({ action: 'save_page', page: currentPage, html: data.html || '', css: data.css || '' })
+            });
+            var result = await resp.json();
+            if (!result.ok) throw new Error(result.error || 'Fehler');
+        }
+        setStatus('saved', '\u2713 Gespeichert');
+        setTimeout(function() { setStatus('', ''); }, 3000);
+    } catch (e) {
+        setStatus('error', '\u2717 Fehler: ' + e.message);
+    }
+}
+
+// ── MySite widget save ────────────────────────────────────────────────────────
+async function saveMySite() {
+    var items = document.querySelectorAll('#wgt-list .wgt-item');
+    var widgets = Array.from(items).map(function(el) {
+        return {
+            id:      el.dataset.id,
+            label:   el.querySelector('.wgt-label').textContent,
+            icon:    el.dataset.icon,
+            visible: el.querySelector('.wgt-toggle').checked,
+        };
+    });
+    setStatus('saving', '\u23F3 Speichern...');
+    try {
+        var resp = await fetch(SAVE_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+            body: JSON.stringify({ action: 'save_mysite', widgets: widgets })
+        });
+        var result = await resp.json();
+        if (!result.ok) throw new Error(result.error || 'Fehler');
+        setStatus('saved', '\u2713 Gespeichert');
+        setTimeout(function() { setStatus('', ''); }, 3000);
+    } catch (e) {
+        setStatus('error', '\u2717 Fehler: ' + e.message);
+    }
+}
+
+// ── MySite widget list ────────────────────────────────────────────────────────
+function renderWidgetList() {
+    var list = document.getElementById('wgt-list');
+    list.innerHTML = '';
+    MYSITE_WIDGETS.forEach(function(w) {
+        var li = document.createElement('li');
+        li.className = 'wgt-item';
+        li.dataset.id   = w.id;
+        li.dataset.icon = w.icon || 'bi-grid';
+        li.innerHTML =
+            '<span class="wgt-handle"><i class="bi bi-grip-vertical"></i></span>' +
+            '<div class="wgt-icon"><i class="bi ' + (w.icon || 'bi-grid') + '"></i></div>' +
+            '<span class="wgt-label">' + w.label + '</span>' +
+            '<div class="form-check form-switch mb-0">' +
+            '<input class="form-check-input wgt-toggle" type="checkbox"' + (w.visible ? ' checked' : '') + ' role="switch">' +
+            '</div>';
+        list.appendChild(li);
+    });
+    Sortable.create(list, { animation: 150, handle: '.wgt-handle' });
+}
+
+// ── Keyboard shortcuts ────────────────────────────────────────────────────────
+document.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveAll(); }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); doUndo(); }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'y') { e.preventDefault(); doRedo(); }
+});
+
+// ── Page tab click handlers ───────────────────────────────────────────────────
+document.querySelectorAll('.lpe-page-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() { switchPage(btn.dataset.page); });
+});
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+renderWidgetList();
+switchPage('landing');
+</script>
+{% endblock %}

@@ -1,0 +1,466 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ article.title }} – News – CloudService{% endblock %}
+
+{% block extra_css %}
+<style>
+    .news-hero {
+        position: relative;
+        width: 100%;
+        height: 380px;
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        border-radius: var(--card-radius);
+        overflow: hidden;
+        margin-bottom: 2rem;
+        display: flex;
+        align-items: flex-end;
+    }
+    .news-hero img {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .news-hero .overlay {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 60%);
+    }
+    .news-hero .hero-content {
+        position: relative;
+        z-index: 1;
+        padding: 2rem;
+        color: #fff;
+        width: 100%;
+    }
+    .news-cat-badge {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 999px;
+        font-size: 0.78rem;
+        font-weight: 600;
+    }
+    .news-tag {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        background: var(--surface-muted);
+        color: var(--text-muted);
+        border: 1px solid var(--border-color);
+        margin-right: 4px;
+        margin-bottom: 4px;
+    }
+    .news-author-row {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 1.5rem;
+    }
+    .author-avatar {
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        background: var(--hero-surface);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-weight: 700;
+        font-size: 1rem;
+        overflow: hidden;
+        flex-shrink: 0;
+    }
+    .author-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .news-content {
+        line-height: 1.8;
+        font-size: 1.05rem;
+    }
+    .news-content img {
+        max-width: 100%;
+        border-radius: 8px;
+    }
+    .reaction-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.45rem 1.1rem;
+        border-radius: 999px;
+        border: 1.5px solid var(--border-color);
+        background: var(--surface-bg);
+        cursor: pointer;
+        font-size: 1rem;
+        transition: all 0.15s;
+        color: var(--text-color);
+    }
+    .reaction-btn.active-like {
+        background: #e8f4fd;
+        border-color: #3b82f6;
+        color: #3b82f6;
+    }
+    .reaction-btn.active-heart {
+        background: #fff0f3;
+        border-color: #ec4899;
+        color: #ec4899;
+    }
+    .reaction-btn:hover {
+        box-shadow: 0 2px 8px var(--shadow-color);
+    }
+    .comment-item {
+        border-left: 3px solid var(--border-color);
+        padding-left: 1rem;
+        margin-bottom: 1.25rem;
+    }
+    .comment-reply {
+        margin-left: 2rem;
+        margin-top: 0.75rem;
+        border-left: 2px solid var(--border-color);
+        padding-left: 0.75rem;
+    }
+    .comment-author-av {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: var(--hero-surface);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-size: 0.8rem;
+        font-weight: 700;
+        flex-shrink: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="mb-3">
+        <a href="{% url 'news:news_list' %}" class="text-decoration-none text-muted small">
+            <i class="bi bi-arrow-left me-1"></i>Zurück zur Übersicht
+        </a>
+        {% if user.is_staff %}
+            <span class="mx-2 text-muted">|</span>
+            <a href="{% url 'news:news_edit' article.slug %}" class="text-decoration-none small me-2">
+                <i class="bi bi-pencil me-1"></i>Bearbeiten
+            </a>
+            <a href="{% url 'news:news_delete' article.slug %}" class="text-decoration-none text-danger small">
+                <i class="bi bi-trash me-1"></i>Löschen
+            </a>
+        {% endif %}
+    </div>
+
+    <!-- Hero -->
+    <div class="news-hero">
+        {% if article.cover_image %}
+            <img src="{{ article.cover_image.url }}" alt="{{ article.title }}">
+            <div class="overlay"></div>
+        {% endif %}
+        <div class="hero-content">
+            {% if article.category %}
+                <span class="news-cat-badge mb-2 d-inline-block"
+                      style="background:{{ article.category.color }}33;color:{{ article.category.color }};border:1px solid {{ article.category.color }}77;">
+                    <i class="bi {{ article.category.icon }} me-1"></i>{{ article.category.name }}
+                </span>
+            {% endif %}
+            <h1 class="h2 mb-2 {% if not article.cover_image %}text-body{% endif %}">{{ article.title }}</h1>
+            {% if article.tags %}
+                <div class="mb-2">
+                    {% for tag in article.get_tags_list %}
+                        <span class="news-tag {% if article.cover_image %}bg-white bg-opacity-25 text-white border-0{% endif %}">{{ tag }}</span>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <!-- Author row -->
+            <div class="news-author-row">
+                <div class="author-avatar">
+                    {% if article.author and article.author.profile and article.author.profile.avatar %}
+                        <img src="{{ article.author.profile.avatar.url }}" alt="">
+                    {% else %}
+                        {{ article.author.username|first|upper }}
+                    {% endif %}
+                </div>
+                <div>
+                    <div class="fw-semibold">{{ article.author.get_full_name|default:article.author.username }}</div>
+                    <div class="small text-muted">
+                        {{ article.publish_at|default:article.created_at|date:"d. F Y, H:i" }}
+                        &nbsp;&middot;&nbsp;<i class="bi bi-eye"></i> {{ article.view_count }} Aufrufe
+                    </div>
+                </div>
+                {% if article.is_pinned %}
+                    <span class="badge bg-warning text-dark ms-auto"><i class="bi bi-pin me-1"></i>Angeheftet</span>
+                {% endif %}
+                {% if article.is_featured %}
+                    <span class="badge bg-primary ms-auto">Featured</span>
+                {% endif %}
+            </div>
+
+            <!-- Summary -->
+            {% if article.summary %}
+                <p class="lead text-muted mb-3">{{ article.summary }}</p>
+            {% endif %}
+
+            <!-- Content -->
+            <div class="news-content mb-4">
+                {{ article.content|safe }}
+            </div>
+
+            <!-- Reactions -->
+            <div class="d-flex gap-2 mb-4 flex-wrap" id="reaction-bar"
+                 data-app-label="news" data-model="newsarticle" data-object-id="{{ article.pk }}"
+                 data-csrf="{% csrf_token %}">
+                <button class="reaction-btn {% if user_reaction == 'like' %}active-like{% endif %}"
+                        id="btn-like" onclick="toggleReaction('like')">
+                    👍 <span id="like-count">{{ reaction_like_count }}</span>
+                </button>
+                <button class="reaction-btn {% if user_reaction == 'heart' %}active-heart{% endif %}"
+                        id="btn-heart" onclick="toggleReaction('heart')">
+                    ❤️ <span id="heart-count">{{ reaction_heart_count }}</span>
+                </button>
+            </div>
+
+            <!-- Comments -->
+            <div class="card mb-4">
+                <div class="card-header d-flex align-items-center justify-content-between">
+                    <h5 class="mb-0"><i class="bi bi-chat-dots me-2"></i>Kommentare</h5>
+                    <span class="badge bg-secondary" id="comment-count">{{ comments|length }}</span>
+                </div>
+                <div class="card-body">
+                    <!-- Existing comments -->
+                    <div id="comments-list">
+                        {% for comment in comments %}
+                            {% if not comment.is_deleted %}
+                            <div class="comment-item" id="comment-{{ comment.pk }}">
+                                <div class="d-flex align-items-center gap-2 mb-1">
+                                    <span class="comment-author-av">{{ comment.author.username|first|upper }}</span>
+                                    <span class="fw-semibold small">{{ comment.author.get_full_name|default:comment.author.username }}</span>
+                                    <span class="text-muted small">{{ comment.created_at|date:"d.m.Y H:i" }}</span>
+                                </div>
+                                <div class="small mb-1">{{ comment.body }}</div>
+                                <button class="btn btn-link btn-sm text-muted p-0" onclick="showReplyForm({{ comment.pk }})">
+                                    <i class="bi bi-reply"></i> Antworten
+                                </button>
+                                <div id="reply-form-{{ comment.pk }}" style="display:none;" class="mt-2">
+                                    <div class="input-group input-group-sm">
+                                        <input type="text" class="form-control" placeholder="Antwort schreiben…" id="reply-input-{{ comment.pk }}">
+                                        <button class="btn btn-primary" onclick="submitReply({{ comment.pk }})">Senden</button>
+                                    </div>
+                                </div>
+                                <!-- Replies -->
+                                {% for reply in comment.replies.all %}
+                                    {% if not reply.is_deleted %}
+                                    <div class="comment-reply">
+                                        <div class="d-flex align-items-center gap-2 mb-1">
+                                            <span class="comment-author-av" style="width:26px;height:26px;font-size:0.7rem;">{{ reply.author.username|first|upper }}</span>
+                                            <span class="fw-semibold small">{{ reply.author.get_full_name|default:reply.author.username }}</span>
+                                            <span class="text-muted small">{{ reply.created_at|date:"d.m.Y H:i" }}</span>
+                                        </div>
+                                        <div class="small">{{ reply.body }}</div>
+                                    </div>
+                                    {% endif %}
+                                {% endfor %}
+                                <div id="replies-container-{{ comment.pk }}"></div>
+                            </div>
+                            {% endif %}
+                        {% empty %}
+                            <p class="text-muted small" id="no-comments-msg">Noch keine Kommentare. Schreib den ersten!</p>
+                        {% endfor %}
+                    </div>
+
+                    <!-- New comment form -->
+                    <div class="mt-3">
+                        <h6 class="mb-2">Kommentar schreiben</h6>
+                        <div class="input-group">
+                            <input type="text" class="form-control" placeholder="Dein Kommentar…" id="new-comment-input">
+                            <button class="btn btn-primary" onclick="submitComment()">
+                                <i class="bi bi-send"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h6 class="card-title"><i class="bi bi-info-circle me-2"></i>Artikel-Info</h6>
+                    <dl class="mb-0 small">
+                        {% if article.category %}
+                            <dt class="text-muted">Kategorie</dt>
+                            <dd>
+                                <span class="news-cat-badge" style="background:{{ article.category.color }}22;color:{{ article.category.color }};border:1px solid {{ article.category.color }}55;">
+                                    <i class="bi {{ article.category.icon }} me-1"></i>{{ article.category.name }}
+                                </span>
+                            </dd>
+                        {% endif %}
+                        {% if article.tags %}
+                            <dt class="text-muted mt-2">Tags</dt>
+                            <dd>
+                                {% for tag in article.get_tags_list %}
+                                    <span class="news-tag">{{ tag }}</span>
+                                {% endfor %}
+                            </dd>
+                        {% endif %}
+                        <dt class="text-muted mt-2">Aufrufe</dt>
+                        <dd><i class="bi bi-eye me-1"></i>{{ article.view_count }}</dd>
+                        <dt class="text-muted mt-2">Erstellt</dt>
+                        <dd>{{ article.created_at|date:"d.m.Y H:i" }}</dd>
+                        {% if article.updated_at != article.created_at %}
+                            <dt class="text-muted mt-2">Aktualisiert</dt>
+                            <dd>{{ article.updated_at|date:"d.m.Y H:i" }}</dd>
+                        {% endif %}
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const ARTICLE_APP_LABEL = 'news';
+const ARTICLE_MODEL = 'newsarticle';
+const ARTICLE_ID = {{ article.pk }};
+const ADD_COMMENT_URL = '{% url "news:add_comment" %}';
+const TOGGLE_REACTION_URL = '{% url "news:toggle_reaction" %}';
+const CSRF_TOKEN = '{{ csrf_token }}';
+
+function getCsrf() {
+    return CSRF_TOKEN;
+}
+
+async function toggleReaction(type) {
+    const resp = await fetch(TOGGLE_REACTION_URL, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCsrf()},
+        body: JSON.stringify({
+            app_label: ARTICLE_APP_LABEL,
+            model: ARTICLE_MODEL,
+            object_id: ARTICLE_ID,
+            reaction: type,
+        }),
+    });
+    const data = await resp.json();
+    if (resp.ok) {
+        document.getElementById('like-count').textContent = data.like_count;
+        document.getElementById('heart-count').textContent = data.heart_count;
+        const btnLike = document.getElementById('btn-like');
+        const btnHeart = document.getElementById('btn-heart');
+        btnLike.classList.remove('active-like');
+        btnHeart.classList.remove('active-heart');
+        if (data.active) {
+            if (data.reaction === 'like') btnLike.classList.add('active-like');
+            if (data.reaction === 'heart') btnHeart.classList.add('active-heart');
+        }
+    }
+}
+
+async function submitComment() {
+    const input = document.getElementById('new-comment-input');
+    const body = input.value.trim();
+    if (!body) return;
+    const resp = await fetch(ADD_COMMENT_URL, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCsrf()},
+        body: JSON.stringify({
+            app_label: ARTICLE_APP_LABEL,
+            model: ARTICLE_MODEL,
+            object_id: ARTICLE_ID,
+            body: body,
+        }),
+    });
+    const data = await resp.json();
+    if (resp.ok) {
+        input.value = '';
+        const noMsg = document.getElementById('no-comments-msg');
+        if (noMsg) noMsg.remove();
+        const list = document.getElementById('comments-list');
+        list.insertAdjacentHTML('beforeend', buildCommentHtml(data));
+        updateCommentCount(1);
+    }
+}
+
+function showReplyForm(parentId) {
+    const form = document.getElementById('reply-form-' + parentId);
+    form.style.display = form.style.display === 'none' ? 'block' : 'none';
+}
+
+async function submitReply(parentId) {
+    const input = document.getElementById('reply-input-' + parentId);
+    const body = input.value.trim();
+    if (!body) return;
+    const resp = await fetch(ADD_COMMENT_URL, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCsrf()},
+        body: JSON.stringify({
+            app_label: ARTICLE_APP_LABEL,
+            model: ARTICLE_MODEL,
+            object_id: ARTICLE_ID,
+            body: body,
+            parent_id: parentId,
+        }),
+    });
+    const data = await resp.json();
+    if (resp.ok) {
+        input.value = '';
+        document.getElementById('reply-form-' + parentId).style.display = 'none';
+        const container = document.getElementById('replies-container-' + parentId);
+        container.insertAdjacentHTML('beforeend', `
+            <div class="comment-reply">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="comment-author-av" style="width:26px;height:26px;font-size:0.7rem;">${data.author[0].toUpperCase()}</span>
+                    <span class="fw-semibold small">${data.author}</span>
+                    <span class="text-muted small">${data.created_at}</span>
+                </div>
+                <div class="small">${escHtml(data.body)}</div>
+            </div>
+        `);
+        updateCommentCount(1);
+    }
+}
+
+function buildCommentHtml(data) {
+    return `
+        <div class="comment-item" id="comment-${data.id}">
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="comment-author-av">${data.author[0].toUpperCase()}</span>
+                <span class="fw-semibold small">${data.author}</span>
+                <span class="text-muted small">${data.created_at}</span>
+            </div>
+            <div class="small mb-1">${escHtml(data.body)}</div>
+            <button class="btn btn-link btn-sm text-muted p-0" onclick="showReplyForm(${data.id})">
+                <i class="bi bi-reply"></i> Antworten
+            </button>
+            <div id="reply-form-${data.id}" style="display:none;" class="mt-2">
+                <div class="input-group input-group-sm">
+                    <input type="text" class="form-control" placeholder="Antwort schreiben…" id="reply-input-${data.id}">
+                    <button class="btn btn-primary" onclick="submitReply(${data.id})">Senden</button>
+                </div>
+            </div>
+            <div id="replies-container-${data.id}"></div>
+        </div>`;
+}
+
+function escHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function updateCommentCount(delta) {
+    const el = document.getElementById('comment-count');
+    if (el) el.textContent = parseInt(el.textContent || '0') + delta;
+}
+</script>
+{% endblock %}

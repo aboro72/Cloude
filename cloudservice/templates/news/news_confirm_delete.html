@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+
+{% block title %}Artikel löschen – News – CloudService{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-trash text-danger" style="font-size:3rem;"></i>
+                    <h4 class="mt-3">Artikel löschen?</h4>
+                    <p class="text-muted">Soll der Artikel <strong>{{ object.title }}</strong> wirklich gelöscht werden? Diese Aktion kann nicht rückgängig gemacht werden.</p>
+                    <form method="post" class="d-flex gap-2 justify-content-center mt-4">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-trash me-1"></i>Ja, löschen
+                        </button>
+                        <a href="{% url 'news:news_detail' object.slug %}" class="btn btn-outline-secondary">Abbrechen</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

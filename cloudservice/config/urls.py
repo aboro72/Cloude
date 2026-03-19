@@ -6,24 +6,14 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
-from django.views.generic import RedirectView
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from core import views as core_views
 
 
-class HomeRedirectView(RedirectView):
-    permanent = False
-
-    def get_redirect_url(self, *args, **kwargs):
-        if self.request.user.is_authenticated:
-            return '/core/apps/mysite/'
-        return '/accounts/login/'
-
-
 urlpatterns = [
-    path('', HomeRedirectView.as_view(), name='home'),
+    path('', core_views.home, name='home'),
     path('admin/', admin.site.urls),
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
@@ -37,6 +27,8 @@ urlpatterns = [
     path('storage/', include('storage.urls', namespace='storage')),
     path('sharing/', include('sharing.urls', namespace='sharing')),
     path('core/', include('core.urls', namespace='core')),
+    path('news/', include('news.urls', namespace='news')),
+    path('landing-editor/', include('landing_editor.urls', namespace='landing_editor')),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

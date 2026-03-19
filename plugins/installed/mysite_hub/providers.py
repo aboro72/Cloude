@@ -133,29 +133,55 @@ class MySitePageProvider(PluginPageProvider):
         return 'mysite_hub/page.html'
 
     def _build_news_items(self, request):
-        settings = get_mysite_plugin_settings()
-        activities = ActivityLog.objects.filter(user=request.user).order_by('-created_at')[:4]
-        news = []
-        for activity in activities:
-            if activity.file_id and activity.file:
-                target_name = activity.file.name
-            elif activity.folder_id and activity.folder:
-                target_name = activity.folder.name
-            else:
-                target_name = 'Arbeitsbereich'
+        from django.utils import timezone as tz
+        from django.db.models import Q as DQ
 
-            news.append({
-                'title': activity.get_activity_type_display(),
-                'summary': activity.description or f'Aktualisierung in {target_name}',
-                'time': activity.created_at,
-                'icon': {
-                    'upload': 'bi-cloud-upload',
-                    'share': 'bi-people',
-                    'create_folder': 'bi-folder-plus',
-                    'delete': 'bi-trash3',
-                    'rename': 'bi-input-cursor-text',
-                }.get(activity.activity_type, 'bi-bell'),
-            })
+        settings = get_mysite_plugin_settings()
+
+        # Try real NewsArticle objects first
+        news = []
+        try:
+            from news.models import NewsArticle
+            articles = NewsArticle.objects.filter(
+                is_published=True,
+            ).filter(
+                DQ(publish_at__isnull=True) | DQ(publish_at__lte=tz.now())
+            ).select_related('author', 'category').order_by('-is_pinned', '-publish_at', '-created_at')[:3]
+
+            for article in articles:
+                news.append({
+                    'title': article.title,
+                    'summary': article.summary or article.content[:100],
+                    'time': article.publish_at or article.created_at,
+                    'icon': article.category.icon if article.category else 'bi-newspaper',
+                    'url': f'/news/{article.slug}/',
+                })
+        except Exception:
+            pass
+
+        # Fill up with team news if < 3
+        if len(news) < 3:
+            try:
+                from sharing.models import GroupShare, TeamSiteNews
+                user_groups = GroupShare.objects.filter(
+                    DQ(owner=request.user) | DQ(members=request.user), is_active=True
+                ).values_list('id', flat=True)
+                team_articles = TeamSiteNews.objects.filter(
+                    group_id__in=user_groups,
+                    is_published=True,
+                ).filter(
+                    DQ(publish_at__isnull=True) | DQ(publish_at__lte=tz.now())
+                ).order_by('-created_at')[:3 - len(news)]
+                for ta in team_articles:
+                    news.append({
+                        'title': ta.title,
+                        'summary': ta.summary or ta.content[:100],
+                        'time': ta.created_at,
+                        'icon': 'bi-people',
+                        'url': f'/sharing/group/{ta.group_id}/news/{ta.pk}/',
+                    })
+            except Exception:
+                pass
 
         if news:
             return news
@@ -166,12 +192,14 @@ class MySitePageProvider(PluginPageProvider):
                 'summary': settings.get('news_primary_summary', 'Hier laufen persoenliche Inhalte, Teamseiten und Dokumentbereiche zusammen.'),
                 'time': None,
                 'icon': 'bi-stars',
+                'url': '/news/',
             },
             {
-                'title': settings.get('news_secondary_title', 'Naechster Ausbau'),
-                'summary': settings.get('news_secondary_summary', 'News, Team Sites und Abteilungsbereiche koennen jetzt direkt im Plugin weiter wachsen.'),
+                'title': settings.get('news_secondary_title', 'Alle News ansehen'),
+                'summary': settings.get('news_secondary_summary', 'Aktuelle Unternehmensmeldungen und Ankündigungen im News-Bereich.'),
                 'time': None,
                 'icon': 'bi-megaphone',
+                'url': '/news/',
             },
         ]
 

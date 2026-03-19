@@ -3,6 +3,7 @@ Views for Sharing app.
 File and folder sharing management.
 """
 
+from django.db import models
 from django.views.generic import CreateView, DeleteView, ListView, TemplateView, DetailView, UpdateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import redirect, get_object_or_404, render
@@ -382,10 +383,45 @@ class TeamSiteNewsDetailView(TeamSiteManageMixin, DetailView):
             )
         return queryset
 
+    def get_object(self, queryset=None):
+        obj = super().get_object(queryset)
+        TeamSiteNews.objects.filter(pk=obj.pk).update(view_count=models.F('view_count') + 1)
+        obj.refresh_from_db(fields=['view_count'])
+        return obj
+
     def get_context_data(self, **kwargs):
+        from django.contrib.contenttypes.models import ContentType as CT
+        from news.models import Comment, Reaction
+
         context = super().get_context_data(**kwargs)
         context['group'] = self.group
         context['can_manage_site'] = self.group.user_can_manage(self.request.user)
+
+        news_obj = self.object
+        ct = CT.objects.get_for_model(TeamSiteNews)
+
+        comments = Comment.objects.filter(
+            content_type=ct,
+            object_id=news_obj.pk,
+            parent__isnull=True,
+            is_deleted=False,
+        ).select_related('author').prefetch_related('replies__author')
+        context['comments'] = comments
+
+        reactions = Reaction.objects.filter(content_type=ct, object_id=news_obj.pk)
+        context['reaction_like_count'] = reactions.filter(reaction='like').count()
+        context['reaction_heart_count'] = reactions.filter(reaction='heart').count()
+
+        user_reaction = None
+        try:
+            user_reaction = Reaction.objects.get(
+                content_type=ct,
+                object_id=news_obj.pk,
+                user=self.request.user,
+            ).reaction
+        except Reaction.DoesNotExist:
+            pass
+        context['user_reaction'] = user_reaction
         return context
 
 

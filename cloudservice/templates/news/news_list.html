@@ -1,0 +1,297 @@
+{% extends 'base.html' %}
+
+{% block title %}News – CloudService{% endblock %}
+
+{% block extra_css %}
+<style>
+    .news-hero-card {
+        position: relative;
+        border-radius: var(--card-radius);
+        overflow: hidden;
+        min-height: 340px;
+        background: var(--surface-muted);
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+    }
+    .news-hero-card img {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .news-hero-card .overlay {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.10) 60%, transparent 100%);
+    }
+    .news-hero-card .content {
+        position: relative;
+        z-index: 1;
+        padding: 1.5rem;
+        color: #fff;
+    }
+    .news-stack-card {
+        border: 1px solid var(--border-color);
+        border-radius: var(--card-radius);
+        background: var(--surface-bg);
+        display: flex;
+        align-items: stretch;
+        overflow: hidden;
+        transition: box-shadow 0.2s;
+        text-decoration: none;
+        color: var(--text-color);
+    }
+    .news-stack-card:hover {
+        box-shadow: 0 4px 20px var(--shadow-color);
+        color: var(--text-color);
+    }
+    .news-stack-card .thumb {
+        width: 110px;
+        flex-shrink: 0;
+        background: var(--surface-muted);
+        overflow: hidden;
+    }
+    .news-stack-card .thumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .news-stack-card .body {
+        padding: 0.9rem 1rem;
+        flex: 1;
+    }
+    .news-grid-card {
+        border: 1px solid var(--border-color);
+        border-radius: var(--card-radius);
+        background: var(--surface-bg);
+        overflow: hidden;
+        transition: box-shadow 0.2s, transform 0.2s;
+        text-decoration: none;
+        color: var(--text-color);
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+    .news-grid-card:hover {
+        box-shadow: 0 4px 20px var(--shadow-color);
+        transform: translateY(-3px);
+        color: var(--text-color);
+    }
+    .news-grid-card .cover {
+        height: 180px;
+        background: var(--surface-muted);
+        overflow: hidden;
+        flex-shrink: 0;
+    }
+    .news-grid-card .cover img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .news-grid-card .cover-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        color: rgba(255,255,255,0.6);
+        font-size: 2.5rem;
+    }
+    .news-grid-card .body {
+        padding: 1rem 1.1rem;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+    }
+    .news-cat-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        margin-bottom: 0.4rem;
+    }
+    .filter-tabs .nav-link {
+        border-radius: 999px;
+        padding: 0.35rem 1rem;
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        background: transparent;
+        border: 1px solid var(--border-color);
+        margin-right: 0.4rem;
+        margin-bottom: 0.4rem;
+    }
+    .filter-tabs .nav-link.active, .filter-tabs .nav-link:hover {
+        background: var(--hero-surface);
+        color: #fff;
+        border-color: transparent;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <h1 class="h3 mb-1"><i class="bi bi-newspaper me-2"></i>News</h1>
+            <p class="text-muted mb-0">Unternehmensweite Nachrichten und Ankündigungen</p>
+        </div>
+        {% if user.is_staff %}
+            <a href="{% url 'news:news_create' %}" class="btn btn-primary">
+                <i class="bi bi-plus-lg me-1"></i>Artikel erstellen
+            </a>
+        {% endif %}
+    </div>
+
+    <!-- Category filter tabs -->
+    <div class="filter-tabs mb-4">
+        <nav class="d-flex flex-wrap">
+            <a href="{% url 'news:news_list' %}" class="nav-link {% if not active_category %}active{% endif %}">
+                Alle
+            </a>
+            {% for cat in categories %}
+                <a href="{% url 'news:news_list' %}?category={{ cat.slug }}"
+                   class="nav-link {% if active_category == cat.slug %}active{% endif %}">
+                    <i class="bi {{ cat.icon }} me-1"></i>{{ cat.name }}
+                </a>
+            {% endfor %}
+        </nav>
+    </div>
+
+    {% if articles %}
+        <!-- Magazine top row -->
+        {% with articles.0 as hero %}
+        <div class="row g-3 mb-4">
+            <!-- Hero article (left, large) -->
+            <div class="col-lg-7">
+                <a href="{% url 'news:news_detail' hero.slug %}" class="news-hero-card text-decoration-none d-block" style="min-height:360px;">
+                    {% if hero.cover_image %}
+                        <img src="{{ hero.cover_image.url }}" alt="{{ hero.title }}">
+                    {% endif %}
+                    <div class="overlay"></div>
+                    <div class="content">
+                        {% if hero.category %}
+                            <span class="news-cat-badge mb-2" style="background:{{ hero.category.color }}22; color:{{ hero.category.color }}; border:1px solid {{ hero.category.color }}55;">
+                                <i class="bi {{ hero.category.icon }} me-1"></i>{{ hero.category.name }}
+                            </span>
+                        {% endif %}
+                        <h2 class="h4 mb-1 {% if not hero.cover_image %}text-body{% endif %}">{{ hero.title }}</h2>
+                        <p class="mb-2 {% if hero.cover_image %}text-white-75{% else %}text-muted{% endif %} small">{{ hero.summary|truncatechars:120 }}</p>
+                        <div class="small {% if hero.cover_image %}text-white-50{% else %}text-muted{% endif %}">
+                            {% if hero.author %}{{ hero.author.get_full_name|default:hero.author.username }} &middot; {% endif %}
+                            {{ hero.publish_at|default:hero.created_at|date:"d.m.Y" }}
+                            &middot; <i class="bi bi-eye"></i> {{ hero.view_count }}
+                        </div>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Right stack articles 2-4 -->
+            <div class="col-lg-5">
+                <div class="d-flex flex-column gap-3 h-100">
+                    {% for article in articles|slice:"1:4" %}
+                        <a href="{% url 'news:news_detail' article.slug %}" class="news-stack-card flex-fill">
+                            <div class="thumb">
+                                {% if article.cover_image %}
+                                    <img src="{{ article.cover_image.url }}" alt="{{ article.title }}">
+                                {% else %}
+                                    <div style="width:100%;height:100%;background:linear-gradient(135deg,var(--primary-color),var(--secondary-color));display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.5);font-size:1.5rem;">
+                                        <i class="bi bi-newspaper"></i>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="body">
+                                {% if article.category %}
+                                    <span class="news-cat-badge" style="background:{{ article.category.color }}22;color:{{ article.category.color }};border:1px solid {{ article.category.color }}55;">
+                                        {{ article.category.name }}
+                                    </span>
+                                {% endif %}
+                                <div class="fw-semibold">{{ article.title }}</div>
+                                <div class="small text-muted mt-1">{{ article.summary|truncatechars:70 }}</div>
+                                <div class="small text-muted mt-1">{{ article.publish_at|default:article.created_at|date:"d.m.Y" }} &middot; <i class="bi bi-eye"></i> {{ article.view_count }}</div>
+                            </div>
+                        </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endwith %}
+
+        <!-- Grid of remaining articles -->
+        {% if articles|length > 4 %}
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3 mb-4">
+            {% for article in articles|slice:"4:" %}
+                <div class="col">
+                    <a href="{% url 'news:news_detail' article.slug %}" class="news-grid-card">
+                        <div class="cover">
+                            {% if article.cover_image %}
+                                <img src="{{ article.cover_image.url }}" alt="{{ article.title }}">
+                            {% else %}
+                                <div class="cover-placeholder">
+                                    <i class="bi bi-newspaper"></i>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="body">
+                            {% if article.category %}
+                                <span class="news-cat-badge" style="background:{{ article.category.color }}22;color:{{ article.category.color }};border:1px solid {{ article.category.color }}55;">
+                                    <i class="bi {{ article.category.icon }} me-1"></i>{{ article.category.name }}
+                                </span>
+                            {% endif %}
+                            <h5 class="mb-1">{{ article.title }}</h5>
+                            <p class="small text-muted mb-2 flex-grow-1">{{ article.summary|truncatechars:100 }}</p>
+                            <div class="small text-muted mt-auto">
+                                {% if article.author %}{{ article.author.get_full_name|default:article.author.username }} &middot; {% endif %}
+                                {{ article.publish_at|default:article.created_at|date:"d.m.Y" }}
+                                &middot; <i class="bi bi-eye"></i> {{ article.view_count }}
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Pagination -->
+        {% if is_paginated %}
+        <nav aria-label="News pagination" class="mb-4">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if active_category %}&category={{ active_category }}{% endif %}">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+                {% endif %}
+                {% for num in page_obj.paginator.page_range %}
+                    <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+                        <a class="page-link" href="?page={{ num }}{% if active_category %}&category={{ active_category }}{% endif %}">{{ num }}</a>
+                    </li>
+                {% endfor %}
+                {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if active_category %}&category={{ active_category }}{% endif %}">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+
+    {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-newspaper" style="font-size:3rem;color:var(--text-muted);"></i>
+            <h4 class="mt-3 text-muted">Noch keine News vorhanden</h4>
+            {% if user.is_staff %}
+                <a href="{% url 'news:news_create' %}" class="btn btn-primary mt-3">
+                    <i class="bi bi-plus-lg me-1"></i>Ersten Artikel erstellen
+                </a>
+            {% endif %}
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

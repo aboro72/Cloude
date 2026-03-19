@@ -3,12 +3,18 @@ Django settings for CloudService project.
 Django 5.x Configuration
 """
 import os
+import sys
 from pathlib import Path
 from decouple import config, Csv
 
 # Build paths inside the project
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 CLOUDSERVICE_DIR = Path(__file__).resolve().parent.parent
+
+# Make plugins/installed importable (needed for URL includes at startup)
+_plugins_dir = str(BASE_DIR / 'plugins' / 'installed')
+if _plugins_dir not in sys.path:
+    sys.path.insert(0, _plugins_dir)
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = config(
@@ -60,6 +66,8 @@ LOCAL_APPS = [
     'sharing.apps.SharingConfig',
     'api.apps.ApiConfig',
     'plugins.apps.PluginsConfig',  # Plugin system for extensibility
+    'news.apps.NewsConfig',
+    'landing_editor.apps.LandingEditorConfig',
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -195,6 +203,19 @@ COLLABORA_ACCESS_TOKEN_TTL = config('COLLABORA_ACCESS_TOKEN_TTL', default=3600, 
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# ========== MongoDB Configuration (optional) ==========
+# Wenn MONGODB_ENABLED=False oder keine Verbindung möglich → stiller Fallback,
+# die App läuft normal mit SQLite/PostgreSQL weiter.
+MONGODB_ENABLED = config('MONGODB_ENABLED', default=False, cast=bool)
+MONGODB_HOST = config('MONGODB_HOST', default='localhost')
+MONGODB_PORT = config('MONGODB_PORT', default=27017, cast=int)
+MONGODB_DB = config('MONGODB_DB', default='appdb')
+MONGODB_USER = config('MONGODB_USER', default='')
+MONGODB_PASSWORD = config('MONGODB_PASSWORD', default='')
+MONGODB_AUTH_SOURCE = config('MONGODB_AUTH_SOURCE', default='appdb')
+MONGODB_CONNECT_TIMEOUT_MS = config('MONGODB_CONNECT_TIMEOUT_MS', default=3000, cast=int)
+MONGODB_SERVER_SELECTION_TIMEOUT_MS = config('MONGODB_SERVER_SELECTION_TIMEOUT_MS', default=3000, cast=int)
 
 # ========== REST Framework Configuration ==========
 REST_FRAMEWORK = {

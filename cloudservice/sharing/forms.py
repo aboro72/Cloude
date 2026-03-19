@@ -9,6 +9,7 @@ class TeamSiteNewsForm(forms.ModelForm):
         fields = [
             'title',
             'category',
+            'tags',
             'summary',
             'content',
             'cover_image',
@@ -19,6 +20,7 @@ class TeamSiteNewsForm(forms.ModelForm):
         widgets = {
             'title': forms.TextInput(attrs={'class': 'form-control'}),
             'category': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'z.B. Projekt, HR, Release'}),
+            'tags': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'z.B. Ankündigung, Release (kommagetrennt)'}),
             'summary': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
             'content': forms.Textarea(attrs={'class': 'form-control', 'rows': 12, 'id': 'id_content_editor'}),
             'cover_image': forms.ClearableFileInput(attrs={'class': 'form-control'}),

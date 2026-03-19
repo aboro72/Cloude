@@ -5,7 +5,7 @@ Includes file sharing, permissions, and public links.
 
 from django.db import models
 from django.contrib.auth.models import User
-from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelation
 from django.contrib.contenttypes.models import ContentType
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
@@ -454,6 +454,15 @@ class TeamSiteNews(models.Model):
         blank=True,
         verbose_name=_('Publish at')
     )
+    tags = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name=_('Tags')
+    )
+    view_count = models.PositiveIntegerField(
+        default=0,
+        verbose_name=_('View count')
+    )
     created_at = models.DateTimeField(
         auto_now_add=True,
         verbose_name=_('Created at')
@@ -461,6 +470,17 @@ class TeamSiteNews(models.Model):
     updated_at = models.DateTimeField(
         auto_now=True,
         verbose_name=_('Updated at')
+    )
+
+    comments = GenericRelation(
+        'news.Comment',
+        content_type_field='content_type',
+        object_id_field='object_id',
+    )
+    reactions = GenericRelation(
+        'news.Reaction',
+        content_type_field='content_type',
+        object_id_field='object_id',
     )
 
     class Meta:

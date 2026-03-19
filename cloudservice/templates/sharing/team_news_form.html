@@ -41,6 +41,9 @@
                                 {% if field.name == 'publish_at' %}
                                     <div class="form-text">Leer lassen fuer sofortige Sichtbarkeit nach dem Speichern.</div>
                                 {% endif %}
+                                {% if field.name == 'tags' %}
+                                    <div class="form-text">Kommagetrennte Tags, z.B. Ankündigung, Release, Projekt.</div>
+                                {% endif %}
                             </div>
                         {% endfor %}
                         <button type="submit" class="btn btn-primary">Speichern</button>

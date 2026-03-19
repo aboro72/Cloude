@@ -4,6 +4,7 @@ URL configuration for Sharing app.
 
 from django.urls import path
 from sharing import views
+from news.views import AddCommentView, ToggleReactionView
 
 app_name = 'sharing'
 
@@ -35,4 +36,8 @@ urlpatterns = [
 
     # Shared with me
     path('shared-with-me/', views.SharedWithMeView.as_view(), name='shared_with_me'),
+
+    # AJAX comment & reaction endpoints (reuse news app views, generic FK)
+    path('comment/add/', AddCommentView.as_view(), name='add_comment'),
+    path('reaction/toggle/', ToggleReactionView.as_view(), name='toggle_reaction'),
 ]

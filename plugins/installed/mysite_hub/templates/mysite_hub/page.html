@@ -212,22 +212,35 @@
                 <div class="mysite-section-head">
                     <div>
                         <h4 class="mb-1">News und Ankuendigungen</h4>
-                        <div class="mysite-meta">Aktuelle Aktivitaeten und redaktionelle Hinweise im Stil einer SharePoint-Newsleiste.</div>
+                        <div class="mysite-meta">Aktuelle Unternehmensmeldungen und Ankuendigungen.</div>
                     </div>
-                    <span class="mysite-pill"><i class="bi bi-megaphone"></i>News</span>
+                    <a href="/news/" class="mysite-pill text-decoration-none"><i class="bi bi-megaphone me-1"></i>Alle News &rarr;</a>
                 </div>
                 <div class="mysite-stack">
                     {% for item in news_items %}
+                        {% if item.url %}
+                        <a class="mysite-feed-item text-decoration-none text-body" href="{{ item.url }}">
+                            <i class="bi {{ item.icon }} mysite-mini-icon"></i>
+                            <div>
+                                <div class="fw-semibold">{{ item.title }}</div>
+                                <div class="mysite-meta">{{ item.summary|truncatechars:100 }}</div>
+                                {% if item.time %}
+                                    <div class="small text-muted mt-1">{{ item.time|date:"d.m.Y H:i" }}</div>
+                                {% endif %}
+                            </div>
+                        </a>
+                        {% else %}
                         <div class="mysite-feed-item">
                             <i class="bi {{ item.icon }} mysite-mini-icon"></i>
                             <div>
                                 <div class="fw-semibold">{{ item.title }}</div>
-                                <div class="mysite-meta">{{ item.summary }}</div>
+                                <div class="mysite-meta">{{ item.summary|truncatechars:100 }}</div>
                                 {% if item.time %}
                                     <div class="small text-muted mt-1">{{ item.time|date:"d.m.Y H:i" }}</div>
                                 {% endif %}
                             </div>
                         </div>
+                        {% endif %}
                     {% endfor %}
                 </div>
             </div>

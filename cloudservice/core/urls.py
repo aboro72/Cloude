@@ -16,4 +16,5 @@ urlpatterns = [
     path('settings/', views.settings, name='settings'),
     path('help/', views.help_page, name='help'),
     path('help/developer/', views.help_developer, name='help_developer'),
+    path('impressum/', views.impressum, name='impressum'),
 ]
