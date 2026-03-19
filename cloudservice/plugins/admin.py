@@ -118,25 +118,38 @@ class PluginAdmin(admin.ModelAdmin):
 
     def action_buttons(self, obj):
         """Display action buttons"""
+        uninstall_btn = format_html(
+            '<a class="button" style="background-color: #6c757d; color: white; margin-left: 4px;" '
+            'href="{}?id={}" onclick="return confirm(\'Plugin \\\'{}\\\' wirklich deinstallieren? '
+            'Dies löscht alle Dateien und Datenbank-Einträge.\')">🗑️ Uninstall</a>',
+            reverse('admin:plugin_uninstall'),
+            obj.id,
+            obj.name,
+        )
+
         if obj.status == 'error':
-            return mark_safe(
-                '<span style="color: #dc3545;">⚠️ Error - Check details</span>'
+            return format_html(
+                '<span style="color: #dc3545;">⚠️ Error - Check details</span>{}',
+                uninstall_btn,
             )
 
         if obj.enabled:
-            return format_html(
+            toggle_btn = format_html(
                 '<a class="button" style="background-color: #dc3545; color: white;" '
                 'href="{}?id={}">🔴 Deactivate</a>',
                 reverse('admin:plugin_deactivate'),
-                obj.id
+                obj.id,
             )
         else:
-            return format_html(
+            toggle_btn = format_html(
                 '<a class="button" style="background-color: #28a745; color: white;" '
                 'href="{}?id={}">🟢 Activate</a>',
                 reverse('admin:plugin_activate'),
-                obj.id
+                obj.id,
             )
+
+        return format_html('{}{}', toggle_btn, uninstall_btn)
+
     action_buttons.short_description = 'Actions'
 
     def manifest_display(self, obj):
@@ -168,6 +181,11 @@ class PluginAdmin(admin.ModelAdmin):
                 'upload/',
                 self.admin_site.admin_view(self.upload_plugin_view),
                 name='plugin_upload'
+            ),
+            path(
+                'uninstall/',
+                self.admin_site.admin_view(self.uninstall_plugin_view),
+                name='plugin_uninstall'
             ),
         ]
         return custom_urls + urls
@@ -231,13 +249,19 @@ class PluginAdmin(admin.ModelAdmin):
             return redirect('admin:plugin_upload')
 
         loader = PluginLoader()
+        temp_path = None
 
         try:
-            # Save uploaded file temporarily
-            temp_path = Path('/tmp') / zip_file.name
-            with open(temp_path, 'wb+') as f:
+            # Save uploaded file to a temp location so we can validate and extract it.
+            # We MUST use a temp file instead of the in-memory file object for two reasons:
+            # 1. zipfile needs seekable access to validate the ZIP structure.
+            # 2. After reading chunks() the file cursor is at EOF; seeking back before
+            #    passing to FileField avoids saving a 0-byte file to media storage.
+            import tempfile
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as tmp:
                 for chunk in zip_file.chunks():
-                    f.write(chunk)
+                    tmp.write(chunk)
+                temp_path = Path(tmp.name)
 
             logger.info(f"Uploaded plugin ZIP: {zip_file.name}")
 
@@ -245,25 +269,54 @@ class PluginAdmin(admin.ModelAdmin):
             manifest = loader.validate_zip(temp_path)
             logger.info(f"ZIP validation passed: {manifest['name']}")
 
-            # Create plugin record
-            plugin = Plugin.objects.create(
-                name=manifest['name'],
-                slug=manifest['slug'],
-                version=manifest['version'],
-                author=manifest.get('author', 'Unknown'),
-                description=manifest.get('description', ''),
-                zip_file=zip_file,
-                manifest=manifest,
-                installed_by=request.user,
-                status='inactive'
-            )
+            # Extract settings schema from manifest (same as discover_plugins does)
+            settings_config = manifest.get('settings', {})
+            has_settings = settings_config.get('has_settings', False)
+            settings_schema = settings_config.get('schema', {})
+            slug = manifest['slug']
+            module_name = slug.replace('-', '_')
 
-            logger.info(f"Created plugin record: {plugin.id}")
+            # If a plugin with this slug already exists, update it instead of creating
+            existing = Plugin.objects.filter(slug=slug).first()
+            if existing:
+                # Seek back so Django can read the file for the FileField
+                zip_file.seek(0)
+                existing.name = manifest['name']
+                existing.version = manifest['version']
+                existing.author = manifest.get('author', 'Unknown')
+                existing.description = manifest.get('description', '')
+                existing.zip_file = zip_file
+                existing.manifest = manifest
+                existing.module_name = module_name
+                existing.has_settings = has_settings
+                existing.settings_schema = settings_schema
+                existing.status = 'inactive'
+                existing.save()
+                plugin = existing
+                logger.info(f"Updated existing plugin record: {plugin.id}")
+            else:
+                # Seek back so Django reads the full file for the FileField
+                zip_file.seek(0)
+                plugin = Plugin.objects.create(
+                    name=manifest['name'],
+                    slug=slug,
+                    version=manifest['version'],
+                    author=manifest.get('author', 'Unknown'),
+                    description=manifest.get('description', ''),
+                    zip_file=zip_file,
+                    manifest=manifest,
+                    module_name=module_name,
+                    has_settings=has_settings,
+                    settings_schema=settings_schema,
+                    installed_by=request.user,
+                    status='inactive',
+                )
+                logger.info(f"Created plugin record: {plugin.id}")
 
-            # Extract plugin
+            # Extract plugin files from the temp ZIP
             extract_dir = loader.extract_plugin(str(plugin.id), temp_path)
             plugin.extracted_path = str(extract_dir)
-            plugin.save()
+            plugin.save(update_fields=['extracted_path'])
 
             # Log the action
             PluginLog.objects.create(
@@ -275,23 +328,55 @@ class PluginAdmin(admin.ModelAdmin):
 
             messages.success(
                 request,
-                f'✅ Plugin "{plugin.name}" uploaded successfully. '
-                f'Click "Activate" to enable it.'
+                f'✅ Plugin "{plugin.name}" v{plugin.version} erfolgreich hochgeladen. '
+                f'Klicke auf "Activate" zum Aktivieren.'
             )
             logger.info(f"Admin {request.user.username} uploaded plugin {plugin.name}")
 
-            # Redirect to plugin edit page
             return redirect('admin:plugins_plugin_change', plugin.id)
 
         except ValueError as e:
-            messages.error(request, f'❌ Invalid plugin: {str(e)}')
+            messages.error(request, f'❌ Ungültiges Plugin: {str(e)}')
             logger.error(f"Plugin upload validation failed: {e}")
             return redirect('admin:plugin_upload')
 
         except Exception as e:
-            messages.error(request, f'❌ Upload failed: {str(e)}')
-            logger.error(f"Plugin upload failed: {e}")
+            messages.error(request, f'❌ Upload fehlgeschlagen: {str(e)}')
+            logger.error(f"Plugin upload failed: {e}", exc_info=True)
             return redirect('admin:plugin_upload')
+
+        finally:
+            # Always clean up the temp file
+            if temp_path and temp_path.exists():
+                try:
+                    temp_path.unlink()
+                except OSError:
+                    pass
+
+    def uninstall_plugin_view(self, request):
+        """Handle plugin uninstall (deactivate + delete files + delete DB record)"""
+        plugin_id = request.GET.get('id')
+
+        if not plugin_id:
+            messages.error(request, 'Kein Plugin angegeben')
+            return redirect('admin:plugins_plugin_changelist')
+
+        try:
+            plugin = Plugin.objects.get(pk=plugin_id)
+            plugin_name = plugin.name
+            loader = PluginLoader()
+            loader.uninstall_plugin(plugin_id)
+            messages.success(request, f'✅ Plugin "{plugin_name}" wurde deinstalliert')
+            logger.info(f"Admin {request.user.username} uninstalled plugin {plugin_name}")
+
+        except Plugin.DoesNotExist:
+            messages.error(request, '❌ Plugin nicht gefunden')
+
+        except Exception as e:
+            messages.error(request, f'❌ Deinstallation fehlgeschlagen: {str(e)}')
+            logger.error(f"Plugin uninstall failed: {e}", exc_info=True)
+
+        return redirect('admin:plugins_plugin_changelist')
 
 
 @admin.register(PluginLog)
@@ -329,6 +414,7 @@ class PluginLogAdmin(admin.ModelAdmin):
             'uploaded': '📤',
             'activated': '🟢',
             'deactivated': '⭕',
+            'uninstalled': '🗑️',
             'error': '❌',
         }
 
@@ -336,6 +422,7 @@ class PluginLogAdmin(admin.ModelAdmin):
             'uploaded': '#007bff',
             'activated': '#28a745',
             'deactivated': '#6c757d',
+            'uninstalled': '#343a40',
             'error': '#dc3545',
         }
 

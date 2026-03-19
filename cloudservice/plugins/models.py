@@ -202,6 +202,7 @@ class PluginLog(models.Model):
         ('uploaded', _('Uploaded')),
         ('activated', _('Activated')),
         ('deactivated', _('Deactivated')),
+        ('uninstalled', _('Uninstalled')),
         ('error', _('Error')),
     ]
 
