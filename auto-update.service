@@ -1,0 +1,16 @@
+[Unit]
+Description=Cloude – Automatisches GitHub-Update
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/local/bin/cloude-auto-update.sh
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=cloude-autoupdate
+
+# Sicherheitseinstellungen
+PrivateTmp=true
+NoNewPrivileges=false

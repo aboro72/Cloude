@@ -1,0 +1,12 @@
+[Unit]
+Description=Cloude – Prüft alle 5 Minuten auf GitHub-Updates
+Requires=auto-update.service
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+Persistent=true
+Unit=auto-update.service
+
+[Install]
+WantedBy=timers.target

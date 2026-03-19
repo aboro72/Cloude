@@ -1,0 +1,9 @@
+# Sudoers-Regel für Cloude Auto-Update
+# Installation: sudo visudo -f /etc/sudoers.d/cloude-autoupdate
+# Oder:         sudo cp auto-update.sudoers /etc/sudoers.d/cloude-autoupdate
+#               sudo chmod 440 /etc/sudoers.d/cloude-autoupdate
+#
+# Wird NUR benötigt, wenn der storage-User das Skript manuell ausführen soll.
+# Wenn der systemd-Timer als root läuft (Standard), ist diese Datei optional.
+
+storage ALL=(ALL) NOPASSWD: /usr/local/bin/cloude-auto-update.sh
