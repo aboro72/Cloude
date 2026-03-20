@@ -13,23 +13,7 @@ class TasksPageProvider:
     title = 'Aufgaben'
 
     def render(self, request):
-        from tasks_board.models import TaskBoard
-
-        # Persönliche Boards des Users
-        personal_boards = TaskBoard.objects.filter(
-            owner=request.user, team_site__isnull=True
-        )
-
-        # Team-Boards: Boards von Team-Sites, in denen der User Mitglied ist
-        team_boards = TaskBoard.objects.filter(
-            team_site__members=request.user
-        ).select_related('team_site').distinct()
-
-        return render_to_string(
-            'tasks_board/overview.html',
-            {
-                'personal_boards': personal_boards,
-                'team_boards': team_boards,
-                'request': request,
-            },
-        )
+        from tasks_board.views import board_overview
+        ctx = board_overview(request)
+        ctx['request'] = request
+        return render_to_string('tasks_board/overview.html', ctx)

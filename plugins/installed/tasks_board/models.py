@@ -18,6 +18,14 @@ class TaskBoard(models.Model):
         related_name='task_boards',
         verbose_name=_('Team-Site'),
     )
+    # Optional: Abteilung
+    department = models.ForeignKey(
+        'departments.Department',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='task_boards',
+        verbose_name=_('Abteilung'),
+    )
     color = models.CharField(max_length=7, default='#667eea', verbose_name=_('Farbe'))
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -32,6 +40,10 @@ class TaskBoard(models.Model):
     @property
     def is_team_board(self):
         return self.team_site_id is not None
+
+    @property
+    def is_dept_board(self):
+        return self.department_id is not None
 
 
 class Task(models.Model):

@@ -12,17 +12,29 @@
         </a>
         <span class="rounded-circle d-inline-block" style="width:14px;height:14px;background:{{ board.color }};flex-shrink:0;"></span>
         <h5 class="mb-0 fw-bold">{{ board.title }}</h5>
-        {% if board.team_site %}
-            <span class="badge bg-secondary bg-opacity-10 text-secondary">
-                <i class="bi bi-building me-1"></i>{{ board.team_site.group_name }}
-            </span>
+
+        {% if board.department %}
+        <span class="badge rounded-pill px-3 py-1" style="background:{{ board.department.color }}22;color:{{ board.department.color }};">
+            <i class="bi {{ board.department.icon }} me-1"></i>{{ board.department.name }}
+        </span>
+        {% elif board.team_site %}
+        <span class="badge bg-secondary bg-opacity-10 text-secondary rounded-pill px-3">
+            <i class="bi bi-people me-1"></i>{{ board.team_site.group_name }}
+        </span>
         {% endif %}
+
+        {% if not can_manage %}
+        <span class="badge bg-info bg-opacity-10 text-info rounded-pill px-3" title="Du siehst nur deine und freie Aufgaben">
+            <i class="bi bi-eye me-1"></i>Mitglied-Ansicht
+        </span>
+        {% endif %}
+
         <div class="ms-auto d-flex gap-2">
-            {% if request.user == board.owner %}
+            {% if can_manage %}
             <form method="post" action="/tasks/board/{{ board.pk }}/delete/"
                   onsubmit="return confirm('Board wirklich löschen?')">
                 {% csrf_token %}
-                <button class="btn btn-sm btn-outline-danger">
+                <button class="btn btn-sm btn-outline-danger" title="Board löschen">
                     <i class="bi bi-trash"></i>
                 </button>
             </form>
@@ -34,7 +46,7 @@
     <div class="row g-3 kanban-row flex-nowrap overflow-auto pb-3" style="min-height:70vh;">
 
         {% for status, col in columns.items %}
-        <div class="col" style="min-width:260px;max-width:320px;">
+        <div class="col" style="min-width:280px;max-width:340px;">
             <div class="card border-0 shadow-sm h-100">
                 <!-- Spalten-Header -->
                 <div class="card-header bg-transparent border-bottom d-flex align-items-center gap-2 py-3">
@@ -45,14 +57,13 @@
                     </span>
                 </div>
 
-                <!-- Task-Liste (Sortable) -->
+                <!-- Task-Liste -->
                 <div class="card-body p-2 kanban-col" data-status="{{ status }}" style="min-height:120px;">
                     {% for task in tasks_by_status|get_item:status %}
-                    <div class="task-card card border-0 shadow-sm mb-2 p-0"
+                    <div class="task-card card border-0 shadow-sm mb-2 p-0{% if task.assigned_to == request.user %} border-start border-primary border-2{% endif %}"
                          data-id="{{ task.pk }}" data-status="{{ task.status }}"
-                         style="cursor:grab;">
+                         style="cursor:{% if can_manage or task.assigned_to == request.user %}grab{% else %}default{% endif %};">
                         <div class="card-body p-3">
-                            <!-- Priorität-Indikator -->
                             <div class="d-flex align-items-start gap-2">
                                 {% if task.priority == 'high' %}
                                     <i class="bi bi-arrow-up-circle-fill text-danger mt-1 flex-shrink-0" title="Hoch"></i>
@@ -65,48 +76,71 @@
                             </div>
 
                             {% if task.description %}
-                                <p class="text-muted small mb-2 mt-1" style="font-size:.75rem;">
-                                    {{ task.description|truncatechars:80 }}
-                                </p>
+                            <p class="text-muted small mb-2 mt-1" style="font-size:.75rem;">
+                                {{ task.description|truncatechars:80 }}
+                            </p>
                             {% endif %}
 
                             <div class="d-flex align-items-center gap-2 mt-2 flex-wrap">
                                 {% if task.assigned_to %}
-                                    <span class="badge bg-primary bg-opacity-10 text-primary small">
-                                        <i class="bi bi-person me-1"></i>
-                                        {{ task.assigned_to.get_full_name|default:task.assigned_to.username }}
-                                    </span>
+                                <span class="badge rounded-pill {% if task.assigned_to == request.user %}bg-primary{% else %}bg-secondary bg-opacity-10 text-secondary{% endif %} small px-2">
+                                    <i class="bi bi-person me-1"></i>
+                                    {% if task.assigned_to == request.user %}Ich{% else %}{{ task.assigned_to.get_full_name|default:task.assigned_to.username }}{% endif %}
+                                </span>
+                                {% else %}
+                                <span class="badge bg-warning bg-opacity-10 text-warning rounded-pill small px-2">
+                                    <i class="bi bi-person-dash me-1"></i>Frei
+                                </span>
                                 {% endif %}
+
                                 {% if task.due_date %}
-                                    <span class="badge bg-warning bg-opacity-10 text-warning small">
-                                        <i class="bi bi-calendar me-1"></i>{{ task.due_date|date:"d.m." }}
-                                    </span>
+                                <span class="badge bg-warning bg-opacity-10 text-warning small">
+                                    <i class="bi bi-calendar me-1"></i>{{ task.due_date|date:"d.m." }}
+                                </span>
                                 {% endif %}
-                                <button class="btn btn-link btn-sm p-0 ms-auto text-muted task-edit-btn"
-                                        data-id="{{ task.pk }}"
-                                        data-title="{{ task.title|escapejs }}"
-                                        data-desc="{{ task.description|escapejs }}"
-                                        data-priority="{{ task.priority }}"
-                                        data-due="{{ task.due_date|default:'' }}"
-                                        data-assigned="{{ task.assigned_to_id|default:'' }}"
-                                        title="Bearbeiten">
-                                    <i class="bi bi-pencil"></i>
-                                </button>
-                                <button class="btn btn-link btn-sm p-0 text-danger task-delete-btn"
-                                        data-id="{{ task.pk }}" title="Löschen">
-                                    <i class="bi bi-trash"></i>
-                                </button>
+
+                                <div class="ms-auto d-flex gap-1">
+                                    <!-- Aufgabe übernehmen (nur wenn unzugewiesen und Mitglied) -->
+                                    {% if not task.assigned_to and not can_manage %}
+                                    <button class="btn btn-sm btn-success rounded-pill px-2 task-claim-btn"
+                                            data-id="{{ task.pk }}" title="Aufgabe übernehmen">
+                                        <i class="bi bi-hand-index-thumb me-1"></i>Übernehmen
+                                    </button>
+                                    {% endif %}
+
+                                    <!-- Bearbeiten (Manager oder eigene Aufgabe) -->
+                                    {% if can_manage or task.assigned_to == request.user %}
+                                    <button class="btn btn-link btn-sm p-0 text-muted task-edit-btn"
+                                            data-id="{{ task.pk }}"
+                                            data-title="{{ task.title|escapejs }}"
+                                            data-desc="{{ task.description|escapejs }}"
+                                            data-priority="{{ task.priority }}"
+                                            data-due="{{ task.due_date|default:'' }}"
+                                            data-assigned="{{ task.assigned_to_id|default:'' }}"
+                                            title="Bearbeiten">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    {% endif %}
+
+                                    <!-- Löschen (nur Manager) -->
+                                    {% if can_manage %}
+                                    <button class="btn btn-link btn-sm p-0 text-danger task-delete-btn"
+                                            data-id="{{ task.pk }}" title="Löschen">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
                             </div>
                         </div>
                     </div>
                     {% endfor %}
                 </div>
 
-                <!-- Neue Aufgabe -->
+                <!-- Neue Aufgabe (alle Mitglieder dürfen hinzufügen) -->
                 <div class="card-footer bg-transparent border-top p-2">
                     <button class="btn btn-sm btn-outline-secondary w-100 task-add-btn"
                             data-status="{{ status }}" data-board="{{ board.pk }}">
-                        <i class="bi bi-plus me-1"></i>Aufgabe hinzufügen
+                        <i class="bi bi-plus me-1"></i>{% if can_manage %}Aufgabe hinzufügen{% else %}Eigene Aufgabe hinzufügen{% endif %}
                     </button>
                 </div>
             </div>
@@ -148,15 +182,17 @@
                         <label class="form-label small fw-semibold">Fällig am</label>
                         <input type="date" name="due_date" class="form-control form-control-sm">
                     </div>
+                    {% if can_manage %}
                     <div class="col-12">
-                        <label class="form-label small fw-semibold">Zugewiesen an</label>
+                        <label class="form-label small fw-semibold">Zuweisen an</label>
                         <select name="assigned_to" class="form-select form-select-sm">
-                            <option value="">– Niemanden –</option>
+                            <option value="">— Frei (kann selbst übernommen werden) —</option>
                             {% for u in all_users %}
                             <option value="{{ u.pk }}">{{ u.get_full_name|default:u.username }}</option>
                             {% endfor %}
                         </select>
                     </div>
+                    {% endif %}
                 </div>
             </div>
             <div class="modal-footer border-0 pt-0">
@@ -199,15 +235,17 @@
                         <label class="form-label small fw-semibold">Fällig am</label>
                         <input type="date" name="due_date" id="editTaskDue" class="form-control form-control-sm">
                     </div>
+                    {% if can_manage %}
                     <div class="col-12">
-                        <label class="form-label small fw-semibold">Zugewiesen an</label>
+                        <label class="form-label small fw-semibold">Zuweisen an</label>
                         <select name="assigned_to" id="editTaskAssigned" class="form-select form-select-sm">
-                            <option value="">– Niemanden –</option>
+                            <option value="">— Frei —</option>
                             {% for u in all_users %}
                             <option value="{{ u.pk }}">{{ u.get_full_name|default:u.username }}</option>
                             {% endfor %}
                         </select>
                     </div>
+                    {% endif %}
                 </div>
             </div>
             <div class="modal-footer border-0 pt-0">
@@ -222,13 +260,15 @@
 <script>
 const CSRF = '{{ csrf_token }}';
 const BOARD_ID = {{ board.pk }};
+const CAN_MANAGE = {{ can_manage|yesno:"true,false" }};
 
-// Drag-and-Drop für alle Spalten
+// Drag-and-Drop (nur eigene Karten für Mitglieder, alle für Manager)
 document.querySelectorAll('.kanban-col').forEach(col => {
     Sortable.create(col, {
         group: 'tasks',
         animation: 150,
         ghostClass: 'task-ghost',
+        filter: CAN_MANAGE ? '' : '.task-card:not([data-mine])',
         onEnd(evt) {
             const taskId = evt.item.dataset.id;
             const newStatus = evt.to.dataset.status;
@@ -237,8 +277,7 @@ document.querySelectorAll('.kanban-col').forEach(col => {
                 method: 'POST',
                 headers: { 'X-CSRFToken': CSRF, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status: newStatus, order: newOrder }),
-            });
-            // Badge-Zähler aktualisieren
+            }).catch(() => {});
             updateColCounts();
         }
     });
@@ -246,7 +285,6 @@ document.querySelectorAll('.kanban-col').forEach(col => {
 
 function updateColCounts() {
     document.querySelectorAll('.kanban-col').forEach(col => {
-        const status = col.dataset.status;
         const count = col.querySelectorAll('.task-card').length;
         const badge = col.closest('.card').querySelector('.badge');
         if (badge) badge.textContent = count;
@@ -274,56 +312,45 @@ document.getElementById('addTaskForm').addEventListener('submit', async function
     const data = await res.json();
     if (data.id) {
         bootstrap.Modal.getInstance(document.getElementById('addTaskModal')).hide();
-        appendTaskCard(data);
+        appendTaskCard(data, status);
         updateColCounts();
     }
 });
 
-function prioIcon(p) {
-    if (p === 'high') return '<i class="bi bi-arrow-up-circle-fill text-danger mt-1 flex-shrink-0"></i>';
-    if (p === 'low')  return '<i class="bi bi-arrow-down-circle text-secondary mt-1 flex-shrink-0"></i>';
-    return '<i class="bi bi-dash-circle text-muted mt-1 flex-shrink-0"></i>';
-}
+// Aufgabe übernehmen
+document.addEventListener('click', async function(e) {
+    const claimBtn = e.target.closest('.task-claim-btn');
+    if (claimBtn) {
+        claimBtn.disabled = true;
+        const id = claimBtn.dataset.id;
+        const res = await fetch(`/tasks/task/${id}/claim/`, {
+            method: 'POST', headers: { 'X-CSRFToken': CSRF }
+        });
+        const data = await res.json();
+        if (data.ok) {
+            const card = claimBtn.closest('.task-card');
+            // Replace "Frei" badge with "Ich" badge
+            const freiBadge = card.querySelector('.bg-warning');
+            if (freiBadge) {
+                freiBadge.className = 'badge rounded-pill bg-primary small px-2';
+                freiBadge.innerHTML = '<i class="bi bi-person me-1"></i>Ich';
+            }
+            // Remove claim button
+            claimBtn.remove();
+        } else {
+            claimBtn.disabled = false;
+        }
+    }
 
-function appendTaskCard(task) {
-    const col = document.querySelector(`.kanban-col[data-status="${task.status}"]`);
-    const card = document.createElement('div');
-    card.className = 'task-card card border-0 shadow-sm mb-2 p-0';
-    card.dataset.id = task.id;
-    card.dataset.status = task.status;
-    card.style.cursor = 'grab';
-    card.innerHTML = `<div class="card-body p-3">
-        <div class="d-flex align-items-start gap-2">
-            ${prioIcon(task.priority)}
-            <span class="fw-semibold small task-title">${task.title}</span>
-        </div>
-        <div class="d-flex align-items-center gap-2 mt-2 flex-wrap">
-            ${task.assigned_name ? `<span class="badge bg-primary bg-opacity-10 text-primary small"><i class="bi bi-person me-1"></i>${task.assigned_name}</span>` : ''}
-            ${task.due_date ? `<span class="badge bg-warning bg-opacity-10 text-warning small"><i class="bi bi-calendar me-1"></i>${task.due_date}</span>` : ''}
-            <button class="btn btn-link btn-sm p-0 ms-auto text-muted task-edit-btn"
-                    data-id="${task.id}" data-title="${task.title}" data-desc=""
-                    data-priority="${task.priority}" data-due="${task.due_date}" data-assigned="">
-                <i class="bi bi-pencil"></i>
-            </button>
-            <button class="btn btn-link btn-sm p-0 text-danger task-delete-btn" data-id="${task.id}">
-                <i class="bi bi-trash"></i>
-            </button>
-        </div>
-    </div>`;
-    col.appendChild(card);
-    wireCardButtons(card);
-}
-
-// Edit + Delete per Event-Delegation
-document.addEventListener('click', function(e) {
     const editBtn = e.target.closest('.task-edit-btn');
     if (editBtn) {
-        document.getElementById('editTaskId').value   = editBtn.dataset.id;
+        document.getElementById('editTaskId').value       = editBtn.dataset.id;
         document.getElementById('editTaskTitle').value    = editBtn.dataset.title;
         document.getElementById('editTaskDesc').value     = editBtn.dataset.desc;
         document.getElementById('editTaskPriority').value = editBtn.dataset.priority;
         document.getElementById('editTaskDue').value      = editBtn.dataset.due;
-        document.getElementById('editTaskAssigned').value = editBtn.dataset.assigned;
+        const sel = document.getElementById('editTaskAssigned');
+        if (sel) sel.value = editBtn.dataset.assigned;
         new bootstrap.Modal(document.getElementById('editTaskModal')).show();
     }
 
@@ -332,9 +359,11 @@ document.addEventListener('click', function(e) {
         const id = delBtn.dataset.id;
         fetch(`/tasks/task/${id}/delete/`, {
             method: 'POST', headers: { 'X-CSRFToken': CSRF }
-        }).then(() => {
-            delBtn.closest('.task-card').remove();
-            updateColCounts();
+        }).then(r => r.json()).then(data => {
+            if (data.ok) {
+                delBtn.closest('.task-card').remove();
+                updateColCounts();
+            }
         });
     }
 });
@@ -348,14 +377,50 @@ document.getElementById('editTaskForm').addEventListener('submit', async functio
     });
     const data = await res.json();
     if (data.ok) {
-        // Titel im DOM aktualisieren
         const card = document.querySelector(`.task-card[data-id="${id}"]`);
         if (card) card.querySelector('.task-title').textContent = data.title;
         bootstrap.Modal.getInstance(document.getElementById('editTaskModal')).hide();
     }
 });
 
-function wireCardButtons(card) { /* Event-Delegation übernimmt */ }
+function prioIcon(p) {
+    if (p === 'high') return '<i class="bi bi-arrow-up-circle-fill text-danger mt-1 flex-shrink-0"></i>';
+    if (p === 'low')  return '<i class="bi bi-arrow-down-circle text-secondary mt-1 flex-shrink-0"></i>';
+    return '<i class="bi bi-dash-circle text-muted mt-1 flex-shrink-0"></i>';
+}
+
+function appendTaskCard(task, status) {
+    const col = document.querySelector(`.kanban-col[data-status="${status}"]`);
+    const card = document.createElement('div');
+    card.className = 'task-card card border-0 shadow-sm mb-2 p-0' + (task.is_mine ? ' border-start border-primary border-2' : '');
+    card.dataset.id = task.id;
+    card.dataset.status = task.status;
+    card.style.cursor = 'grab';
+
+    const assignedBadge = task.assigned_name
+        ? `<span class="badge rounded-pill ${task.is_mine ? 'bg-primary' : 'bg-secondary bg-opacity-10 text-secondary'} small px-2"><i class="bi bi-person me-1"></i>${task.is_mine ? 'Ich' : task.assigned_name}</span>`
+        : `<span class="badge bg-warning bg-opacity-10 text-warning rounded-pill small px-2"><i class="bi bi-person-dash me-1"></i>Frei</span>`;
+
+    const claimBtn = (task.is_unassigned && !CAN_MANAGE)
+        ? `<button class="btn btn-sm btn-success rounded-pill px-2 task-claim-btn" data-id="${task.id}" title="Aufgabe übernehmen"><i class="bi bi-hand-index-thumb me-1"></i>Übernehmen</button>`
+        : '';
+    const editBtn = (CAN_MANAGE || task.is_mine)
+        ? `<button class="btn btn-link btn-sm p-0 text-muted task-edit-btn" data-id="${task.id}" data-title="${task.title}" data-desc="" data-priority="${task.priority}" data-due="${task.due_date}" data-assigned="${task.assigned_to_id}"><i class="bi bi-pencil"></i></button>`
+        : '';
+    const delBtn = CAN_MANAGE
+        ? `<button class="btn btn-link btn-sm p-0 text-danger task-delete-btn" data-id="${task.id}"><i class="bi bi-trash"></i></button>`
+        : '';
+
+    card.innerHTML = `<div class="card-body p-3">
+        <div class="d-flex align-items-start gap-2">${prioIcon(task.priority)}<span class="fw-semibold small task-title">${task.title}</span></div>
+        <div class="d-flex align-items-center gap-2 mt-2 flex-wrap">
+            ${assignedBadge}
+            ${task.due_date ? `<span class="badge bg-warning bg-opacity-10 text-warning small"><i class="bi bi-calendar me-1"></i>${task.due_date}</span>` : ''}
+            <div class="ms-auto d-flex gap-1">${claimBtn}${editBtn}${delBtn}</div>
+        </div>
+    </div>`;
+    col.appendChild(card);
+}
 </script>
 
 <style>

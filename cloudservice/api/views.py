@@ -25,7 +25,11 @@ from api.serializers import (
     FileVersionSerializer, UserShareSerializer, PublicLinkSerializer,
     ActivityLogSerializer, NotificationSerializer, UserSerializer,
     StorageStatsSerializer, FileUploadSerializer, BulkDeleteSerializer,
-    SearchResultSerializer
+    SearchResultSerializer,
+    DepartmentSerializer, DepartmentMemberSerializer,
+    GroupShareSerializer,
+    TaskBoardSerializer, TaskSerializer,
+    NewsCategorySerializer, NewsArticleSerializer,
 )
 from api.permissions import IsFileOwnerOrShared, IsPublicLinkValid
 import logging
@@ -676,3 +680,161 @@ class PluginSettingsView(APIView):
             messages.error(request, f'❌ Fehler beim Speichern: {str(e)}')
 
         return redirect('api:plugin_settings', plugin_id=plugin_id)
+
+
+# ── Departments ───────────────────────────────────────────────────────────────
+
+class DepartmentViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    List and retrieve departments.
+    All authenticated users can read; creating/updating requires
+    the `departments.create_department` or `departments.manage_any_department` permission.
+    """
+    serializer_class = DepartmentSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['name', 'description']
+    ordering_fields = ['name', 'created_at']
+    ordering = ['name']
+
+    def get_queryset(self):
+        from departments.models import Department
+        return Department.objects.select_related('head').all()
+
+    @action(detail=True, methods=['get'])
+    def members(self, request, pk=None):
+        """List members of a department."""
+        from departments.models import DepartmentMembership
+        dept = self.get_object()
+        memberships = DepartmentMembership.objects.filter(
+            department=dept
+        ).select_related('user').order_by('role', 'user__last_name')
+        serializer = DepartmentMemberSerializer(memberships, many=True)
+        return Response(serializer.data)
+
+
+# ── Team Sites (GroupShare) ───────────────────────────────────────────────────
+
+class GroupShareViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    List and retrieve Team Sites (GroupShare).
+    Returns only sites the authenticated user is a member or owner of.
+    """
+    serializer_class = GroupShareSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['group_name']
+    ordering = ['group_name']
+
+    def get_queryset(self):
+        from sharing.models import GroupShare
+        user = self.request.user
+        return GroupShare.objects.filter(
+            Q(owner=user) | Q(members=user)
+        ).distinct().select_related('owner')
+
+
+# ── Kanban Boards & Tasks ─────────────────────────────────────────────────────
+
+class TaskBoardViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    List and retrieve Task Boards accessible to the current user
+    (personal, team-site, or department boards).
+    """
+    serializer_class = TaskBoardSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['title']
+    ordering = ['title']
+
+    def get_queryset(self):
+        from tasks_board.models import TaskBoard
+        from departments.models import DepartmentMembership
+        user = self.request.user
+        personal_ids = TaskBoard.objects.filter(owner=user).values_list('id', flat=True)
+        team_ids = TaskBoard.objects.filter(
+            team_site__isnull=False,
+            team_site__members=user
+        ).values_list('id', flat=True)
+        dept_ids_user = list(
+            DepartmentMembership.objects.filter(user=user).values_list('department_id', flat=True)
+        )
+        headed = list(user.headed_departments.values_list('pk', flat=True))
+        all_dept_ids = list(set(dept_ids_user) | set(headed))
+        dept_board_ids = TaskBoard.objects.filter(
+            department_id__in=all_dept_ids
+        ).values_list('id', flat=True)
+        all_ids = set(list(personal_ids) + list(team_ids) + list(dept_board_ids))
+        return TaskBoard.objects.filter(pk__in=all_ids).select_related(
+            'owner', 'department', 'team_site'
+        )
+
+    @action(detail=True, methods=['get'])
+    def tasks(self, request, pk=None):
+        """List tasks for this board (respects member/manager visibility)."""
+        from tasks_board.views import _board_access, _can_manage
+        board = self.get_object()
+        if not _board_access(board, request.user):
+            return Response({'detail': 'Kein Zugriff'}, status=403)
+        can_manage = _can_manage(board, request.user)
+        qs = board.tasks.select_related('assigned_to', 'created_by').order_by('status', 'order')
+        if not can_manage:
+            qs = qs.filter(Q(assigned_to=request.user) | Q(assigned_to__isnull=True))
+        serializer = TaskSerializer(qs, many=True)
+        return Response(serializer.data)
+
+
+class TaskViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    List and retrieve Tasks assigned to or created by the current user.
+    """
+    serializer_class = TaskSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['title', 'description']
+    ordering_fields = ['due_date', 'priority', 'status', 'created_at']
+    ordering = ['status', 'order']
+
+    def get_queryset(self):
+        from tasks_board.models import Task
+        user = self.request.user
+        return Task.objects.filter(
+            Q(assigned_to=user) | Q(created_by=user)
+        ).distinct().select_related('board', 'assigned_to', 'created_by')
+
+
+# ── News ──────────────────────────────────────────────────────────────────────
+
+class NewsCategoryViewSet(viewsets.ReadOnlyModelViewSet):
+    """List and retrieve News Categories."""
+    serializer_class = NewsCategorySerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        from news.models import NewsCategory
+        return NewsCategory.objects.all()
+
+
+class NewsArticleViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    List and retrieve published News Articles.
+    Staff with `news.change_newsarticle` permission also see unpublished drafts.
+    """
+    serializer_class = NewsArticleSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['title', 'summary', 'tags']
+    ordering_fields = ['publish_at', 'created_at', 'view_count']
+    ordering = ['-publish_at', '-created_at']
+
+    def get_queryset(self):
+        from news.models import NewsArticle
+        qs = NewsArticle.objects.select_related('author', 'category')
+        if not self.request.user.has_perm('news.change_newsarticle'):
+            qs = qs.filter(is_published=True)
+        return qs

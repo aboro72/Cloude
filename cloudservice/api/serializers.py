@@ -289,3 +289,123 @@ class SearchResultSerializer(serializers.Serializer):
         elif obj['type'] == 'folder':
             return f"/storage/folder/{obj['id']}/"
         return None
+
+
+# ── Departments ───────────────────────────────────────────────────────────────
+
+class DepartmentMemberSerializer(serializers.Serializer):
+    """Flattened membership entry (user + role)"""
+    user_id = serializers.IntegerField(source='user.id')
+    username = serializers.CharField(source='user.username')
+    full_name = serializers.SerializerMethodField()
+    role = serializers.CharField()
+    joined_at = serializers.DateTimeField()
+
+    def get_full_name(self, obj):
+        return obj.user.get_full_name() or obj.user.username
+
+
+class DepartmentSerializer(serializers.ModelSerializer):
+    head_name = serializers.SerializerMethodField()
+    member_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        from departments.models import Department
+        model = Department
+        fields = ['id', 'name', 'slug', 'description', 'icon', 'color',
+                  'head', 'head_name', 'member_count', 'created_at']
+        read_only_fields = ['id', 'slug', 'created_at']
+
+    def get_head_name(self, obj):
+        if obj.head:
+            return obj.head.get_full_name() or obj.head.username
+        return None
+
+
+# ── Team Sites (GroupShare) ───────────────────────────────────────────────────
+
+class GroupShareSerializer(serializers.ModelSerializer):
+    owner_name = serializers.CharField(source='owner.username', read_only=True)
+    member_count = serializers.SerializerMethodField()
+
+    class Meta:
+        from sharing.models import GroupShare
+        model = GroupShare
+        fields = ['id', 'group_name', 'owner', 'owner_name', 'permission',
+                  'member_count', 'content_type', 'object_id']
+        read_only_fields = ['id', 'owner']
+
+    def get_member_count(self, obj):
+        return obj.members.count()
+
+
+# ── Kanban / Tasks ────────────────────────────────────────────────────────────
+
+class TaskSerializer(serializers.ModelSerializer):
+    assigned_to_name = serializers.SerializerMethodField()
+    created_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        from tasks_board.models import Task
+        model = Task
+        fields = ['id', 'board', 'title', 'description', 'status', 'priority',
+                  'assigned_to', 'assigned_to_name', 'due_date', 'order',
+                  'created_by', 'created_by_name', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_by', 'created_at', 'updated_at']
+
+    def get_assigned_to_name(self, obj):
+        if obj.assigned_to:
+            return obj.assigned_to.get_full_name() or obj.assigned_to.username
+        return None
+
+    def get_created_by_name(self, obj):
+        if obj.created_by:
+            return obj.created_by.get_full_name() or obj.created_by.username
+        return None
+
+
+class TaskBoardSerializer(serializers.ModelSerializer):
+    owner_name = serializers.CharField(source='owner.username', read_only=True)
+    task_count = serializers.SerializerMethodField()
+    department_name = serializers.CharField(source='department.name', read_only=True)
+    team_site_name = serializers.CharField(source='team_site.group_name', read_only=True)
+
+    class Meta:
+        from tasks_board.models import TaskBoard
+        model = TaskBoard
+        fields = ['id', 'title', 'color', 'owner', 'owner_name',
+                  'department', 'department_name', 'team_site', 'team_site_name',
+                  'task_count', 'created_at']
+        read_only_fields = ['id', 'owner', 'created_at']
+
+    def get_task_count(self, obj):
+        return obj.tasks.count()
+
+
+# ── News ──────────────────────────────────────────────────────────────────────
+
+class NewsCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        from news.models import NewsCategory
+        model = NewsCategory
+        fields = ['id', 'name', 'slug', 'color', 'icon', 'order']
+        read_only_fields = ['id', 'slug']
+
+
+class NewsArticleSerializer(serializers.ModelSerializer):
+    author_name = serializers.SerializerMethodField()
+    category_name = serializers.CharField(source='category.name', read_only=True)
+
+    class Meta:
+        from news.models import NewsArticle
+        model = NewsArticle
+        fields = ['id', 'title', 'slug', 'category', 'category_name', 'tags',
+                  'summary', 'author', 'author_name', 'is_published',
+                  'is_featured', 'is_pinned', 'publish_at', 'view_count',
+                  'created_at', 'updated_at']
+        read_only_fields = ['id', 'slug', 'view_count', 'created_at', 'updated_at']
+
+    def get_author_name(self, obj):
+        if obj.author:
+            return obj.author.get_full_name() or obj.author.username
+        return None
