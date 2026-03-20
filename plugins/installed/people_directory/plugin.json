@@ -1,0 +1,21 @@
+{
+  "name": "People Directory",
+  "slug": "people-directory",
+  "version": "1.0.0",
+  "author": "CloudService Team",
+  "description": "Mitarbeiterverzeichnis mit Suche, Abteilungsfilter und Organigramm.",
+  "django_app": {
+    "app_config": "people_directory.apps.PeopleDirectoryConfig"
+  },
+  "hooks": {
+    "ui_menu_item": {
+      "handler": "people_directory.providers.PeopleMenuProvider",
+      "priority": 40
+    },
+    "ui_app_page": {
+      "handler": "people_directory.providers.PeoplePageProvider",
+      "priority": 40,
+      "slug": "people"
+    }
+  }
+}

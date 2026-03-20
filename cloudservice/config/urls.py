@@ -29,6 +29,9 @@ urlpatterns = [
     path('core/', include('core.urls', namespace='core')),
     path('news/', include('news.urls', namespace='news')),
     path('landing-editor/', include('landing_editor.urls', namespace='landing_editor')),
+    path('tasks/', include('tasks_board.urls', namespace='tasks_board')),
+    path('forms/', include('forms_builder.urls', namespace='forms_builder')),
+    path('departments/', include('departments.urls', namespace='departments')),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

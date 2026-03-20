@@ -1,0 +1,21 @@
+<div class="field-card card border mb-2 shadow-sm" data-id="{{ field.pk }}" data-has-choices="{{ field.has_choices }}">
+    <div class="card-body py-2 px-3 d-flex align-items-center gap-3">
+        <i class="bi bi-grip-vertical drag-handle text-muted" style="cursor:grab;"></i>
+        <i class="bi {{ field.icon }} text-primary"></i>
+        <span class="fw-semibold flex-grow-1 field-label-display">{{ field.label }}</span>
+        <small class="text-muted">{{ field.get_field_type_display }}</small>
+        {% if field.required %}<span class="badge bg-danger bg-opacity-10 text-danger small">Pflicht</span>{% endif %}
+        <button class="btn btn-link btn-sm p-0 text-muted field-edit-btn"
+                data-id="{{ field.pk }}"
+                data-label="{{ field.label|escapejs }}"
+                data-placeholder="{{ field.placeholder|escapejs }}"
+                data-has-choices="{{ field.has_choices }}"
+                data-required="{{ field.required }}"
+                data-choices="{{ field.get_choices|join:'\n'|escapejs }}">
+            <i class="bi bi-pencil"></i>
+        </button>
+        <button class="btn btn-link btn-sm p-0 text-danger field-del-btn" data-id="{{ field.pk }}">
+            <i class="bi bi-trash"></i>
+        </button>
+    </div>
+</div>

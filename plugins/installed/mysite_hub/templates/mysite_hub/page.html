@@ -279,14 +279,24 @@
                 </div>
                 <div class="mysite-stack">
                     {% for site in team_sites %}
-                        <a class="mysite-list-item text-decoration-none text-body" href="{{ site.url }}">
+                        <div class="mysite-list-item">
                             <i class="bi {{ site.icon }} mysite-mini-icon"></i>
-                            <div>
-                                <div class="fw-semibold">{{ site.title }}</div>
+                            <div class="flex-grow-1 overflow-hidden">
+                                <a class="text-decoration-none text-body fw-semibold d-block text-truncate" href="{{ site.url }}">{{ site.title }}</a>
                                 <div class="mysite-meta">{{ site.description }}</div>
-                                <div class="small text-muted mt-1">{{ site.meta }}</div>
+                                <div class="d-flex align-items-center gap-2 mt-1">
+                                    <span class="small text-muted">{{ site.meta }}</span>
+                                    {% if site.can_manage %}
+                                        <a href="{{ site.news_create_url }}"
+                                           class="btn btn-xs btn-outline-primary py-0 px-2 small ms-auto"
+                                           style="font-size:.72rem;line-height:1.6;"
+                                           title="Neue Team-News schreiben">
+                                            <i class="bi bi-plus-lg me-1"></i>Neue News
+                                        </a>
+                                    {% endif %}
+                                </div>
                             </div>
-                        </a>
+                        </div>
                     {% endfor %}
                 </div>
             </div>

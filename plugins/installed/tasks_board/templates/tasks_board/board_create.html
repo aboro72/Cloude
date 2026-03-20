@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block title %}Neues Board – CloudService{% endblock %}
+{% block content %}
+<div class="container py-4" style="max-width:400px;">
+    <h4 class="mb-4"><i class="bi bi-kanban me-2 text-primary"></i>Neues Board</h4>
+    <form method="post">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label class="form-label">Name</label>
+            <input type="text" name="title" class="form-control" placeholder="Mein Board" required autofocus>
+        </div>
+        <div class="mb-4">
+            <label class="form-label">Farbe</label>
+            <input type="color" name="color" value="#667eea" class="form-control form-control-color">
+        </div>
+        <button type="submit" class="btn btn-primary w-100">Board erstellen</button>
+    </form>
+</div>
+{% endblock %}

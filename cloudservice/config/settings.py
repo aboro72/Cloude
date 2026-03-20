@@ -68,6 +68,9 @@ LOCAL_APPS = [
     'plugins.apps.PluginsConfig',  # Plugin system for extensibility
     'news.apps.NewsConfig',
     'landing_editor.apps.LandingEditorConfig',
+    'tasks_board.apps.TasksBoardConfig',
+    'forms_builder.apps.FormsBuilderConfig',
+    'departments.apps.DepartmentsConfig',
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS

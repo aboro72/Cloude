@@ -252,6 +252,14 @@ class CreateGroupView(LoginRequiredMixin, CreateView):
     fields = ['group_name', 'members', 'background_image', 'background_video']
     success_url = reverse_lazy('sharing:groups_list')
 
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.has_perm('sharing.create_groupshare'):
+            from django.shortcuts import render as _r
+            return _r(request, '403.html', {
+                'error_message': 'Du hast keine Berechtigung, Team-Sites zu erstellen.',
+            }, status=403)
+        return super().dispatch(request, *args, **kwargs)
+
     def form_valid(self, form):
         site_folder = StorageFolder.objects.create(
             owner=self.request.user,
@@ -333,19 +341,31 @@ class GroupUpdateView(LoginRequiredMixin, UpdateView):
 
 class TeamSiteManageMixin(LoginRequiredMixin):
     def get_group(self):
-        group = get_object_or_404(
+        """Gibt die Team-Site zurück — nur wenn User Mitglied ist, sonst 404."""
+        return get_object_or_404(
             GroupShare.objects.filter(
                 Q(owner=self.request.user) | Q(team_leaders=self.request.user) | Q(members=self.request.user)
             ).distinct(),
             id=self.kwargs['group_id'],
         )
-        return group
+
+    def _permission_denied(self, request, group):
+        """Zeigt eine verständliche 403-Seite statt eines stummen 404."""
+        from django.shortcuts import render as _render
+        return _render(request, '403.html', {
+            'error_message': (
+                f'Du bist Mitglied von „{group.group_name}", '
+                f'aber nur Team-Leader oder der Besitzer darf hier Änderungen vornehmen.'
+            ),
+            'back_url': reverse_lazy('sharing:group_detail', kwargs={'group_id': group.pk}),
+            'back_label': f'Zurück zu {group.group_name}',
+        }, status=403)
 
     def dispatch(self, request, *args, **kwargs):
         group = self.get_group()
         if request.method.lower() in {'post', 'put', 'patch', 'delete'} or getattr(self, 'require_manage_access', False):
             if not group.user_can_manage(request.user):
-                raise Http404('No access to manage this team site')
+                return self._permission_denied(request, group)
         self.group = group
         return super().dispatch(request, *args, **kwargs)
 

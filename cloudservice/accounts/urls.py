@@ -33,4 +33,10 @@ urlpatterns = [
 
     # API tokens
     path('api-tokens/', views.APITokenListView.as_view(), name='api_tokens'),
+
+    # Öffentliche Profile (People Directory)
+    path('profile/<str:username>/', views.PublicProfileView.as_view(), name='public_profile'),
+
+    # Gruppen & Berechtigungen (Staff only)
+    path('gruppen/', views.GroupManagementView.as_view(), name='group_management'),
 ]

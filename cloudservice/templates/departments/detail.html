@@ -1,0 +1,379 @@
+{% extends 'base.html' %}
+{% block title %}{{ department.name }} – Abteilung{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+
+    <!-- ── Hero ──────────────────────────────────────────────── -->
+    <div class="rounded-4 p-4 mb-4 text-white position-relative overflow-hidden"
+         style="background:linear-gradient(135deg,{{ department.color }},{{ department.color }}99);">
+        <div class="d-flex flex-column flex-lg-row justify-content-between align-items-start gap-3">
+            <div>
+                <div class="d-flex align-items-center gap-3 mb-2">
+                    <a href="{% url 'departments:list' %}" class="text-white-50 text-decoration-none small">
+                        <i class="bi bi-building me-1"></i>Abteilungen
+                    </a>
+                    <span class="text-white-50">/</span>
+                    <span class="text-white small">{{ department.name }}</span>
+                </div>
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-3 d-flex align-items-center justify-content-center bg-white bg-opacity-20"
+                         style="width:56px;height:56px;font-size:1.75rem;">
+                        <i class="bi {{ department.icon }}"></i>
+                    </div>
+                    <div>
+                        <h2 class="fw-black mb-0">{{ department.name }}</h2>
+                        {% if department.description %}
+                        <p class="mb-0 mt-1" style="opacity:.85;max-width:580px;">{{ department.description }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="d-flex flex-wrap gap-2 flex-shrink-0">
+                {% if can_manage %}
+                <a href="{% url 'departments:assign_sites' department.slug %}"
+                   class="btn btn-sm rounded-pill px-3" style="background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.3);">
+                    <i class="bi bi-folder2-open me-1"></i>Team-Sites
+                </a>
+                <a href="{% url 'departments:edit' department.slug %}"
+                   class="btn btn-sm rounded-pill px-3" style="background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.3);">
+                    <i class="bi bi-pencil me-1"></i>Bearbeiten
+                </a>
+                {% endif %}
+                {% if request.user.is_staff %}
+                <button class="btn btn-sm rounded-pill px-3"
+                        style="background:rgba(220,38,38,.35);color:#fff;border:1px solid rgba(255,255,255,.2);"
+                        onclick="confirmDelete()">
+                    <i class="bi bi-trash me-1"></i>Löschen
+                </button>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- KPI bar -->
+        <div class="d-flex flex-wrap gap-3 mt-4">
+            <div class="rounded-3 px-3 py-2" style="background:rgba(255,255,255,.15);">
+                <div class="small" style="opacity:.8;">Mitglieder</div>
+                <div class="fw-black h5 mb-0">{{ memberships|length }}</div>
+            </div>
+            <div class="rounded-3 px-3 py-2" style="background:rgba(255,255,255,.15);">
+                <div class="small" style="opacity:.8;">Team-Sites</div>
+                <div class="fw-black h5 mb-0">{{ team_sites|length }}</div>
+            </div>
+            <div class="rounded-3 px-3 py-2" style="background:rgba(255,255,255,.15);">
+                <div class="small" style="opacity:.8;">Aktuelle News</div>
+                <div class="fw-black h5 mb-0">{{ news|length }}</div>
+            </div>
+            {% if department.head %}
+            <div class="rounded-3 px-3 py-2 d-flex align-items-center gap-2" style="background:rgba(255,255,255,.15);">
+                <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold bg-white text-dark flex-shrink-0"
+                     style="width:32px;height:32px;font-size:.8rem;">
+                    {{ department.head.username|slice:":1"|upper }}
+                </div>
+                <div>
+                    <div class="small" style="opacity:.8;">Leitung</div>
+                    <div class="fw-semibold">{{ department.head.get_full_name|default:department.head.username }}</div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row g-4">
+
+        <!-- ── Members ─────────────────────────────────────── -->
+        <div class="col-lg-5">
+            <div class="border rounded-4 p-4 h-100" style="background:var(--surface-bg);">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <h5 class="fw-bold mb-0"><i class="bi bi-people-fill me-2" style="color:{{ department.color }};"></i>Mitglieder</h5>
+                    {% if can_manage %}
+                    <button class="btn btn-sm btn-outline-primary rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#addMemberModal">
+                        <i class="bi bi-plus-lg me-1"></i>Hinzufügen
+                    </button>
+                    {% endif %}
+                </div>
+
+                {% if not memberships %}
+                <div class="text-muted small py-3 text-center">
+                    Noch keine Mitglieder. {% if can_manage %}Füge Mitglieder hinzu.{% endif %}
+                </div>
+                {% else %}
+                <!-- Heads -->
+                {% if heads %}
+                <div class="small fw-bold text-muted text-uppercase mb-2" style="letter-spacing:.06em;">Abteilungsleiter</div>
+                {% for m in heads %}
+                <div class="d-flex align-items-center gap-3 mb-2 member-row" data-user-id="{{ m.user.pk }}">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold flex-shrink-0"
+                         style="width:36px;height:36px;font-size:.8rem;background:linear-gradient(135deg,{{ department.color }},{{ department.color }}99);">
+                        {{ m.user.username|slice:":1"|upper }}
+                    </div>
+                    <div class="flex-grow-1 overflow-hidden">
+                        <div class="fw-semibold text-truncate">{{ m.user.get_full_name|default:m.user.username }}</div>
+                        <div class="small text-muted">@{{ m.user.username }}</div>
+                    </div>
+                    {% if can_manage %}
+                    <div class="d-flex gap-1">
+                        <select class="form-select form-select-sm rounded-pill role-select" style="width:auto;font-size:.75rem;" data-user-id="{{ m.user.pk }}">
+                            {% for val, label in role_choices %}<option value="{{ val }}"{% if val == m.role %} selected{% endif %}>{{ label }}</option>{% endfor %}
+                        </select>
+                        <button class="btn btn-sm btn-outline-danger rounded-pill px-2 remove-member-btn" data-user-id="{{ m.user.pk }}" title="Entfernen"><i class="bi bi-x-lg"></i></button>
+                    </div>
+                    {% else %}
+                    <span class="badge rounded-pill" style="background:rgba(102,126,234,.15);color:{{ department.color }};">{{ m.get_role_display }}</span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                {% endif %}
+
+                <!-- Managers -->
+                {% if managers %}
+                <div class="small fw-bold text-muted text-uppercase mb-2 mt-3" style="letter-spacing:.06em;">Manager</div>
+                {% for m in managers %}
+                <div class="d-flex align-items-center gap-3 mb-2 member-row" data-user-id="{{ m.user.pk }}">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold flex-shrink-0"
+                         style="width:36px;height:36px;font-size:.8rem;background:linear-gradient(135deg,#0ea5e9,#667eea);">
+                        {{ m.user.username|slice:":1"|upper }}
+                    </div>
+                    <div class="flex-grow-1 overflow-hidden">
+                        <div class="fw-semibold text-truncate">{{ m.user.get_full_name|default:m.user.username }}</div>
+                        <div class="small text-muted">@{{ m.user.username }}</div>
+                    </div>
+                    {% if can_manage %}
+                    <div class="d-flex gap-1">
+                        <select class="form-select form-select-sm rounded-pill role-select" style="width:auto;font-size:.75rem;" data-user-id="{{ m.user.pk }}">
+                            {% for val, label in role_choices %}<option value="{{ val }}"{% if val == m.role %} selected{% endif %}>{{ label }}</option>{% endfor %}
+                        </select>
+                        <button class="btn btn-sm btn-outline-danger rounded-pill px-2 remove-member-btn" data-user-id="{{ m.user.pk }}" title="Entfernen"><i class="bi bi-x-lg"></i></button>
+                    </div>
+                    {% else %}
+                    <span class="badge rounded-pill bg-info bg-opacity-15 text-info">{{ m.get_role_display }}</span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                {% endif %}
+
+                <!-- Members -->
+                {% if members %}
+                <div class="small fw-bold text-muted text-uppercase mb-2 mt-3" style="letter-spacing:.06em;">Mitglieder</div>
+                {% for m in members %}
+                <div class="d-flex align-items-center gap-3 mb-2 member-row" data-user-id="{{ m.user.pk }}">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold flex-shrink-0"
+                         style="width:36px;height:36px;font-size:.8rem;background:#64748b;">
+                        {{ m.user.username|slice:":1"|upper }}
+                    </div>
+                    <div class="flex-grow-1 overflow-hidden">
+                        <div class="fw-semibold text-truncate">{{ m.user.get_full_name|default:m.user.username }}</div>
+                        <div class="small text-muted">@{{ m.user.username }}</div>
+                    </div>
+                    {% if can_manage %}
+                    <div class="d-flex gap-1">
+                        <select class="form-select form-select-sm rounded-pill role-select" style="width:auto;font-size:.75rem;" data-user-id="{{ m.user.pk }}">
+                            {% for val, label in role_choices %}<option value="{{ val }}"{% if val == m.role %} selected{% endif %}>{{ label }}</option>{% endfor %}
+                        </select>
+                        <button class="btn btn-sm btn-outline-danger rounded-pill px-2 remove-member-btn" data-user-id="{{ m.user.pk }}" title="Entfernen"><i class="bi bi-x-lg"></i></button>
+                    </div>
+                    {% else %}
+                    <span class="badge rounded-pill bg-secondary bg-opacity-15 text-secondary">{{ m.get_role_display }}</span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                {% endif %}
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="col-lg-7">
+
+            <!-- ── Team Sites ───────────────────────────────── -->
+            <div class="border rounded-4 p-4 mb-4" style="background:var(--surface-bg);">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <h5 class="fw-bold mb-0"><i class="bi bi-people me-2" style="color:{{ department.color }};"></i>Team-Sites</h5>
+                    {% if can_manage %}
+                    <a href="{% url 'departments:assign_sites' department.slug %}" class="btn btn-sm btn-outline-secondary rounded-pill px-3">
+                        <i class="bi bi-gear me-1"></i>Verwalten
+                    </a>
+                    {% endif %}
+                </div>
+
+                {% if not team_sites %}
+                <div class="text-muted small text-center py-3">
+                    Keine Team-Sites zugewiesen.
+                    {% if can_manage %}<a href="{% url 'departments:assign_sites' department.slug %}">Jetzt zuweisen</a>{% endif %}
+                </div>
+                {% else %}
+                <div class="row g-3">
+                    {% for site in team_sites %}
+                    <div class="col-sm-6">
+                        <a href="{% url 'sharing:group_detail' site.pk %}" class="text-decoration-none">
+                            <div class="border rounded-3 p-3 h-100 site-card">
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <i class="bi bi-people-fill" style="color:{{ department.color }};"></i>
+                                    <div class="fw-semibold text-truncate">{{ site.group_name }}</div>
+                                </div>
+                                <div class="small text-muted">
+                                    Eigentümer: {{ site.owner.get_full_name|default:site.owner.username }}
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- ── News ────────────────────────────────────── -->
+            <div class="border rounded-4 p-4" style="background:var(--surface-bg);">
+                <h5 class="fw-bold mb-3"><i class="bi bi-newspaper me-2" style="color:{{ department.color }};"></i>Aktuelle News</h5>
+                {% if not news %}
+                <div class="text-muted small text-center py-3">Keine News von verknüpften Team-Sites.</div>
+                {% else %}
+                <div class="d-grid gap-3">
+                    {% for item in news %}
+                    <a href="{% url 'sharing:team_news_detail' item.group.pk item.pk %}" class="text-decoration-none">
+                        <div class="d-flex gap-3 align-items-start border-bottom pb-3 news-item">
+                            <div class="rounded-2 d-flex align-items-center justify-content-center flex-shrink-0 text-white"
+                                 style="width:36px;height:36px;background:linear-gradient(135deg,{{ department.color }},{{ department.color }}99);">
+                                <i class="bi bi-newspaper" style="font-size:.85rem;"></i>
+                            </div>
+                            <div class="flex-grow-1 overflow-hidden">
+                                <div class="fw-semibold text-truncate">{{ item.title }}</div>
+                                <div class="small text-muted">
+                                    {{ item.group.group_name }} &bull;
+                                    {{ item.author.get_full_name|default:item.author.username }} &bull;
+                                    {{ item.created_at|date:"d.m.Y" }}
+                                </div>
+                                {% if item.summary %}
+                                <div class="small text-muted mt-1">{{ item.summary|truncatechars:100 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Add Member Modal ──────────────────────────────────────── -->
+{% if can_manage %}
+<div class="modal fade" id="addMemberModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow-lg">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">Mitglied hinzufügen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold small">Nutzer</label>
+                    <select id="addMemberUser" class="form-select rounded-3">
+                        <option value="">— Nutzer wählen —</option>
+                        {% for u in all_users %}
+                        <option value="{{ u.pk }}">{{ u.get_full_name|default:u.username }} (@{{ u.username }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold small">Rolle</label>
+                    <select id="addMemberRole" class="form-select rounded-3">
+                        {% for val, label in role_choices %}
+                        <option value="{{ val }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Abbrechen</button>
+                <button class="btn btn-primary rounded-pill px-4" id="addMemberSubmit">Hinzufügen</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Delete confirm modal ──────────────────────────────────── -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow-lg">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold text-danger">Abteilung löschen?</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted">Die Abteilung <strong>{{ department.name }}</strong> und alle Mitgliedschaften werden unwiderruflich gelöscht. Team-Sites bleiben erhalten.</p>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Abbrechen</button>
+                <form method="post" action="{% url 'departments:delete' department.slug %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger rounded-pill px-4">Endgültig löschen</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const CSRF = '{{ csrf_token }}';
+const DEPT_SLUG = '{{ department.slug }}';
+
+function confirmDelete() {
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+
+// Add member
+document.getElementById('addMemberSubmit').addEventListener('click', async function() {
+    const userId = document.getElementById('addMemberUser').value;
+    const role   = document.getElementById('addMemberRole').value;
+    if (!userId) { alert('Bitte einen Nutzer wählen.'); return; }
+    const resp = await fetch(`/departments/${DEPT_SLUG}/mitglieder/hinzufuegen/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+        body: JSON.stringify({ user_id: parseInt(userId), role }),
+    });
+    const data = await resp.json();
+    if (data.ok) { location.reload(); }
+    else { alert(data.error || 'Fehler'); }
+});
+
+// Role change
+document.querySelectorAll('.role-select').forEach(function(sel) {
+    sel.addEventListener('change', async function() {
+        const userId = this.dataset.userId;
+        const role   = this.value;
+        const resp = await fetch(`/departments/${DEPT_SLUG}/mitglieder/rolle/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+            body: JSON.stringify({ user_id: parseInt(userId), role }),
+        });
+        const data = await resp.json();
+        if (!data.ok) { alert(data.error || 'Fehler'); location.reload(); }
+    });
+});
+
+// Remove member
+document.querySelectorAll('.remove-member-btn').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+        if (!confirm('Mitglied entfernen?')) return;
+        const userId = this.dataset.userId;
+        const resp = await fetch(`/departments/${DEPT_SLUG}/mitglieder/entfernen/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+            body: JSON.stringify({ user_id: parseInt(userId) }),
+        });
+        const data = await resp.json();
+        if (data.ok) {
+            document.querySelector(`.member-row[data-user-id="${userId}"]`)?.remove();
+        } else { alert(data.error || 'Fehler'); }
+    });
+});
+</script>
+{% endif %}
+
+<style>
+.site-card { transition: background .15s; }
+.site-card:hover { background: color-mix(in srgb, var(--surface-bg) 85%, var(--primary-color) 15%) !important; }
+.news-item:last-child { border-bottom: none !important; padding-bottom: 0 !important; }
+</style>
+{% endblock %}

@@ -1,0 +1,21 @@
+{
+  "name": "Tasks Board",
+  "slug": "tasks-board",
+  "version": "1.0.0",
+  "author": "CloudService Team",
+  "description": "Persönliches und Team-Kanban-Board mit Drag-and-Drop.",
+  "django_app": {
+    "app_config": "tasks_board.apps.TasksBoardConfig"
+  },
+  "hooks": {
+    "ui_menu_item": {
+      "handler": "tasks_board.providers.TasksMenuProvider",
+      "priority": 50
+    },
+    "ui_app_page": {
+      "handler": "tasks_board.providers.TasksPageProvider",
+      "priority": 50,
+      "slug": "tasks"
+    }
+  }
+}

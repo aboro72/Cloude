@@ -16,7 +16,7 @@ from news.models import Comment, NewsArticle, Reaction
 
 class StaffRequiredMixin(UserPassesTestMixin):
     def test_func(self):
-        return self.request.user.is_staff
+        return self.request.user.has_perm('news.add_newsarticle')
 
 
 class PublishedArticlesMixin:
@@ -54,7 +54,7 @@ class NewsDetailView(LoginRequiredMixin, DetailView):
     slug_url_kwarg = 'slug'
 
     def get_queryset(self):
-        if self.request.user.is_staff:
+        if self.request.user.has_perm('news.change_newsarticle'):
             return NewsArticle.objects.select_related('author', 'category')
         return NewsArticle.objects.filter(
             is_published=True,
@@ -180,6 +180,34 @@ class AddCommentView(LoginRequiredMixin, View):
             'created_at': comment.created_at.strftime('%d.%m.%Y %H:%M'),
             'parent_id': parent_id,
         })
+
+
+class NewsListJsonView(LoginRequiredMixin, View):
+    """AJAX GET: return all articles as JSON for the Landing Page Builder news panel."""
+
+    def get(self, request, *args, **kwargs):
+        if not request.user.is_staff:
+            return JsonResponse({'error': 'Forbidden'}, status=403)
+        articles = (
+            NewsArticle.objects
+            .select_related('author', 'category')
+            .order_by('-created_at')[:50]
+        )
+        data = []
+        for a in articles:
+            data.append({
+                'id': a.pk,
+                'title': a.title,
+                'slug': a.slug,
+                'author': a.author.get_full_name() or a.author.username if a.author else '—',
+                'category': a.category.name if a.category else None,
+                'is_published': a.is_published,
+                'is_pinned': a.is_pinned,
+                'created_at': a.created_at.strftime('%d.%m.%Y'),
+                'edit_url': f'/news/{a.slug}/edit/',
+                'detail_url': f'/news/{a.slug}/',
+            })
+        return JsonResponse({'articles': data})
 
 
 class ToggleReactionView(LoginRequiredMixin, View):
