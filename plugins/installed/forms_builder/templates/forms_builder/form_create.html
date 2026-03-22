@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block title %}Neues Formular – CloudService{% endblock %}
+{% block content %}
+<div class="container py-4" style="max-width:480px;">
+    <h4 class="mb-4"><i class="bi bi-ui-checks me-2 text-primary"></i>Neues Formular</h4>
+    <form method="post">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label class="form-label fw-semibold">Titel *</label>
+            <input type="text" name="title" class="form-control" placeholder="z.B. Mitarbeiter-Umfrage Q2" required autofocus>
+        </div>
+        <div class="mb-3">
+            <label class="form-label fw-semibold">Beschreibung</label>
+            <textarea name="description" class="form-control" rows="2" placeholder="Kurze Erklärung für Ausfüllende"></textarea>
+        </div>
+        <div class="mb-4 form-check">
+            <input type="checkbox" name="allow_anonymous" class="form-check-input" id="anonCheck">
+            <label class="form-check-label" for="anonCheck">Anonyme Einreichungen erlauben</label>
+        </div>
+        <button type="submit" class="btn btn-primary w-100">Formular erstellen & bearbeiten</button>
+    </form>
+</div>
+{% endblock %}

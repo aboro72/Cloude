@@ -14,6 +14,16 @@ router.register(r'shares', views.UserShareViewSet, basename='share')
 router.register(r'public-links', views.PublicLinkViewSet, basename='public_link')
 router.register(r'users', views.UserViewSet, basename='user')
 router.register(r'activities', views.ActivityLogViewSet, basename='activity')
+# Departments
+router.register(r'departments', views.DepartmentViewSet, basename='department')
+# Team Sites
+router.register(r'team-sites', views.GroupShareViewSet, basename='team_site')
+# Kanban
+router.register(r'boards', views.TaskBoardViewSet, basename='board')
+router.register(r'tasks', views.TaskViewSet, basename='task')
+# News
+router.register(r'news/categories', views.NewsCategoryViewSet, basename='news_category')
+router.register(r'news/articles', views.NewsArticleViewSet, basename='news_article')
 
 app_name = 'api'
 

@@ -376,6 +376,15 @@ class GroupShare(models.Model):
         verbose_name=_('Permission')
     )
 
+    department = models.ForeignKey(
+        'departments.Department',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='team_sites',
+        verbose_name=_('Abteilung'),
+    )
+
     is_active = models.BooleanField(
         default=True,
         verbose_name=_('Is active')
@@ -389,19 +398,20 @@ class GroupShare(models.Model):
         verbose_name = _('Group Share')
         verbose_name_plural = _('Group Shares')
         ordering = ['-created_at']
+        permissions = [
+            ('create_groupshare', 'Kann Team-Sites erstellen'),
+            ('manage_any_groupshare', 'Kann beliebige Team-Sites verwalten'),
+        ]
 
     def __str__(self):
         return f"Group: {self.group_name}"
 
     def user_can_manage(self, user):
-        return bool(
-            user
-            and user.is_authenticated
-            and (
-                self.owner_id == user.id
-                or self.team_leaders.filter(id=user.id).exists()
-            )
-        )
+        if not user or not user.is_authenticated:
+            return False
+        if user.has_perm('sharing.manage_any_groupshare'):
+            return True
+        return self.owner_id == user.id or self.team_leaders.filter(id=user.id).exists()
 
 
 class TeamSiteNews(models.Model):

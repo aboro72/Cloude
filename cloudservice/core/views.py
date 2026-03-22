@@ -10,6 +10,7 @@ from django.contrib import messages
 from django.http import Http404
 from pathlib import Path
 from core.models import ActivityLog
+from core.navigation import DEFAULT_PLUGIN_APP_SLUG, get_authenticated_home_url
 from plugins.hooks import hook_registry, UI_DASHBOARD_WIDGET, UI_APP_PAGE
 import logging
 
@@ -42,7 +43,7 @@ def home(request):
     - Eingeloggt        → MySite Hub
     """
     if request.user.is_authenticated:
-        return redirect('core:plugin_app', slug='mysite')
+        return redirect(get_authenticated_home_url(request))
     try:
         from landing_editor.providers import get_landing_settings
         lp = get_landing_settings()
@@ -113,28 +114,125 @@ def activity_log(request):
 
 
 def search(request):
-    """Search view function"""
+    """Globale Volltext-Suche über alle Inhaltstypen."""
     if not request.user.is_authenticated:
         return redirect('accounts:login')
 
-    query = request.GET.get('q', '')
-    from core.models import StorageFile, StorageFolder
+    query = request.GET.get('q', '').strip()
+    results = {}
+    total = 0
 
-    files = StorageFile.objects.filter(
-        owner=request.user,
-        name__icontains=query
-    )
+    if query:
+        from core.models import StorageFile, StorageFolder
+        from django.contrib.auth.models import User
+        from django.db.models import Q
 
-    folders = StorageFolder.objects.filter(
-        owner=request.user,
-        name__icontains=query
-    )
+        # Dateien & Ordner (eigene)
+        files = StorageFile.objects.filter(
+            owner=request.user,
+            name__icontains=query
+        ).select_related('owner')[:20]
+
+        folders = StorageFolder.objects.filter(
+            owner=request.user,
+            name__icontains=query
+        )[:10]
+
+        # News-Artikel
+        try:
+            from news.models import NewsArticle
+            news = NewsArticle.objects.filter(
+                is_published=True
+            ).filter(
+                Q(title__icontains=query) |
+                Q(summary__icontains=query) |
+                Q(content__icontains=query) |
+                Q(tags__icontains=query)
+            ).select_related('author', 'category')[:10]
+        except Exception:
+            news = []
+
+        # Team-Sites (GroupShare)
+        try:
+            from sharing.models import GroupShare
+            team_sites = GroupShare.objects.filter(
+                Q(group_name__icontains=query)
+            ).filter(is_active=True)[:10]
+        except Exception:
+            team_sites = []
+
+        # Team-Site News
+        try:
+            from sharing.models import TeamSiteNews
+            team_news = TeamSiteNews.objects.filter(
+                Q(title__icontains=query) |
+                Q(content__icontains=query)
+            ).select_related('group', 'author')[:10]
+        except Exception:
+            team_news = []
+
+        # Personen (nur für eingeloggte)
+        people = User.objects.filter(is_active=True).filter(
+            Q(username__icontains=query) |
+            Q(first_name__icontains=query) |
+            Q(last_name__icontains=query) |
+            Q(email__icontains=query)
+        )[:8]
+
+        results = {
+            'files': list(files),
+            'folders': list(folders),
+            'news': list(news),
+            'team_sites': list(team_sites),
+            'team_news': list(team_news),
+            'people': list(people),
+        }
+        total = sum(len(v) for v in results.values())
 
     return render(request, 'core/search.html', {
         'query': query,
-        'files': files,
-        'folders': folders
+        'results': results,
+        'total': total,
     })
+
+
+def search_suggest(request):
+    """AJAX-Autocomplete für die Navbar-Suche."""
+    import json
+    from django.http import JsonResponse
+
+    if not request.user.is_authenticated:
+        return JsonResponse({'suggestions': []})
+
+    q = request.GET.get('q', '').strip()
+    if len(q) < 2:
+        return JsonResponse({'suggestions': []})
+
+    from core.models import StorageFile
+    from django.db.models import Q
+    suggestions = []
+
+    # Dateien
+    for f in StorageFile.objects.filter(owner=request.user, name__icontains=q)[:5]:
+        suggestions.append({'label': f.name, 'type': 'file', 'icon': 'bi-file-earmark', 'url': f'/storage/file/{f.id}/'})
+
+    # News
+    try:
+        from news.models import NewsArticle
+        for a in NewsArticle.objects.filter(is_published=True, title__icontains=q)[:5]:
+            suggestions.append({'label': a.title, 'type': 'news', 'icon': 'bi-newspaper', 'url': f'/news/{a.slug}/'})
+    except Exception:
+        pass
+
+    # Personen
+    from django.contrib.auth.models import User
+    for u in User.objects.filter(is_active=True).filter(
+        Q(username__icontains=q) | Q(first_name__icontains=q) | Q(last_name__icontains=q)
+    )[:3]:
+        name = u.get_full_name() or u.username
+        suggestions.append({'label': name, 'type': 'person', 'icon': 'bi-person', 'url': f'/accounts/profile/{u.username}/'})
+
+    return JsonResponse({'suggestions': suggestions[:10]})
 
 
 class SettingsView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
@@ -359,10 +457,14 @@ class PluginAppPageView(LoginRequiredMixin, TemplateView):
         slug = kwargs['slug']
         handlers = hook_registry.get_handlers(UI_APP_PAGE, slug=slug)
         if not handlers:
+            if slug == DEFAULT_PLUGIN_APP_SLUG:
+                return redirect(get_authenticated_home_url(request))
             raise Http404('Plugin page not found')
 
         provider = handlers[0]()
         if not provider.is_visible(request):
+            if slug == DEFAULT_PLUGIN_APP_SLUG:
+                return redirect(get_authenticated_home_url(request))
             raise Http404('Plugin page not available')
 
         context = provider.render(request)
@@ -385,3 +487,66 @@ def help_page(request):
 def help_developer(request):
     """Developer documentation view"""
     return render(request, 'core/help_developer.html')
+
+
+# ---------------------------------------------------------------------------
+# Notifications
+# ---------------------------------------------------------------------------
+
+def notifications_list(request):
+    """Alle Benachrichtigungen des Users — als vollständige Seite."""
+    if not request.user.is_authenticated:
+        return redirect('accounts:login')
+    from core.models import Notification
+    notifs = Notification.objects.filter(user=request.user).order_by('-created_at')[:50]
+    # Alle als gelesen markieren beim Öffnen der Seite
+    Notification.objects.filter(user=request.user, is_read=False).update(is_read=True)
+    return render(request, 'core/notifications.html', {'notifications': notifs})
+
+
+def notifications_unread_count(request):
+    """AJAX: Anzahl ungelesener Benachrichtigungen."""
+    from django.http import JsonResponse
+    if not request.user.is_authenticated:
+        return JsonResponse({'count': 0})
+    from core.models import Notification
+    count = Notification.objects.filter(user=request.user, is_read=False).count()
+    return JsonResponse({'count': count})
+
+
+def notifications_mark_read(request, pk):
+    """AJAX: Eine einzelne Benachrichtigung als gelesen markieren."""
+    from django.http import JsonResponse
+    if not request.user.is_authenticated:
+        return JsonResponse({'ok': False}, status=403)
+    from core.models import Notification
+    Notification.objects.filter(pk=pk, user=request.user).update(is_read=True)
+    return JsonResponse({'ok': True})
+
+
+def notifications_mark_all_read(request):
+    """AJAX: Alle als gelesen markieren."""
+    from django.http import JsonResponse
+    if not request.user.is_authenticated:
+        return JsonResponse({'ok': False}, status=403)
+    from core.models import Notification
+    Notification.objects.filter(user=request.user, is_read=False).update(is_read=True)
+    return JsonResponse({'ok': True})
+
+
+def notifications_dropdown(request):
+    """AJAX: Letzte 8 Benachrichtigungen als HTML-Fragment für das Dropdown."""
+    from django.http import JsonResponse
+    if not request.user.is_authenticated:
+        return JsonResponse({'html': ''})
+    from core.models import Notification
+    notifs = list(
+        Notification.objects.filter(user=request.user)
+        .order_by('-created_at')[:8]
+        .values('id', 'title', 'message', 'url', 'is_read', 'notification_type', 'created_at')
+    )
+    unread = Notification.objects.filter(user=request.user, is_read=False).count()
+    # Datumsformat für JS
+    for n in notifs:
+        n['created_at'] = n['created_at'].strftime('%d.%m.%Y %H:%M')
+    return JsonResponse({'notifications': notifs, 'unread': unread})

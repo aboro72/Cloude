@@ -1,0 +1,218 @@
+{% extends 'base.html' %}
+{% block title %}{{ form.title }} – Builder – CloudService{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3 px-4" style="max-width:1100px;">
+
+    <!-- Kopfzeile -->
+    <div class="d-flex align-items-center gap-3 mb-4 flex-wrap">
+        <a href="/core/apps/forms/" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <div class="flex-grow-1">
+            <h5 class="mb-0 fw-bold">{{ form.title }}</h5>
+            {% if form.description %}<small class="text-muted">{{ form.description }}</small>{% endif %}
+        </div>
+        <div class="d-flex gap-2">
+            <a href="/forms/{{ form.pk }}/toggle/"
+               class="btn btn-sm {% if form.is_active %}btn-success{% else %}btn-outline-secondary{% endif %}">
+                {% if form.is_active %}<i class="bi bi-eye me-1"></i>Aktiv{% else %}<i class="bi bi-eye-slash me-1"></i>Inaktiv{% endif %}
+            </a>
+            <a href="/forms/{{ form.pk }}/fill/" class="btn btn-sm btn-outline-primary" target="_blank">
+                <i class="bi bi-box-arrow-up-right me-1"></i>Vorschau
+            </a>
+            <a href="/forms/{{ form.pk }}/results/" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-bar-chart me-1"></i>Ergebnisse
+            </a>
+            <form method="post" action="/forms/{{ form.pk }}/delete/"
+                  onsubmit="return confirm('Formular und alle Daten löschen?')" class="d-inline">
+                {% csrf_token %}
+                <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+            </form>
+        </div>
+    </div>
+
+    <div class="row g-4">
+
+        <!-- Linke Spalte: Feldtypen-Palette -->
+        <div class="col-lg-3">
+            <div class="card border-0 shadow-sm position-sticky" style="top:80px;">
+                <div class="card-header bg-transparent border-bottom py-3">
+                    <strong class="small">Feld hinzufügen</strong>
+                </div>
+                <div class="card-body p-2">
+                    {% for type_key, type_label in field_types %}
+                    <button class="btn btn-outline-secondary btn-sm w-100 text-start mb-1 add-field-btn"
+                            data-type="{{ type_key }}">
+                        <i class="bi {{ field_icons|get_item:type_key }} me-2"></i>{{ type_label }}
+                    </button>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Rechte Spalte: Felder-Liste (Sortable) -->
+        <div class="col-lg-9">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-3" id="field-list" style="min-height:200px;">
+                    {% if not fields %}
+                    <div class="text-center text-muted py-5" id="empty-hint">
+                        <i class="bi bi-arrow-left-circle fs-2"></i>
+                        <p class="mt-2 small">Klicke links auf einen Feldtyp um zu beginnen.</p>
+                    </div>
+                    {% endif %}
+                    {% for field in fields %}
+                    {% include 'forms_builder/_field_card.html' with field=field %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Modal: Feld bearbeiten -->
+<div class="modal fade" id="editFieldModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form id="editFieldForm" class="modal-content">
+            {% csrf_token %}
+            <input type="hidden" id="editFieldId">
+            <div class="modal-header border-0 pb-0">
+                <h6 class="modal-title fw-bold">Feld bearbeiten</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body pt-2">
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Beschriftung *</label>
+                    <input type="text" name="label" id="editFieldLabel" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Platzhalter</label>
+                    <input type="text" name="placeholder" id="editFieldPlaceholder" class="form-control">
+                </div>
+                <div id="choicesGroup" class="mb-3" style="display:none;">
+                    <label class="form-label small fw-semibold">Optionen <span class="text-muted">(eine pro Zeile)</span></label>
+                    <textarea name="choices" id="editFieldChoices" class="form-control font-monospace" rows="4"
+                              placeholder="Option 1&#10;Option 2&#10;Option 3"></textarea>
+                </div>
+                <div class="form-check">
+                    <input type="checkbox" name="required" id="editFieldRequired" class="form-check-input" value="1">
+                    <label class="form-check-label" for="editFieldRequired">Pflichtfeld</label>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="submit" class="btn btn-primary btn-sm">Speichern</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script>
+const CSRF = '{{ csrf_token }}';
+const FORM_ID = {{ form.pk }};
+const FIELD_ICONS = {{ field_icons|default:"{}" }};
+
+// Drag-Reorder
+const fieldList = document.getElementById('field-list');
+Sortable.create(fieldList, {
+    handle: '.drag-handle',
+    animation: 150,
+    onEnd() {
+        const order = [...fieldList.querySelectorAll('.field-card')].map((el, i) => ({
+            id: parseInt(el.dataset.id),
+            order: i,
+        }));
+        fetch(`/forms/${FORM_ID}/field/reorder/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': CSRF, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ order }),
+        });
+    }
+});
+
+// Feld hinzufügen
+document.querySelectorAll('.add-field-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+        const fd = new FormData();
+        fd.append('field_type', btn.dataset.type);
+        fd.append('label', btn.closest('.card-body').querySelector(`[data-type="${btn.dataset.type}"]`)?.textContent?.trim() || 'Neue Frage');
+        const res = await fetch(`/forms/${FORM_ID}/field/add/`, {
+            method: 'POST', headers: { 'X-CSRFToken': CSRF }, body: fd,
+        });
+        const data = await res.json();
+        if (data.id) {
+            document.getElementById('empty-hint')?.remove();
+            fieldList.insertAdjacentHTML('beforeend', buildFieldCard(data));
+        }
+    });
+});
+
+function buildFieldCard(f) {
+    return `<div class="field-card card border mb-2 shadow-sm" data-id="${f.id}" data-has-choices="${f.has_choices}">
+        <div class="card-body py-2 px-3 d-flex align-items-center gap-3">
+            <i class="bi bi-grip-vertical drag-handle text-muted" style="cursor:grab;"></i>
+            <i class="bi ${f.icon} text-primary"></i>
+            <span class="fw-semibold flex-grow-1 field-label-display">${f.label}</span>
+            ${f.required ? '<span class="badge bg-danger bg-opacity-10 text-danger small">Pflicht</span>' : ''}
+            <button class="btn btn-link btn-sm p-0 text-muted field-edit-btn" data-id="${f.id}" data-label="${f.label}" data-has-choices="${f.has_choices}" data-required="${f.required}">
+                <i class="bi bi-pencil"></i>
+            </button>
+            <button class="btn btn-link btn-sm p-0 text-danger field-del-btn" data-id="${f.id}">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>
+    </div>`;
+}
+
+// Edit + Delete per Event-Delegation
+document.addEventListener('click', function(e) {
+    const editBtn = e.target.closest('.field-edit-btn');
+    if (editBtn) {
+        const card = editBtn.closest('.field-card');
+        document.getElementById('editFieldId').value = editBtn.dataset.id;
+        document.getElementById('editFieldLabel').value = editBtn.dataset.label;
+        document.getElementById('editFieldPlaceholder').value = editBtn.dataset.placeholder || '';
+        document.getElementById('editFieldRequired').checked = editBtn.dataset.required === 'True' || editBtn.dataset.required === 'true';
+        const hasChoices = card.dataset.hasChoices === 'True' || card.dataset.hasChoices === 'true';
+        document.getElementById('choicesGroup').style.display = hasChoices ? '' : 'none';
+        document.getElementById('editFieldChoices').value = editBtn.dataset.choices || '';
+        new bootstrap.Modal(document.getElementById('editFieldModal')).show();
+    }
+
+    const delBtn = e.target.closest('.field-del-btn');
+    if (delBtn && confirm('Feld löschen?')) {
+        fetch(`/forms/field/${delBtn.dataset.id}/delete/`, {
+            method: 'POST', headers: { 'X-CSRFToken': CSRF }
+        }).then(() => delBtn.closest('.field-card').remove());
+    }
+});
+
+document.getElementById('editFieldForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const id = document.getElementById('editFieldId').value;
+    const fd = new FormData(this);
+    const res = await fetch(`/forms/field/${id}/update/`, {
+        method: 'POST', headers: { 'X-CSRFToken': CSRF }, body: fd,
+    });
+    const data = await res.json();
+    if (data.ok) {
+        const card = document.querySelector(`.field-card[data-id="${id}"]`);
+        if (card) {
+            card.querySelector('.field-label-display').textContent = data.label;
+            const editBtn = card.querySelector('.field-edit-btn');
+            if (editBtn) editBtn.dataset.label = data.label;
+        }
+        bootstrap.Modal.getInstance(document.getElementById('editFieldModal')).hide();
+    }
+});
+</script>
+
+{% load core_extras %}
+<style>
+.drag-handle:hover { color: var(--primary-color) !important; }
+.field-card { transition: box-shadow .15s; }
+.field-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,.08) !important; }
+</style>
+{% endblock %}

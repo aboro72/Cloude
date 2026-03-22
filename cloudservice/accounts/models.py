@@ -143,6 +143,31 @@ class UserProfile(models.Model):
         verbose_name=_('MySite hero video')
     )
 
+    # Unternehmens-/Verzeichnis-Felder
+    job_title = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name=_('Job title'),
+    )
+    department = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name=_('Department'),
+    )
+    location = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name=_('Location'),
+    )
+    manager = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='direct_reports',
+        verbose_name=_('Manager'),
+    )
+
     # Storage quota
     storage_quota = models.BigIntegerField(
         default=5*1024*1024*1024,  # 5 GB default

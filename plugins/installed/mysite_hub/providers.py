@@ -3,6 +3,7 @@ from django.urls import reverse, reverse_lazy
 
 from core.models import ActivityLog, StorageFile, StorageFolder
 from plugins.ui import PluginMenuItemProvider, PluginPageProvider
+from plugins.status import is_plugin_enabled
 from sharing.models import GroupShare, UserShare
 
 
@@ -13,6 +14,9 @@ class MySiteMenuProvider(PluginMenuItemProvider):
 
     def get_url(self) -> str:
         return reverse('core:plugin_app', kwargs={'slug': 'mysite'})
+
+    def is_visible(self, request) -> bool:
+        return request.user.is_authenticated and is_plugin_enabled('mysite-hub')
 
 
 def get_mysite_plugin_settings():
@@ -208,12 +212,15 @@ class MySitePageProvider(PluginPageProvider):
         team_sites = []
 
         for share in group_shares:
+            can_manage = share.user_can_manage(request.user)
             team_sites.append({
                 'title': share.group_name,
                 'description': f'Gruppenbereich mit {share.members.count()} Mitgliedern und Berechtigung {share.get_permission_display()}.',
                 'meta': 'Team Site',
                 'url': reverse('sharing:group_detail', kwargs={'group_id': share.id}),
                 'icon': 'bi-people-fill',
+                'can_manage': can_manage,
+                'news_create_url': reverse('sharing:team_news_create', kwargs={'group_id': share.id}) if can_manage else None,
             })
 
         if team_sites:
@@ -266,34 +273,32 @@ class MySitePageProvider(PluginPageProvider):
         ]
 
     def _build_department_pages(self):
+        try:
+            from departments.models import Department
+            depts = Department.objects.select_related('head').order_by('name')[:8]
+            if depts:
+                result = []
+                for d in depts:
+                    result.append({
+                        'title': d.name,
+                        'description': d.description or '',
+                        'owner': d.head.get_full_name() or d.head.username if d.head else '',
+                        'icon': d.icon,
+                        'color': d.color,
+                        'url': reverse('departments:detail', kwargs={'slug': d.slug}),
+                    })
+                return result
+        except Exception:
+            pass
+        # fallback wenn noch keine Abteilungen angelegt
         return [
             {
-                'title': 'Management',
-                'description': 'Strategie, Roadmaps, Entscheidungen und Quartalsziele.',
-                'owner': 'Leitung',
-                'icon': 'bi-bar-chart-line',
-                'url': reverse('core:plugin_app', kwargs={'slug': 'department-management'}),
-            },
-            {
-                'title': 'Personal',
-                'description': 'Onboarding, Richtlinien, Vorlagen und interne Kommunikation.',
-                'owner': 'HR',
-                'icon': 'bi-person-vcard',
-                'url': reverse('core:plugin_app', kwargs={'slug': 'department-people'}),
-            },
-            {
-                'title': 'Finanzen',
-                'description': 'Budgets, Belege, Monatsabschluesse und Freigabeprozesse.',
-                'owner': 'Finance',
-                'icon': 'bi-cash-stack',
-                'url': reverse('core:plugin_app', kwargs={'slug': 'department-finance'}),
-            },
-            {
-                'title': 'Entwicklung',
-                'description': 'Releaseplaene, Architekturdoku, Checklisten und Deployments.',
-                'owner': 'Engineering',
-                'icon': 'bi-code-square',
-                'url': reverse('core:plugin_app', kwargs={'slug': 'department-engineering'}),
+                'title': 'Abteilungen',
+                'description': 'Noch keine Abteilungen angelegt.',
+                'owner': '',
+                'icon': 'bi-building',
+                'color': '#667eea',
+                'url': reverse('departments:list'),
             },
         ]
 

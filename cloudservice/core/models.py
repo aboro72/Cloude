@@ -499,6 +499,10 @@ class Notification(models.Model):
         ('permission_change', _('Permission changed')),
         ('storage_limit', _('Storage limit warning')),
         ('file_deleted', _('File deleted')),
+        ('comment', _('New comment')),
+        ('news', _('New article published')),
+        ('mention', _('@mention')),
+        ('team_news', _('Team-Site news')),
     ]
 
     user = models.ForeignKey(
@@ -518,6 +522,11 @@ class Notification(models.Model):
     )
     message = models.TextField(
         verbose_name=_('Message')
+    )
+    url = models.CharField(
+        max_length=500,
+        blank=True,
+        verbose_name=_('URL'),
     )
     is_read = models.BooleanField(
         default=False,
@@ -558,5 +567,16 @@ class Notification(models.Model):
             notification_type=notification_type,
             title=title,
             message=message,
-            expires_at=expires_at
+            expires_at=expires_at,
+        )
+
+    @classmethod
+    def notify(cls, user, notification_type, title, message='', url=''):
+        """Kurzform: Notification erstellen mit optionalem Link."""
+        return cls.objects.create(
+            user=user,
+            notification_type=notification_type,
+            title=title,
+            message=message,
+            url=url,
         )

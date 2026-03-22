@@ -1,0 +1,135 @@
+<div class="container py-4">
+
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <h4 class="mb-0"><i class="bi bi-kanban me-2 text-primary"></i>Aufgaben</h4>
+        <button class="btn btn-primary btn-sm rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#newBoardModal">
+            <i class="bi bi-plus-lg me-1"></i>Neues Board
+        </button>
+    </div>
+
+    <!-- Abteilungs-Boards -->
+    {% if dept_boards %}
+    <h6 class="text-muted text-uppercase small mb-3 d-flex align-items-center gap-2">
+        <i class="bi bi-building"></i>Abteilungen
+    </h6>
+    <div class="row g-3 mb-4">
+        {% for board in dept_boards %}
+        <div class="col-sm-6 col-lg-4 col-xl-3">
+            <a href="/tasks/board/{{ board.pk }}/" class="card border-0 shadow-sm text-decoration-none text-dark h-100 board-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <span class="rounded-circle d-inline-block" style="width:12px;height:12px;background:{{ board.color }};flex-shrink:0;"></span>
+                        <span class="fw-semibold">{{ board.title }}</span>
+                    </div>
+                    <div class="small mb-2" style="color:{{ board.department.color }};">
+                        <i class="bi {{ board.department.icon }} me-1"></i>{{ board.department.name }}
+                    </div>
+                    <small class="text-muted">{{ board.tasks.count }} Aufgabe{{ board.tasks.count|pluralize:",n" }}</small>
+                </div>
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Team-Boards -->
+    {% if team_boards %}
+    <h6 class="text-muted text-uppercase small mb-3 d-flex align-items-center gap-2">
+        <i class="bi bi-people"></i>Team-Sites
+    </h6>
+    <div class="row g-3 mb-4">
+        {% for board in team_boards %}
+        <div class="col-sm-6 col-lg-4 col-xl-3">
+            <a href="/tasks/board/{{ board.pk }}/" class="card border-0 shadow-sm text-decoration-none text-dark h-100 board-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <span class="rounded-circle d-inline-block" style="width:12px;height:12px;background:{{ board.color }};flex-shrink:0;"></span>
+                        <span class="fw-semibold">{{ board.title }}</span>
+                    </div>
+                    <div class="small text-muted mb-2">
+                        <i class="bi bi-people me-1"></i>{{ board.team_site.group_name }}
+                    </div>
+                    <small class="text-muted">{{ board.tasks.count }} Aufgabe{{ board.tasks.count|pluralize:",n" }}</small>
+                </div>
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Persönliche Boards -->
+    <h6 class="text-muted text-uppercase small mb-3 d-flex align-items-center gap-2">
+        <i class="bi bi-person"></i>Persönlich
+    </h6>
+    {% if personal_boards %}
+    <div class="row g-3 mb-4">
+        {% for board in personal_boards %}
+        <div class="col-sm-6 col-lg-4 col-xl-3">
+            <a href="/tasks/board/{{ board.pk }}/" class="card border-0 shadow-sm text-decoration-none text-dark h-100 board-card">
+                <div class="card-body">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <span class="rounded-circle d-inline-block" style="width:12px;height:12px;background:{{ board.color }};flex-shrink:0;"></span>
+                        <span class="fw-semibold">{{ board.title }}</span>
+                    </div>
+                    <small class="text-muted">{{ board.tasks.count }} Aufgabe{{ board.tasks.count|pluralize:",n" }}</small>
+                </div>
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-muted mb-4">Noch keine persönlichen Boards.</p>
+    {% endif %}
+
+    {% if not dept_boards and not team_boards and not personal_boards %}
+    <div class="text-center py-5 text-muted">
+        <i class="bi bi-kanban" style="font-size:3rem;"></i>
+        <h5 class="mt-3 fw-bold">Noch keine Boards</h5>
+        <p>Erstelle dein erstes Board oder warte bis dein Abteilungsleiter eines anlegt.</p>
+    </div>
+    {% endif %}
+
+</div>
+
+<!-- Modal: Neues Board -->
+<div class="modal fade" id="newBoardModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="/tasks/board/new/" class="modal-content">
+            {% csrf_token %}
+            <div class="modal-header border-0 pb-0">
+                <h6 class="modal-title fw-bold">Neues Board</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Name</label>
+                    <input type="text" name="title" class="form-control" placeholder="Mein Board" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Farbe</label>
+                    <input type="color" name="color" value="#667eea" class="form-control form-control-color w-100">
+                </div>
+                {% if manageable_depts %}
+                <div class="mb-2">
+                    <label class="form-label small fw-semibold">Für Abteilung <span class="text-muted fw-normal">(optional)</span></label>
+                    <select name="department" class="form-select form-select-sm">
+                        <option value="">— Persönliches Board —</option>
+                        {% for dept in manageable_depts %}
+                        <option value="{{ dept.pk }}">{{ dept.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text">Abteilungs-Boards sind für alle Mitglieder der Abteilung sichtbar.</div>
+                </div>
+                {% endif %}
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="submit" class="btn btn-primary w-100 rounded-pill">Erstellen</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.board-card { transition: transform .15s, box-shadow .15s; }
+.board-card:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,.1) !important; }
+</style>

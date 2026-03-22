@@ -31,7 +31,10 @@
       "Bash(git:*)",
       "Bash(cd:*)",
       "Bash(/c/Users/aborowczak/PycharmProjects/Cloude/.venv/Scripts/pip install:*)",
-      "Bash(file:*)"
+      "Bash(file:*)",
+      "Bash(find /c/Users/aborowczak/PycharmProjects/Cloude/cloudservice -path */templates/accounts/* -type f)",
+      "Bash(find C:/Users/aborowczak/PycharmProjects/Cloude/cloudservice/templates -name *help* -o -name *hilfe*)",
+      "Bash(find C:/Users/aborowczak/PycharmProjects/Cloude/cloudservice -name *help* -o -name *hilfe*)"
     ]
   }
 }

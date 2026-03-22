@@ -43,6 +43,11 @@ class HookRegistry:
         if hook_name not in self._hooks:
             self._hooks[hook_name] = []
 
+        # Keine doppelte Registrierung derselben Handler-Klasse
+        if any(h['handler'] is handler for h in self._hooks[hook_name]):
+            logger.debug(f"Hook {hook_name}/{handler.__name__} already registered, skipping duplicate")
+            return
+
         self._hooks[hook_name].append({
             'handler': handler,
             'priority': priority,

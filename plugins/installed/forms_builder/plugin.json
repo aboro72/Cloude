@@ -1,0 +1,21 @@
+{
+  "name": "Forms Builder",
+  "slug": "forms-builder",
+  "version": "1.0.0",
+  "author": "CloudService Team",
+  "description": "Drag-Drop Formular-Builder für Umfragen und IT-Anfragen.",
+  "django_app": {
+    "app_config": "forms_builder.apps.FormsBuilderConfig"
+  },
+  "hooks": {
+    "ui_menu_item": {
+      "handler": "forms_builder.providers.FormsMenuProvider",
+      "priority": 60
+    },
+    "ui_app_page": {
+      "handler": "forms_builder.providers.FormsPageProvider",
+      "priority": 60,
+      "slug": "forms"
+    }
+  }
+}

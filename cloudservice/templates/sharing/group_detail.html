@@ -118,6 +118,9 @@
                 {% endfor %}
                 <a href="{% url 'sharing:team_news_list' group.id %}" class="btn btn-outline-light">News</a>
                 {% if can_manage_site %}
+                    <a href="{% url 'sharing:team_news_create' group.id %}" class="btn btn-light">
+                        <i class="bi bi-plus-lg me-1"></i>Neue Team-News
+                    </a>
                     <a href="{% url 'sharing:group_edit' group.id %}" class="btn btn-outline-light">Team Site bearbeiten</a>
                 {% endif %}
             </div>

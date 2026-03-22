@@ -1,0 +1,213 @@
+{% extends 'base.html' %}
+{% block title %}Gruppen & Berechtigungen – CloudService{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+
+    <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
+        <div>
+            <h2 class="fw-black mb-1"><i class="bi bi-shield-lock me-2" style="color:var(--primary-color);"></i>Gruppen & Berechtigungen</h2>
+            <div class="text-muted small">Weist Nutzern Rollen zu, die bestimmen, was sie im System tun dürfen.</div>
+        </div>
+    </div>
+
+    <!-- Group overview cards -->
+    <div class="row g-3 mb-5">
+        {% for gd in group_data %}
+        <div class="col-12">
+            <div class="card border rounded-4" id="group-card-{{ gd.group.pk }}">
+                <div class="card-header border-bottom px-4 py-3 bg-white rounded-top-4 d-flex align-items-center justify-content-between gap-2 flex-wrap">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge rounded-pill px-3 py-2 fw-semibold fs-6"
+                              style="background:{% cycle '#667eea' '#764ba2' '#4facfe' '#43e97b' '#f6d365' %};color:#fff;">
+                            {{ gd.group.name }}
+                        </span>
+                        <span class="text-muted small" id="member-count-{{ gd.group.pk }}">{{ gd.members|length }} Nutzer</span>
+                        <span class="text-muted small">· {{ gd.permissions|length }} Berechtigungen</span>
+                    </div>
+                    <!-- Add user to group -->
+                    <div class="d-flex gap-2 align-items-center">
+                        <select class="form-select form-select-sm rounded-pill" style="max-width:220px;" id="user-select-{{ gd.group.pk }}">
+                            <option value="">Nutzer hinzufügen…</option>
+                            {% for u in all_users %}
+                            <option value="{{ u.pk }}">{{ u.get_full_name|default:u.username }} ({{ u.username }})</option>
+                            {% endfor %}
+                        </select>
+                        <button class="btn btn-sm btn-primary rounded-pill px-3"
+                                onclick="addMember({{ gd.group.pk }}, '{{ gd.group.name|escapejs }}')">
+                            <i class="bi bi-plus-lg"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card-body p-4">
+                    <div class="row g-4">
+
+                        <!-- Members -->
+                        <div class="col-md-7">
+                            <h6 class="fw-semibold mb-3 text-muted text-uppercase" style="font-size:.7rem;letter-spacing:.08em;">Mitglieder</h6>
+                            <div id="members-{{ gd.group.pk }}">
+                                {% if gd.members %}
+                                {% for u in gd.members %}
+                                <div class="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill border mb-2 me-2 bg-white member-chip"
+                                     id="chip-{{ gd.group.pk }}-{{ u.pk }}">
+                                    <div class="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold flex-shrink-0"
+                                         style="width:24px;height:24px;font-size:.65rem;background:linear-gradient(135deg,#667eea,#764ba2);">
+                                        {{ u.username|slice:":1"|upper }}
+                                    </div>
+                                    <span class="small">{{ u.get_full_name|default:u.username }}</span>
+                                    {% if u.is_staff %}<span class="badge bg-warning text-dark" style="font-size:.6rem;">Admin</span>{% endif %}
+                                    <button class="btn btn-link btn-sm p-0 text-danger ms-1"
+                                            onclick="removeMember({{ gd.group.pk }}, {{ u.pk }}, '{{ gd.group.name|escapejs }}', '{{ u.username|escapejs }}')"
+                                            title="Aus Gruppe entfernen">
+                                        <i class="bi bi-x"></i>
+                                    </button>
+                                </div>
+                                {% endfor %}
+                                {% else %}
+                                <p class="text-muted small" id="empty-{{ gd.group.pk }}">Noch keine Nutzer in dieser Gruppe.</p>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Permissions -->
+                        <div class="col-md-5">
+                            <h6 class="fw-semibold mb-3 text-muted text-uppercase" style="font-size:.7rem;letter-spacing:.08em;">Berechtigungen</h6>
+                            {% if gd.permissions %}
+                            <div class="d-flex flex-wrap gap-1">
+                                {% for p in gd.permissions %}
+                                <span class="badge bg-light text-dark border rounded-pill px-2" style="font-size:.68rem;" title="{{ p.name }}">
+                                    {{ p.content_type.model }}.{{ p.codename }}
+                                </span>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <p class="text-muted small">Keine speziellen Berechtigungen (Lese-Zugang).</p>
+                            {% endif %}
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="alert alert-warning rounded-4">
+                Noch keine Gruppen vorhanden. Bitte führe <code>python manage.py setup_groups</code> aus.
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Legend -->
+    <div class="card border rounded-4 bg-light">
+        <div class="card-body px-4 py-3">
+            <h6 class="fw-bold mb-2"><i class="bi bi-info-circle me-1"></i>Berechtigungsübersicht</h6>
+            <div class="row g-2 small text-muted">
+                <div class="col-md-4">
+                    <strong class="text-dark">Administratoren</strong><br>
+                    Volles App-Zugriff: Abteilungen erstellen/löschen, Team-Sites verwalten, News schreiben, Nutzer-Gruppen verwalten.
+                </div>
+                <div class="col-md-4">
+                    <strong class="text-dark">Abteilungsleiter</strong><br>
+                    Abteilungen erstellen &amp; verwalten, Mitglieder pflegen, Team-Sites erstellen, News schreiben.
+                </div>
+                <div class="col-md-4">
+                    <strong class="text-dark">Redakteure</strong><br>
+                    News-Artikel erstellen, bearbeiten und löschen. Kein Zugang zur Abteilungs- oder Team-Site-Verwaltung.
+                </div>
+                <div class="col-md-4">
+                    <strong class="text-dark">Team-Manager</strong><br>
+                    Team-Sites erstellen und verwalten, Team-News schreiben.
+                </div>
+                <div class="col-md-4">
+                    <strong class="text-dark">Mitarbeiter</strong><br>
+                    Standard-Mitglied: Lesen, Kommentieren, eigene Dateien hochladen. Keine Admin-Funktionen.
+                </div>
+                <div class="col-md-4">
+                    <strong class="text-dark">Hinweis</strong><br>
+                    Nutzer mit aktivem <code>is_staff</code>-Flag im Django-Admin haben automatisch alle Rechte — unabhängig von Gruppen.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-area" class="position-fixed bottom-0 end-0 p-3" style="z-index:9999;"></div>
+</div>
+
+<script>
+var MANAGE_URL = "{% url 'accounts:group_management' %}";
+var CSRF = "{{ csrf_token }}";
+
+function showToast(msg, isErr) {
+    var area = document.getElementById('toast-area');
+    var t = document.createElement('div');
+    t.className = 'toast align-items-center text-bg-' + (isErr ? 'danger' : 'success') + ' border-0 show mb-2';
+    t.innerHTML = '<div class="d-flex"><div class="toast-body">' + msg + '</div>'
+                + '<button type="button" class="btn-close btn-close-white me-2 m-auto"></button></div>';
+    t.querySelector('button').onclick = function() { t.remove(); };
+    area.appendChild(t);
+    setTimeout(function() { t.remove(); }, 3500);
+}
+
+function postAction(payload, cb) {
+    fetch(MANAGE_URL, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+        body: JSON.stringify(payload),
+    }).then(function(r) { return r.json(); }).then(cb).catch(function() {
+        showToast('Netzwerkfehler', true);
+    });
+}
+
+function addMember(groupId, groupName) {
+    var sel = document.getElementById('user-select-' + groupId);
+    var userId = sel.value;
+    if (!userId) return;
+    var userName = sel.options[sel.selectedIndex].text;
+
+    postAction({action: 'add', group_id: groupId, user_id: userId}, function(data) {
+        if (!data.ok) { showToast(data.error || 'Fehler', true); return; }
+
+        // Add chip
+        var container = document.getElementById('members-' + groupId);
+        var empty = document.getElementById('empty-' + groupId);
+        if (empty) empty.remove();
+
+        var chip = document.createElement('div');
+        chip.className = 'd-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill border mb-2 me-2 bg-white member-chip';
+        chip.id = 'chip-' + groupId + '-' + userId;
+        chip.innerHTML = '<div class="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold flex-shrink-0" '
+            + 'style="width:24px;height:24px;font-size:.65rem;background:linear-gradient(135deg,#667eea,#764ba2);">'
+            + data.full_name.charAt(0).toUpperCase() + '</div>'
+            + '<span class="small">' + data.full_name + '</span>'
+            + '<button class="btn btn-link btn-sm p-0 text-danger ms-1" title="Aus Gruppe entfernen"'
+            + ' onclick="removeMember(' + groupId + ',' + userId + ',\'' + groupName.replace("'","\\'") + '\',\'' + data.username.replace("'","\\'") + '\')">'
+            + '<i class="bi bi-x"></i></button>';
+        container.appendChild(chip);
+
+        // Update count
+        var cnt = document.getElementById('member-count-' + groupId);
+        var n = parseInt(cnt.textContent) + 1;
+        cnt.textContent = n + ' Nutzer';
+
+        sel.value = '';
+        showToast('„' + data.full_name + '" zu ' + groupName + ' hinzugefügt.', false);
+    });
+}
+
+function removeMember(groupId, userId, groupName, username) {
+    postAction({action: 'remove', group_id: groupId, user_id: userId}, function(data) {
+        if (!data.ok) { showToast(data.error || 'Fehler', true); return; }
+        var chip = document.getElementById('chip-' + groupId + '-' + userId);
+        if (chip) chip.remove();
+
+        var cnt = document.getElementById('member-count-' + groupId);
+        var n = Math.max(0, parseInt(cnt.textContent) - 1);
+        cnt.textContent = n + ' Nutzer';
+
+        showToast('„' + data.full_name + '" aus ' + groupName + ' entfernt.', false);
+    });
+}
+</script>
+{% endblock %}

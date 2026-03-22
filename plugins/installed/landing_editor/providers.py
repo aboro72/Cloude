@@ -1,6 +1,7 @@
 import json
 from django.urls import reverse
 from plugins.ui import PluginMenuItemProvider, PluginPageProvider
+from plugins.status import is_plugin_enabled
 
 DEFAULTS = {
     "color_primary": "#667eea",
@@ -97,7 +98,11 @@ class LandingEditorMenuProvider(PluginMenuItemProvider):
         return reverse('core:plugin_app', kwargs={'slug': 'landing-editor'})
 
     def is_visible(self, request) -> bool:
-        return request.user.is_authenticated and request.user.is_staff
+        return (
+            request.user.is_authenticated
+            and request.user.is_staff
+            and is_plugin_enabled('landing-editor')
+        )
 
 
 class LandingEditorPageProvider(PluginPageProvider):
@@ -109,7 +114,7 @@ class LandingEditorPageProvider(PluginPageProvider):
         return 'landing_editor/builder.html'
 
     def is_visible(self, request) -> bool:
-        return request.user.is_staff
+        return request.user.is_staff and is_plugin_enabled('landing-editor')
 
     def get_context(self, request) -> dict:
         settings_data = get_landing_settings()

@@ -19,6 +19,8 @@
                     <a href="#settings" class="list-group-item list-group-item-action">Plugin-Einstellungen</a>
                     <a href="#hooks" class="list-group-item list-group-item-action">Hook-System</a>
                     <a href="#templates" class="list-group-item list-group-item-action">Templates</a>
+                    <a href="#permissions-dev" class="list-group-item list-group-item-action">Berechtigungssystem</a>
+                    <a href="#departments-dev" class="list-group-item list-group-item-action">Abteilungen & Teams</a>
                     <a href="#example" class="list-group-item list-group-item-action">Beispiel-Plugin</a>
                     <a href="{% url 'core:help' %}" class="list-group-item list-group-item-action">
                         <i class="bi bi-arrow-left me-1"></i>Zurück zur Hilfe
@@ -323,6 +325,176 @@ class MeinPluginConfig(AppConfig):
                             <li><code>request</code> - HTTP Request</li>
                             <li><code>user</code> - Aktueller Benutzer</li>
                         </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Permissions Dev -->
+            <section id="permissions-dev" class="mb-5">
+                <h2><i class="bi bi-shield-lock me-2"></i>Berechtigungssystem</h2>
+                <div class="card">
+                    <div class="card-body">
+                        <p>CloudService kombiniert Django-Gruppen, modellbasierte Custom Permissions und objektspezifische Rollenprüfungen.</p>
+
+                        <h5>Ebenen des Berechtigungssystems</h5>
+                        <div class="alert alert-warning py-2 mb-3">
+                            <i class="bi bi-exclamation-triangle me-1"></i>
+                            <code>is_staff</code> gewährt <strong>keine</strong> App-Rechte. Nur <code>is_superuser</code> oder Mitgliedschaft in der Gruppe <strong>Administratoren</strong> (via <code>has_perm()</code>) schaltet erweiterte Funktionen frei.
+                        </div>
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-light"><tr><th>Ebene</th><th>Wie geprüft</th><th>Anwendung</th></tr></thead>
+                            <tbody>
+                                <tr><td><code>is_superuser</code></td><td>Django-built-in (alle Perms = True)</td><td>Gruppen-Verwaltung, Django-Admin</td></tr>
+                                <tr><td>Django-Gruppe / Permission</td><td><code>user.has_perm('app.codename')</code></td><td>Feature-spezifische Freigaben</td></tr>
+                                <tr><td>Abteilungsrolle</td><td><code>dept.user_can_manage(user)</code></td><td>Pro-Abteilung-Aktionen</td></tr>
+                                <tr><td>Team-Site-Rolle</td><td><code>share.user_can_manage(user)</code></td><td>Pro-Team-Site-Aktionen</td></tr>
+                            </tbody>
+                        </table>
+
+                        <h5 class="mt-4">Custom Permissions</h5>
+                        <p>Folgende App-Permissions sind verfügbar:</p>
+<pre class="bg-dark text-light p-3 rounded"><code># Abteilungen
+'departments.create_department'      # Abteilungen erstellen
+'departments.manage_any_department'  # Beliebige Abteilung verwalten
+
+# Team-Sites
+'sharing.create_groupshare'          # Team-Site erstellen
+'sharing.manage_any_groupshare'      # Beliebige Team-Site verwalten
+
+# News
+'news.add_newsarticle'               # Artikel erstellen
+'news.change_newsarticle'            # Artikel bearbeiten
+'news.delete_newsarticle'            # Artikel löschen</code></pre>
+
+                        <h5 class="mt-4">Permissions in Views prüfen</h5>
+<pre class="bg-dark text-light p-3 rounded"><code># In einer View: kombinierte Prüfung
+def dispatch(self, request, *args, **kwargs):
+    if not (request.user.is_staff
+            or request.user.has_perm('departments.create_department')):
+        return render(request, '403.html', {
+            'error_message': 'Kein Zugriff.',
+        }, status=403)
+    return super().dispatch(request, *args, **kwargs)
+
+# Modell-Methode nutzen (empfohlen für objekt-spezifische Prüfung)
+dept = Department.objects.get(slug=slug)
+if not dept.user_can_manage(request.user):
+    return HttpResponseForbidden()
+
+# user_can_manage() prüft intern:
+# is_staff OR has_perm('manage_any_department')
+# OR head == user OR membership.role in ['manager', 'head']</code></pre>
+
+                        <h5 class="mt-4">Permissions in Templates</h5>
+<pre class="bg-dark text-light p-3 rounded"><code">{% raw %}{% if user.is_staff or perms.departments.create_department %}
+    &lt;a href="{% url 'departments:create' %}"&gt;Neue Abteilung&lt;/a&gt;
+{% endif %}
+
+{% if can_manage %}
+    &lt;!-- can_manage kommt aus dem View-Kontext (dept.user_can_manage) --&gt;
+    &lt;button&gt;Mitglieder verwalten&lt;/button&gt;
+{% endif %}{% endraw %}</code></pre>
+
+                        <h5 class="mt-4">Gruppen programmatisch verwalten</h5>
+<pre class="bg-dark text-light p-3 rounded"><code>from django.contrib.auth.models import Group, User
+
+# Nutzer zur Gruppe hinzufügen
+group = Group.objects.get(name='Redakteure')
+user = User.objects.get(username='max')
+group.user_set.add(user)
+
+# Prüfen ob Nutzer in Gruppe
+user.groups.filter(name='Abteilungsleiter').exists()
+
+# Alle Gruppen eines Nutzers
+user.groups.values_list('name', flat=True)
+
+# Gruppen neu aufsetzen (idempotent)
+# python manage.py setup_groups</code></pre>
+
+                        <h5 class="mt-4">Eigene Custom Permission hinzufügen</h5>
+<pre class="bg-dark text-light p-3 rounded"><code># In models.py – Meta.permissions
+class MeinModel(models.Model):
+    ...
+    class Meta:
+        permissions = [
+            ('meine_aktion', 'Beschreibung der Aktion'),
+        ]
+
+# Migration erstellen:
+# python manage.py makemigrations
+
+# In setup_groups.py eintragen, damit die Permission der Gruppe zugewiesen wird
+GROUPS = {
+    'Administratoren': {
+        'meine_app.meinmodel': ['meine_aktion', ...],
+    },
+    ...
+}</code></pre>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Departments Dev -->
+            <section id="departments-dev" class="mb-5">
+                <h2><i class="bi bi-building me-2"></i>Abteilungen & Team-Sites (API)</h2>
+                <div class="card">
+                    <div class="card-body">
+                        <h5>Modelle</h5>
+<pre class="bg-dark text-light p-3 rounded"><code>from departments.models import Department, DepartmentMembership
+from sharing.models import GroupShare
+
+# Alle Abteilungen eines Nutzers
+from django.db.models import Q
+depts = Department.objects.filter(
+    Q(head=user) | Q(memberships__user=user)
+).distinct()
+
+# Mitgliedschaft anlegen
+DepartmentMembership.objects.get_or_create(
+    department=dept,
+    user=user,
+    defaults={'role': 'member'},
+)
+
+# Team-Sites einer Abteilung
+dept.team_sites.filter(is_active=True)
+
+# Kann dieser User die Abteilung verwalten?
+dept.user_can_manage(request.user)  # True/False</code></pre>
+
+                        <h5 class="mt-4">AJAX-Endpunkte (Departments)</h5>
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-light"><tr><th>URL</th><th>Methode</th><th>Beschreibung</th></tr></thead>
+                            <tbody>
+                                <tr><td><code>/departments/&lt;slug&gt;/mitglieder/hinzufuegen/</code></td><td>POST JSON</td><td>Mitglied hinzufügen / Rolle aktualisieren</td></tr>
+                                <tr><td><code>/departments/&lt;slug&gt;/mitglieder/entfernen/</code></td><td>POST JSON</td><td>Mitglied entfernen</td></tr>
+                                <tr><td><code>/departments/&lt;slug&gt;/mitglieder/rolle/</code></td><td>POST JSON</td><td>Rolle eines Mitglieds ändern</td></tr>
+                                <tr><td><code>/departments/&lt;slug&gt;/team-sites/</code></td><td>GET / POST JSON</td><td>Team-Sites zuweisen/entfernen</td></tr>
+                                <tr><td><code>/accounts/gruppen/</code></td><td>GET / POST JSON</td><td>Nutzer Gruppen zuweisen/entfernen</td></tr>
+                            </tbody>
+                        </table>
+
+                        <h5 class="mt-4">Beispiel: Mitglied per AJAX hinzufügen</h5>
+<pre class="bg-dark text-light p-3 rounded"><code">fetch('/departments/marketing/mitglieder/hinzufuegen/', {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrfToken,
+    },
+    body: JSON.stringify({ user_id: 42, role: 'manager' }),
+})
+.then(r => r.json())
+.then(data => {
+    // data.ok, data.full_name, data.role_label, data.created
+});</code></pre>
+
+                        <h5 class="mt-4">setup_groups aufrufen</h5>
+<pre class="bg-dark text-light p-3 rounded"><code># Gruppen einmalig (oder nach Modell-Änderung) einrichten:
+python manage.py setup_groups
+
+# Ausgabe zeigt welche Gruppen erstellt/aktualisiert wurden
+# und wie viele Berechtigungen/Nutzer pro Gruppe vorhanden sind.</code></pre>
                     </div>
                 </div>
             </section>

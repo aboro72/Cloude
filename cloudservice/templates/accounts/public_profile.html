@@ -1,0 +1,150 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ viewed_user.get_full_name|default:viewed_user.username }} – CloudService{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="max-width:860px;">
+
+    <a href="/core/apps/people/" class="btn btn-sm btn-outline-secondary mb-4">
+        <i class="bi bi-arrow-left me-1"></i>Verzeichnis
+    </a>
+
+    <!-- Profil-Hero -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body p-4">
+            <div class="d-flex align-items-center gap-4 flex-wrap">
+                <!-- Avatar -->
+                {% if viewed_profile and viewed_profile.avatar %}
+                    <img src="{{ viewed_profile.avatar.url }}"
+                         class="rounded-circle object-fit-cover flex-shrink-0"
+                         style="width:96px;height:96px;" alt="{{ viewed_user.username }}">
+                {% else %}
+                    <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center
+                                text-white fw-bold flex-shrink-0"
+                         style="width:96px;height:96px;font-size:2.2rem;">
+                        {{ viewed_user.first_name|first|upper|default:viewed_user.username|first|upper }}
+                    </div>
+                {% endif %}
+
+                <div class="flex-grow-1">
+                    <h4 class="mb-0">{{ viewed_user.get_full_name|default:viewed_user.username }}</h4>
+
+                    {% if viewed_profile %}
+                        {% if viewed_profile.job_title %}
+                            <div class="text-muted fs-6">{{ viewed_profile.job_title }}</div>
+                        {% endif %}
+                        <div class="d-flex flex-wrap gap-2 mt-2">
+                            {% if viewed_profile.department %}
+                                <span class="badge bg-primary bg-opacity-10 text-primary">
+                                    <i class="bi bi-building me-1"></i>{{ viewed_profile.department }}
+                                </span>
+                            {% endif %}
+                            {% if viewed_profile.location %}
+                                <span class="badge bg-secondary bg-opacity-10 text-secondary">
+                                    <i class="bi bi-geo-alt me-1"></i>{{ viewed_profile.location }}
+                                </span>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Kontakt-Buttons -->
+                <div class="d-flex flex-column gap-2">
+                    {% if viewed_user.email %}
+                        <a href="mailto:{{ viewed_user.email }}" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-envelope me-1"></i>E-Mail
+                        </a>
+                    {% endif %}
+                    {% if viewed_profile and viewed_profile.phone_number %}
+                        <a href="tel:{{ viewed_profile.phone_number }}" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-telephone me-1"></i>{{ viewed_profile.phone_number }}
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+
+        <!-- Bio -->
+        {% if viewed_profile and viewed_profile.bio %}
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body px-4 py-3">
+                    <h6 class="text-muted text-uppercase small mb-2">Über mich</h6>
+                    <p class="mb-0">{{ viewed_profile.bio }}</p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Manager -->
+        {% if viewed_profile and viewed_profile.manager %}
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body px-4 py-3">
+                    <h6 class="text-muted text-uppercase small mb-3">Vorgesetzter</h6>
+                    <a href="/accounts/profile/{{ viewed_profile.manager.username }}/"
+                       class="d-flex align-items-center gap-3 text-decoration-none text-dark">
+                        {% with mgr=viewed_profile.manager %}
+                        {% if mgr.profile.avatar %}
+                            <img src="{{ mgr.profile.avatar.url }}"
+                                 class="rounded-circle object-fit-cover"
+                                 style="width:48px;height:48px;" alt="{{ mgr.username }}">
+                        {% else %}
+                            <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center
+                                        text-white fw-bold"
+                                 style="width:48px;height:48px;font-size:1.1rem;">
+                                {{ mgr.first_name|first|upper|default:mgr.username|first|upper }}
+                            </div>
+                        {% endif %}
+                        <div>
+                            <div class="fw-semibold">{{ mgr.get_full_name|default:mgr.username }}</div>
+                            {% if mgr.profile.job_title %}<small class="text-muted">{{ mgr.profile.job_title }}</small>{% endif %}
+                        </div>
+                        {% endwith %}
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Direkte Berichte -->
+        {% if direct_reports %}
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body px-4 py-3">
+                    <h6 class="text-muted text-uppercase small mb-3">
+                        Team ({{ direct_reports|length }})
+                    </h6>
+                    <div class="d-flex flex-column gap-2">
+                        {% for report in direct_reports %}
+                        <a href="/accounts/profile/{{ report.username }}/"
+                           class="d-flex align-items-center gap-2 text-decoration-none text-dark">
+                            {% if report.profile.avatar %}
+                                <img src="{{ report.profile.avatar.url }}"
+                                     class="rounded-circle object-fit-cover"
+                                     style="width:36px;height:36px;" alt="{{ report.username }}">
+                            {% else %}
+                                <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center
+                                            text-white fw-bold"
+                                     style="width:36px;height:36px;font-size:.85rem;">
+                                    {{ report.first_name|first|upper|default:report.username|first|upper }}
+                                </div>
+                            {% endif %}
+                            <div>
+                                <div class="small fw-semibold">{{ report.get_full_name|default:report.username }}</div>
+                                {% if report.profile.job_title %}<div class="text-muted" style="font-size:.75rem;">{{ report.profile.job_title }}</div>{% endif %}
+                            </div>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+{% endblock %}

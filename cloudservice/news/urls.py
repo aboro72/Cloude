@@ -6,6 +6,7 @@ app_name = 'news'
 
 urlpatterns = [
     path('', views.NewsListView.as_view(), name='news_list'),
+    path('api/list/', views.NewsListJsonView.as_view(), name='news_list_json'),
     path('create/', views.NewsCreateView.as_view(), name='news_create'),
     path('comment/add/', views.AddCommentView.as_view(), name='add_comment'),
     path('reaction/toggle/', views.ToggleReactionView.as_view(), name='toggle_reaction'),

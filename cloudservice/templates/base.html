@@ -295,7 +295,57 @@
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
+                {% if user.is_authenticated %}
+                <!-- Globale Suche -->
+                <form method="get" action="{% url 'core:search' %}" class="d-flex me-3 position-relative" id="navbar-search-form">
+                    <div class="input-group" style="width:260px;">
+                        <span class="input-group-text bg-white bg-opacity-10 border-0 text-white-50">
+                            <i class="bi bi-search"></i>
+                        </span>
+                        <input
+                            type="search"
+                            name="q"
+                            id="navbar-search-input"
+                            placeholder="Suchen..."
+                            autocomplete="off"
+                            class="form-control bg-white bg-opacity-10 border-0 text-white"
+                            style="color:white !important;"
+                        >
+                    </div>
+                    <div id="search-dropdown" class="position-absolute bg-white rounded-3 shadow-lg border"
+                         style="top:calc(100% + 6px);left:0;right:0;z-index:1055;display:none;max-height:360px;overflow-y:auto;">
+                    </div>
+                </form>
+                {% endif %}
+                <ul class="navbar-nav ms-auto align-items-center">
+                    {% if user.is_authenticated %}
+                    <!-- Bell-Icon -->
+                    <li class="nav-item dropdown me-1">
+                        <a class="nav-link position-relative" href="#" id="notifDropdown" role="button"
+                           data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-bell fs-5"></i>
+                            <span id="notif-badge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+                                  style="font-size:.6rem;display:none;">0</span>
+                        </a>
+                        <div class="dropdown-menu dropdown-menu-end shadow border-0 p-0"
+                             style="width:340px;max-height:420px;overflow-y:auto;" id="notif-dropdown-menu">
+                            <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom">
+                                <strong class="small">Benachrichtigungen</strong>
+                                <button class="btn btn-link btn-sm p-0 text-muted small" id="notif-mark-all">
+                                    Alle gelesen
+                                </button>
+                            </div>
+                            <div id="notif-list">
+                                <div class="text-center text-muted py-4 small">Wird geladen…</div>
+                            </div>
+                            <div class="border-top text-center py-2">
+                                <a href="{% url 'core:notifications_list' %}" class="small text-primary">
+                                    Alle anzeigen <i class="bi bi-arrow-right"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </li>
+                    {% endif %}
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'core:help' %}"><i class="bi bi-question-circle me-1"></i>Hilfe</a>
                     </li>
@@ -306,9 +356,11 @@
                         <li class="nav-item">
                             <a class="nav-link" href="/storage/">📁 Dateien</a>
                         </li>
+                        {% if mysite_enabled %}
                         <li class="nav-item">
                             <a class="nav-link" href="{% url 'news:news_list' %}"><i class="bi bi-newspaper me-1"></i>News</a>
                         </li>
+                        {% endif %}
                         {% for plugin_item in plugin_menu_items %}
                         <li class="nav-item">
                             <a class="nav-link" href="{{ plugin_item.url }}">
@@ -325,8 +377,9 @@
                                 <li><a class="dropdown-item" href="/accounts/settings/">Einstellungen</a></li>
                                 {% if user.is_superuser %}
                                     <li><hr class="dropdown-divider"></li>
-                                    <li><a class="dropdown-item" href="/settings/">⚙️ Admin Settings</a></li>
-                                    <li><a class="dropdown-item" href="/admin/">🔧 Django Admin</a></li>
+                                    <li><a class="dropdown-item" href="{% url 'accounts:group_management' %}"><i class="bi bi-shield-lock me-2"></i>Gruppen & Berechtigungen</a></li>
+                                    <li><a class="dropdown-item" href="/settings/"><i class="bi bi-gear me-2"></i>Admin Settings</a></li>
+                                    <li><a class="dropdown-item" href="/admin/"><i class="bi bi-wrench me-2"></i>Django Admin</a></li>
                                 {% endif %}
                                 <li><hr class="dropdown-divider"></li>
                                 <li>
@@ -389,5 +442,152 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     {% block extra_js %}{% endblock %}
+
+    {% if user.is_authenticated %}
+    <!-- Notifications JS -->
+    <script>
+    (function () {
+        const badge   = document.getElementById('notif-badge');
+        const list    = document.getElementById('notif-list');
+        const markAll = document.getElementById('notif-mark-all');
+        const menu    = document.getElementById('notif-dropdown-menu');
+        if (!badge) return;
+
+        const typeIcons = {
+            share: 'bi-share',
+            unshare: 'bi-x-circle',
+            permission_change: 'bi-shield',
+            storage_limit: 'bi-hdd',
+            file_deleted: 'bi-trash',
+            comment: 'bi-chat-left-text',
+            news: 'bi-newspaper',
+            mention: 'bi-at',
+            team_news: 'bi-people',
+        };
+
+        function loadBadge() {
+            fetch('{% url "core:notifications_count" %}')
+                .then(r => r.json())
+                .then(d => {
+                    if (d.count > 0) {
+                        badge.textContent = d.count > 99 ? '99+' : d.count;
+                        badge.style.display = '';
+                    } else {
+                        badge.style.display = 'none';
+                    }
+                });
+        }
+
+        function loadDropdown() {
+            fetch('{% url "core:notifications_dropdown" %}')
+                .then(r => r.json())
+                .then(d => {
+                    if (!d.notifications.length) {
+                        list.innerHTML = '<div class="text-center text-muted py-4 small">Keine Benachrichtigungen</div>';
+                        return;
+                    }
+                    list.innerHTML = d.notifications.map(n => {
+                        const icon = typeIcons[n.notification_type] || 'bi-bell';
+                        const unread = !n.is_read ? 'fw-semibold' : '';
+                        const dot = !n.is_read ? '<span class="text-primary me-1">●</span>' : '';
+                        const href = n.url || '#';
+                        return `<a href="${href}" class="d-flex align-items-start gap-2 px-3 py-2 text-decoration-none text-dark notif-item ${unread}"
+                                   data-id="${n.id}">
+                            <i class="bi ${icon} text-primary mt-1 flex-shrink-0"></i>
+                            <div class="overflow-hidden">
+                                <div class="text-truncate">${dot}${n.title}</div>
+                                ${n.message ? `<small class="text-muted text-truncate d-block">${n.message}</small>` : ''}
+                                <small class="text-muted">${n.created_at}</small>
+                            </div>
+                        </a>`;
+                    }).join('');
+                    // Badge update
+                    badge.textContent = d.unread > 99 ? '99+' : d.unread;
+                    badge.style.display = d.unread > 0 ? '' : 'none';
+                });
+        }
+
+        // Dropdown beim Öffnen befüllen
+        document.getElementById('notifDropdown').addEventListener('show.bs.dropdown', loadDropdown);
+
+        // Badge alle 60s aktualisieren
+        loadBadge();
+        setInterval(loadBadge, 60000);
+
+        // Alle als gelesen
+        if (markAll) {
+            markAll.addEventListener('click', function (e) {
+                e.preventDefault();
+                fetch('{% url "core:notifications_mark_all" %}', {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+                }).then(() => { badge.style.display = 'none'; loadDropdown(); });
+            });
+        }
+    })();
+    </script>
+
+    <!-- Search Autocomplete JS -->
+    <script>
+    (function () {
+        const input = document.getElementById('navbar-search-input');
+        const dropdown = document.getElementById('search-dropdown');
+        if (!input) return;
+
+        const typeIcons = { file: 'bi-file-earmark', news: 'bi-newspaper', person: 'bi-person' };
+        const typeLabels = { file: 'Datei', news: 'News', person: 'Person' };
+        let timer;
+
+        input.addEventListener('input', function () {
+            clearTimeout(timer);
+            const q = this.value.trim();
+            if (q.length < 2) { dropdown.style.display = 'none'; return; }
+            timer = setTimeout(() => fetchSuggestions(q), 220);
+        });
+
+        input.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') { dropdown.style.display = 'none'; }
+        });
+
+        document.addEventListener('click', function (e) {
+            if (!document.getElementById('navbar-search-form').contains(e.target)) {
+                dropdown.style.display = 'none';
+            }
+        });
+
+        function fetchSuggestions(q) {
+            fetch(`{% url 'core:search_suggest' %}?q=${encodeURIComponent(q)}`)
+                .then(r => r.json())
+                .then(data => renderSuggestions(data.suggestions, q));
+        }
+
+        function renderSuggestions(items, q) {
+            if (!items.length) { dropdown.style.display = 'none'; return; }
+            dropdown.innerHTML = items.map(item => {
+                const icon = typeIcons[item.type] || 'bi-search';
+                const label = typeLabels[item.type] || '';
+                const hl = item.label.replace(new RegExp(`(${q})`, 'gi'), '<mark>$1</mark>');
+                return `<a href="${item.url}" class="d-flex align-items-center gap-2 px-3 py-2 text-decoration-none text-dark search-suggest-item">
+                    <i class="bi ${icon} text-muted flex-shrink-0"></i>
+                    <span class="flex-grow-1 text-truncate">${hl}</span>
+                    <small class="text-muted">${label}</small>
+                </a>`;
+            }).join('') +
+            `<div class="border-top px-3 py-2">
+                <a href="{% url 'core:search' %}?q=${encodeURIComponent(input.value)}" class="text-primary small">
+                    Alle Ergebnisse anzeigen <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>`;
+            dropdown.style.display = 'block';
+        }
+    })();
+    </script>
+    <style>
+    #navbar-search-input::placeholder { color: rgba(255,255,255,0.5) !important; }
+    #navbar-search-input { color: white !important; }
+    .search-suggest-item:hover { background: #f8f9fa; }
+    .search-suggest-item mark { background: #fff3cd; border-radius: 2px; padding: 0 2px; }
+    </style>
+    {% endif %}
 </body>
 </html>

@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+{% block title %}{{ form.title }} – CloudService{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="max-width:680px;">
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body px-4 py-4">
+            <h4 class="fw-bold mb-1">{{ form.title }}</h4>
+            {% if form.description %}
+            <p class="text-muted">{{ form.description }}</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        {% for field in fields %}
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-body px-4 py-3">
+                <label class="form-label fw-semibold">
+                    {{ field.label }}
+                    {% if field.required %}<span class="text-danger ms-1">*</span>{% endif %}
+                </label>
+
+                {% if field.field_type == 'text' %}
+                    <input type="text" name="field_{{ field.pk }}" class="form-control"
+                           placeholder="{{ field.placeholder }}"
+                           {% if field.required %}required{% endif %}>
+
+                {% elif field.field_type == 'textarea' %}
+                    <textarea name="field_{{ field.pk }}" class="form-control" rows="3"
+                              placeholder="{{ field.placeholder }}"
+                              {% if field.required %}required{% endif %}></textarea>
+
+                {% elif field.field_type == 'date' %}
+                    <input type="date" name="field_{{ field.pk }}" class="form-control"
+                           {% if field.required %}required{% endif %}>
+
+                {% elif field.field_type == 'select' %}
+                    <select name="field_{{ field.pk }}" class="form-select"
+                            {% if field.required %}required{% endif %}>
+                        <option value="">– Bitte auswählen –</option>
+                        {% for choice in field.get_choices %}
+                        <option value="{{ choice }}">{{ choice }}</option>
+                        {% endfor %}
+                    </select>
+
+                {% elif field.field_type == 'radio' %}
+                    {% for choice in field.get_choices %}
+                    <div class="form-check">
+                        <input type="radio" name="field_{{ field.pk }}" value="{{ choice }}"
+                               class="form-check-input" id="r_{{ field.pk }}_{{ forloop.counter }}"
+                               {% if field.required %}required{% endif %}>
+                        <label class="form-check-label" for="r_{{ field.pk }}_{{ forloop.counter }}">{{ choice }}</label>
+                    </div>
+                    {% endfor %}
+
+                {% elif field.field_type == 'checkbox' %}
+                    {% for choice in field.get_choices %}
+                    <div class="form-check">
+                        <input type="checkbox" name="field_{{ field.pk }}" value="{{ choice }}"
+                               class="form-check-input" id="cb_{{ field.pk }}_{{ forloop.counter }}">
+                        <label class="form-check-label" for="cb_{{ field.pk }}_{{ forloop.counter }}">{{ choice }}</label>
+                    </div>
+                    {% endfor %}
+
+                {% elif field.field_type == 'scale' %}
+                    <div class="d-flex gap-3 mt-1 align-items-center flex-wrap">
+                        <span class="text-muted small">1 – Schlecht</span>
+                        {% for i in "12345" %}
+                        <div class="form-check form-check-inline">
+                            <input type="radio" name="field_{{ field.pk }}" value="{{ i }}"
+                                   class="form-check-input" id="s_{{ field.pk }}_{{ i }}"
+                                   {% if field.required %}required{% endif %}>
+                            <label class="form-check-label fw-semibold" for="s_{{ field.pk }}_{{ i }}">{{ i }}</label>
+                        </div>
+                        {% endfor %}
+                        <span class="text-muted small">5 – Sehr gut</span>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+
+        <button type="submit" class="btn btn-primary w-100 py-2 mt-2">
+            <i class="bi bi-send me-2"></i>Einreichen
+        </button>
+    </form>
+</div>
+{% endblock %}

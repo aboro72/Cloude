@@ -14,7 +14,11 @@
                 <div class="list-group list-group-flush">
                     <a href="#getting-started" class="list-group-item list-group-item-action">Erste Schritte</a>
                     <a href="#files" class="list-group-item list-group-item-action">Dateiverwaltung</a>
-                    <a href="#sharing" class="list-group-item list-group-item-action">Teilen</a>
+                    <a href="#sharing" class="list-group-item list-group-item-action">Teilen & öffentliche Links</a>
+                    <a href="#team-sites" class="list-group-item list-group-item-action">Team-Sites</a>
+                    <a href="#departments" class="list-group-item list-group-item-action">Abteilungen</a>
+                    <a href="#news" class="list-group-item list-group-item-action">News & Nachrichten</a>
+                    <a href="#permissions" class="list-group-item list-group-item-action">Gruppen & Berechtigungen</a>
                     <a href="#dashboard" class="list-group-item list-group-item-action">Dashboard & Widgets</a>
                     <a href="#plugins" class="list-group-item list-group-item-action">Plugins</a>
                     <a href="#settings" class="list-group-item list-group-item-action">Einstellungen</a>
@@ -94,27 +98,241 @@
 
             <!-- Sharing -->
             <section id="sharing" class="mb-5">
-                <h2><i class="bi bi-share me-2"></i>Teilen</h2>
+                <h2><i class="bi bi-share me-2"></i>Teilen & öffentliche Links</h2>
                 <div class="card">
                     <div class="card-body">
-                        <h5>Dateien teilen</h5>
+                        <h5>Dateien mit einem Nutzer teilen</h5>
                         <ol>
-                            <li>Wählen Sie eine Datei aus</li>
+                            <li>Wählen Sie eine Datei oder einen Ordner aus</li>
                             <li>Klicken Sie auf <strong>Teilen</strong></li>
-                            <li>Wählen Sie zwischen:
-                                <ul>
-                                    <li><strong>Mit Benutzer teilen</strong> - Für registrierte Benutzer</li>
-                                    <li><strong>Öffentlicher Link</strong> - Für jeden zugänglich</li>
-                                </ul>
-                            </li>
+                            <li>Wählen Sie den Empfänger und die Berechtigungsstufe</li>
+                            <li>Optionaler persönlicher Begleittext möglich</li>
                         </ol>
 
-                        <h5 class="mt-4">Berechtigungen</h5>
+                        <h5 class="mt-4">Datei-Berechtigungsstufen</h5>
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-light"><tr><th>Stufe</th><th>Was ist erlaubt?</th></tr></thead>
+                            <tbody>
+                                <tr><td><span class="badge bg-secondary">Ansehen</span></td><td>Nur lesen, keine Downloads</td></tr>
+                                <tr><td><span class="badge bg-info text-dark">Download</span></td><td>Lesen und herunterladen</td></tr>
+                                <tr><td><span class="badge bg-primary">Bearbeiten</span></td><td>Lesen, herunterladen, bearbeiten</td></tr>
+                                <tr><td><span class="badge bg-warning text-dark">Löschen</span></td><td>Zusätzlich löschen</td></tr>
+                                <tr><td><span class="badge bg-danger">Admin</span></td><td>Volle Kontrolle inkl. weiterteilen</td></tr>
+                            </tbody>
+                        </table>
+
+                        <h5 class="mt-4">Öffentliche Links</h5>
                         <ul>
-                            <li><strong>Ansehen</strong> - Nur lesen</li>
-                            <li><strong>Bearbeiten</strong> - Lesen und ändern</li>
-                            <li><strong>Verwalten</strong> - Volle Kontrolle inkl. Löschen</li>
+                            <li>Dateien oder Ordner per Link teilen – auch ohne Konto</li>
+                            <li>Optional: <strong>Passwortschutz</strong> für den Link</li>
+                            <li>Optional: <strong>Ablaufdatum</strong> oder maximale Download-Anzahl</li>
+                            <li>Links können jederzeit deaktiviert werden</li>
                         </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Team Sites -->
+            <section id="team-sites" class="mb-5">
+                <h2><i class="bi bi-people-fill me-2"></i>Team-Sites</h2>
+                <div class="card">
+                    <div class="card-body">
+                        <p>Team-Sites sind gemeinsame Arbeitsbereiche für Gruppen – ähnlich wie SharePoint-Teamseiten. Jede Team-Site hat eine eigene Dokumentbibliothek, Neuigkeiten und Mitgliederliste.</p>
+
+                        <h5>Team-Site erstellen</h5>
+                        <div class="alert alert-info py-2">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Benötigt die Gruppe <strong>Team-Manager</strong>, <strong>Abteilungsleiter</strong> oder <strong>Administratoren</strong> – oder <code>is_staff</code>.
+                        </div>
+                        <ol>
+                            <li>Gehen Sie zu <strong>Teilen → Team-Sites</strong></li>
+                            <li>Klicken Sie auf <strong>Neue Team-Site</strong></li>
+                            <li>Vergeben Sie einen Namen und laden Sie Mitglieder ein</li>
+                            <li>Optional: Hintergrundbild oder -video für das Team-Dashboard</li>
+                        </ol>
+
+                        <h5 class="mt-4">Rollen innerhalb einer Team-Site</h5>
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-light"><tr><th>Rolle</th><th>Rechte</th></tr></thead>
+                            <tbody>
+                                <tr><td><strong>Besitzer</strong></td><td>Alle Aktionen: Mitglieder verwalten, Site bearbeiten, löschen</td></tr>
+                                <tr><td><strong>Team-Leader</strong></td><td>Mitglieder verwalten, Inhalte und Neuigkeiten bearbeiten</td></tr>
+                                <tr><td><strong>Mitglied</strong></td><td>Dokumente lesen/hochladen, Neuigkeiten lesen</td></tr>
+                            </tbody>
+                        </table>
+
+                        <h5 class="mt-4">Team-News</h5>
+                        <p>Team-Leader und Besitzer können Neuigkeiten direkt in der Team-Site veröffentlichen. Diese erscheinen auch im persönlichen MySite-Dashboard der Mitglieder.</p>
+
+                        <h5 class="mt-4">Abteilungszuweisung</h5>
+                        <p>Team-Sites können einer <a href="#departments">Abteilung</a> zugeordnet werden. Abteilungsleiter können diese Zuweisung verwalten.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Departments -->
+            <section id="departments" class="mb-5">
+                <h2><i class="bi bi-building me-2"></i>Abteilungen</h2>
+                <div class="card">
+                    <div class="card-body">
+                        <p>Abteilungen strukturieren Ihre Organisation. Jede Abteilung hat einen Leiter, Mitglieder mit Rollen und verknüpfte Team-Sites.</p>
+
+                        <h5>Abteilung erstellen</h5>
+                        <div class="alert alert-info py-2">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Benötigt die Gruppe <strong>Abteilungsleiter</strong> oder <strong>Administratoren</strong> – oder <code>is_staff</code>.
+                        </div>
+                        <ol>
+                            <li>Gehen Sie zu <strong>Abteilungen</strong> (Navigation)</li>
+                            <li>Klicken Sie auf <strong>Neue Abteilung</strong></li>
+                            <li>Vergeben Sie Name, Farbe, Symbol und optionalen Abteilungsleiter</li>
+                        </ol>
+
+                        <h5 class="mt-4">Mitglieder-Rollen in Abteilungen</h5>
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-light"><tr><th>Rolle</th><th>Rechte</th></tr></thead>
+                            <tbody>
+                                <tr><td><strong>Abteilungsleiter</strong></td><td>Vollzugriff: Mitglieder verwalten, Team-Sites zuweisen, Abteilung bearbeiten</td></tr>
+                                <tr><td><strong>Manager</strong></td><td>Mitglieder verwalten, Team-Sites zuweisen</td></tr>
+                                <tr><td><strong>Mitglied</strong></td><td>Abteilungsseite ansehen, Team-News lesen</td></tr>
+                            </tbody>
+                        </table>
+
+                        <h5 class="mt-4">Team-Sites zuweisen</h5>
+                        <p>Über <strong>Team-Sites verwalten</strong> auf der Abteilungsseite können Abteilungsleiter und Manager Team-Sites der Abteilung zuordnen oder entfernen. Nicht zugewiesene Team-Sites werden ebenfalls angezeigt.</p>
+
+                        <h5 class="mt-4">Abteilung löschen</h5>
+                        <div class="alert alert-warning py-2">
+                            <i class="bi bi-exclamation-triangle me-1"></i>
+                            Das Löschen einer Abteilung entfernt auch alle Mitgliedschaften. Zugewiesene Team-Sites bleiben bestehen, verlieren aber die Abteilungszuweisung.
+                            Benötigt die Gruppe <strong>Administratoren</strong> oder <code>is_staff</code>.
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- News -->
+            <section id="news" class="mb-5">
+                <h2><i class="bi bi-newspaper me-2"></i>News & Nachrichten</h2>
+                <div class="card">
+                    <div class="card-body">
+                        <p>CloudService hat zwei Arten von Nachrichten: <strong>Globale News</strong> für das gesamte Unternehmen und <strong>Team-News</strong> für einzelne Team-Sites.</p>
+
+                        <h5>Globale News erstellen</h5>
+                        <div class="alert alert-info py-2">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Benötigt die Gruppe <strong>Redakteure</strong>, <strong>Abteilungsleiter</strong> oder <strong>Administratoren</strong> – oder <code>is_staff</code>.
+                        </div>
+                        <ol>
+                            <li>Gehen Sie zu <strong>News</strong> in der Navigation</li>
+                            <li>Klicken Sie auf <strong>Neuer Artikel</strong></li>
+                            <li>Füllen Sie Titel, Inhalt, Kategorie und optionales Titelbild aus</li>
+                            <li>Wählen Sie ob der Artikel sofort oder zu einem bestimmten Datum veröffentlicht wird</li>
+                        </ol>
+
+                        <h5 class="mt-4">Team-News</h5>
+                        <p>Team-Leader und Site-Besitzer können direkt aus der Team-Site heraus Nachrichten verfassen. Diese sind nur für Mitglieder der Site sichtbar und erscheinen im MySite-Dashboard.</p>
+
+                        <h5 class="mt-4">Kommentare & Reaktionen</h5>
+                        <ul>
+                            <li>Alle eingeloggten Nutzer können Artikel kommentieren</li>
+                            <li>Reaktionen (z.B. Like, Herz) sind mit einem Klick möglich</li>
+                            <li>Kommentare unterstützen Antworten (Threading)</li>
+                        </ul>
+
+                        <h5 class="mt-4">Kategorien</h5>
+                        <p>Kategorien können von Redakteuren und Administratoren angelegt werden und helfen bei der Filterung im News-Bereich.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Permissions -->
+            <section id="permissions" class="mb-5">
+                <h2><i class="bi bi-shield-lock me-2"></i>Gruppen & Berechtigungen</h2>
+                <div class="card">
+                    <div class="card-body">
+                        <p>CloudService nutzt ein rollenbasiertes Berechtigungssystem mit <strong>Django-Gruppen</strong>. Jeder Nutzer kann Mitglied einer oder mehrerer Gruppen sein.</p>
+
+                        <div class="alert alert-info py-2 mb-4">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Die Gruppen-Verwaltung ist erreichbar über: <strong>Benutzermenü → Gruppen & Berechtigungen</strong> (nur für Superuser sichtbar).
+                        </div>
+
+                        <h5>Standard-Gruppen</h5>
+                        <table class="table table-bordered">
+                            <thead class="table-light">
+                                <tr><th>Gruppe</th><th>Was darf diese Gruppe?</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="badge rounded-pill bg-danger px-3">Administratoren</span></td>
+                                    <td>
+                                        Alle App-Funktionen: Abteilungen erstellen &amp; löschen, beliebige Abteilungen verwalten,
+                                        beliebige Team-Sites verwalten, News schreiben &amp; löschen, Kategorien verwalten.
+                                        <br><small class="text-muted">Entspricht funktional dem <code>is_staff</code>-Flag auf App-Ebene.</small>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><span class="badge rounded-pill bg-primary px-3">Abteilungsleiter</span></td>
+                                    <td>
+                                        Abteilungen erstellen &amp; bearbeiten, Mitgliedschaften verwalten,
+                                        Team-Sites erstellen, News-Artikel schreiben &amp; bearbeiten.
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><span class="badge rounded-pill bg-success px-3">Redakteure</span></td>
+                                    <td>
+                                        News-Artikel erstellen, bearbeiten, löschen und Kategorien verwalten.
+                                        Kein Zugriff auf Abteilungen oder Team-Site-Verwaltung.
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><span class="badge rounded-pill bg-info text-dark px-3">Team-Manager</span></td>
+                                    <td>
+                                        Team-Sites erstellen und bearbeiten, Team-News schreiben.
+                                        Kein Zugriff auf Abteilungsverwaltung.
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><span class="badge rounded-pill bg-secondary px-3">Mitarbeiter</span></td>
+                                    <td>
+                                        Standardzugang: Inhalte lesen, kommentieren, eigene Dateien hochladen.
+                                        Keine Verwaltungsfunktionen.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h5 class="mt-4">Nutzer einer Gruppe zuweisen</h5>
+                        <ol>
+                            <li>Öffnen Sie <strong>Gruppen & Berechtigungen</strong> (Benutzermenü, nur Staff)</li>
+                            <li>Wählen Sie bei der gewünschten Gruppe im Dropdown den Nutzer aus</li>
+                            <li>Klicken Sie auf <strong>+</strong> – der Nutzer wird sofort hinzugefügt</li>
+                            <li>Zum Entfernen: X-Schaltfläche neben dem Nutzer-Chip</li>
+                        </ol>
+
+                        <h5 class="mt-4">Wichtige Hinweise</h5>
+                        <ul>
+                            <li>Die Gruppen-Verwaltung ist <strong>nur für Superuser</strong> zugänglich.</li>
+                            <li>Das <code>is_staff</code>-Flag allein gewährt <strong>keine</strong> App-Rechte mehr. Nur Mitglieder der Gruppe <strong>Administratoren</strong> (oder Superuser) haben erweiterten Zugriff.</li>
+                            <li>Ein Nutzer kann in mehreren Gruppen gleichzeitig Mitglied sein. Die Berechtigungen addieren sich.</li>
+                            <li>Innerhalb einer Abteilung oder Team-Site gelten zusätzlich die dortigen <strong>Rollen</strong> (Abteilungsleiter, Manager, Mitglied / Besitzer, Team-Leader).</li>
+                            <li>Gruppen können mit <code>python manage.py setup_groups</code> neu erstellt oder aktualisiert werden.</li>
+                        </ul>
+
+                        <h5 class="mt-4">Beziehung: Gruppen vs. Abteilungsrollen</h5>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                    <tr><th>Berechtigungsebene</th><th>Gilt für</th><th>Wo vergeben?</th></tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td>Django-Gruppe</td><td>Gesamtes System</td><td>Gruppen & Berechtigungen (Staff)</td></tr>
+                                    <tr><td>Abteilungsrolle (Leiter/Manager/Mitglied)</td><td>Genau diese Abteilung</td><td>Abteilungsseite → Mitglieder</td></tr>
+                                    <tr><td>Team-Site-Rolle (Besitzer/Team-Leader/Mitglied)</td><td>Genau diese Team-Site</td><td>Team-Site → Mitglieder verwalten</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -180,12 +398,14 @@
                             <li><strong>Theme</strong> - Hell/Dunkel/Auto</li>
                         </ul>
 
-                        <h5 class="mt-4">Admin-Einstellungen</h5>
-                        <p>Nur für Administratoren:</p>
+                        <h5 class="mt-4">Admin-Einstellungen (Staff)</h5>
+                        <p>Nur für Nutzer mit Staff-Zugang:</p>
                         <ul>
-                            <li><strong>Plugin-Verwaltung</strong> - Plugins aktivieren/deaktivieren</li>
-                            <li><strong>Benutzer-Verwaltung</strong> - Im Django Admin</li>
-                            <li><strong>System-Einstellungen</strong> - Erweiterte Konfiguration</li>
+                            <li><strong>Gruppen & Berechtigungen</strong> - Nutzer Rollen zuweisen (<a href="#permissions">Details</a>)</li>
+                            <li><strong>Plugin-Verwaltung</strong> - Plugins aktivieren/deaktivieren/konfigurieren</li>
+                            <li><strong>Landing-Editor</strong> - Startseite visuell bearbeiten (GrapesJS)</li>
+                            <li><strong>Benutzer-Verwaltung</strong> - Im Django Admin (<code>/admin/</code>)</li>
+                            <li><strong>System-Einstellungen</strong> - Erweiterte Konfiguration (<code>/settings/</code>)</li>
                         </ul>
                     </div>
                 </div>
