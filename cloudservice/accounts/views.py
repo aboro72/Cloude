@@ -21,6 +21,7 @@ from django.views import View
 from django.http import JsonResponse
 from accounts.models import UserProfile
 from accounts.forms import AppearanceSettingsForm
+from core.navigation import get_authenticated_home_url
 import logging
 
 logger = logging.getLogger(__name__)
@@ -32,17 +33,19 @@ class LoginView(DjangoLoginView):
     """User login"""
     template_name = 'accounts/login.html'
     redirect_authenticated_user = False
-    success_url = reverse_lazy('core:plugin_app', kwargs={'slug': 'mysite'})
 
     def get(self, request, *args, **kwargs):
         """Handle GET requests - show login form"""
         if request.user.is_authenticated:
-            return redirect(self.success_url)
+            return redirect(self.get_success_url())
         return super().get(request, *args, **kwargs)
 
     def form_valid(self, form):
         """Called when login form is valid"""
         return super().form_valid(form)
+
+    def get_success_url(self):
+        return get_authenticated_home_url(self.request)
 
 
 class LogoutView(View):

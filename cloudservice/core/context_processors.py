@@ -1,4 +1,5 @@
 from plugins.hooks import UI_MENU_ITEM, hook_registry
+from plugins.status import is_plugin_enabled
 
 
 def plugin_menu_items(request):
@@ -17,4 +18,7 @@ def plugin_menu_items(request):
             continue
 
     items.sort(key=lambda item: item.get('order', 100))
-    return {'plugin_menu_items': items}
+    return {
+        'plugin_menu_items': items,
+        'mysite_enabled': is_plugin_enabled('mysite-hub'),
+    }

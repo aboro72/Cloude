@@ -77,7 +77,7 @@ class Command(BaseCommand):
 
                 size_kb = zip_path.stat().st_size / 1024
                 self.stdout.write(
-                    self.style.SUCCESS(f'  Packaged: {name} v{version}  →  {zip_name}  ({size_kb:.1f} KB)')
+                    self.style.SUCCESS(f'  Packaged: {name} v{version}  ->  {zip_name}  ({size_kb:.1f} KB)')
                 )
                 packaged.append(zip_path)
 

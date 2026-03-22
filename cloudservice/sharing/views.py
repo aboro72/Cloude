@@ -16,6 +16,7 @@ from django.utils import timezone
 from sharing.models import UserShare, PublicLink, GroupShare, ShareLog, TeamSiteNews
 from sharing.forms import TeamSiteNewsForm
 from core.models import ActivityLog, StorageFile, StorageFolder
+from core.navigation import get_optional_plugin_app_url
 import logging
 
 logger = logging.getLogger(__name__)
@@ -318,8 +319,10 @@ class GroupDetailView(LoginRequiredMixin, DetailView):
         context['quick_links'] = [
             {'label': 'Dateibibliothek oeffnen', 'url': reverse_lazy('storage:folder', kwargs={'folder_id': library.id}) if library else reverse_lazy('storage:file_list')},
             {'label': 'Geteilte Inhalte', 'url': reverse_lazy('sharing:shared_with_me')},
-            {'label': 'MySite Hub', 'url': reverse_lazy('core:plugin_app', kwargs={'slug': 'mysite'})},
         ]
+        mysite_url = get_optional_plugin_app_url('mysite', request=self.request)
+        if mysite_url:
+            context['quick_links'].append({'label': 'MySite Hub', 'url': mysite_url})
         return context
 
 

@@ -3,6 +3,7 @@ from django.urls import reverse, reverse_lazy
 
 from core.models import ActivityLog, StorageFile, StorageFolder
 from plugins.ui import PluginMenuItemProvider, PluginPageProvider
+from plugins.status import is_plugin_enabled
 from sharing.models import GroupShare, UserShare
 
 
@@ -13,6 +14,9 @@ class MySiteMenuProvider(PluginMenuItemProvider):
 
     def get_url(self) -> str:
         return reverse('core:plugin_app', kwargs={'slug': 'mysite'})
+
+    def is_visible(self, request) -> bool:
+        return request.user.is_authenticated and is_plugin_enabled('mysite-hub')
 
 
 def get_mysite_plugin_settings():

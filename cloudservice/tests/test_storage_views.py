@@ -6,11 +6,13 @@ from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db.models import Model as DjangoModel
+from django.test import RequestFactory
 from django.test import TestCase
 from django.urls import reverse
 
 from accounts.admin import UserProfileAdminForm
 from accounts.models import UserProfile
+from core.context_processors import plugin_menu_items
 from core.models import StorageFile, StorageFolder
 from sharing.models import GroupShare
 from sharing.models import TeamSiteNews
@@ -21,6 +23,7 @@ class StorageViewsTest(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username='storage-test', password='secret123')
         self.client.force_login(self.user)
+        self.factory = RequestFactory()
         self.root_folder = StorageFolder.objects.create(
             owner=self.user,
             parent=None,
@@ -39,11 +42,29 @@ class StorageViewsTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, child_folder.name)
 
-    def test_home_redirects_authenticated_user_to_mysite(self):
+    def test_home_redirects_authenticated_user_to_storage_when_no_plugin_home_exists(self):
         response = self.client.get(reverse('home'))
 
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response['Location'], '/core/apps/mysite/')
+        self.assertEqual(response['Location'], reverse('storage:file_list'))
+
+    def test_mysite_plugin_url_redirects_to_storage_when_plugin_is_disabled(self):
+        response = self.client.get(reverse('core:plugin_app', kwargs={'slug': 'mysite'}))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response['Location'], reverse('storage:file_list'))
+
+    def test_disabled_landing_editor_and_mysite_hide_menu_items(self):
+        self.user.is_staff = True
+        self.user.save(update_fields=['is_staff'])
+        request = self.factory.get('/')
+        request.user = self.user
+
+        items = plugin_menu_items(request)['plugin_menu_items']
+
+        labels = [item['label'] for item in items]
+        self.assertNotIn('Landingpage', labels)
+        self.assertNotIn('Abteilungen', labels)
 
     def test_groups_list_page_renders(self):
         response = self.client.get(reverse('sharing:groups_list'))

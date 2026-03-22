@@ -1,6 +1,7 @@
 from django.urls import reverse
 
 from plugins.ui import PluginMenuItemProvider
+from plugins.status import is_plugin_enabled
 
 
 class DepartmentMenuProvider(PluginMenuItemProvider):
@@ -10,3 +11,6 @@ class DepartmentMenuProvider(PluginMenuItemProvider):
 
     def get_url(self) -> str:
         return reverse('departments:list')
+
+    def is_visible(self, request) -> bool:
+        return request.user.is_authenticated and is_plugin_enabled('mysite-hub')

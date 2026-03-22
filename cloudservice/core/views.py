@@ -10,6 +10,7 @@ from django.contrib import messages
 from django.http import Http404
 from pathlib import Path
 from core.models import ActivityLog
+from core.navigation import DEFAULT_PLUGIN_APP_SLUG, get_authenticated_home_url
 from plugins.hooks import hook_registry, UI_DASHBOARD_WIDGET, UI_APP_PAGE
 import logging
 
@@ -42,7 +43,7 @@ def home(request):
     - Eingeloggt        → MySite Hub
     """
     if request.user.is_authenticated:
-        return redirect('core:plugin_app', slug='mysite')
+        return redirect(get_authenticated_home_url(request))
     try:
         from landing_editor.providers import get_landing_settings
         lp = get_landing_settings()
@@ -456,10 +457,14 @@ class PluginAppPageView(LoginRequiredMixin, TemplateView):
         slug = kwargs['slug']
         handlers = hook_registry.get_handlers(UI_APP_PAGE, slug=slug)
         if not handlers:
+            if slug == DEFAULT_PLUGIN_APP_SLUG:
+                return redirect(get_authenticated_home_url(request))
             raise Http404('Plugin page not found')
 
         provider = handlers[0]()
         if not provider.is_visible(request):
+            if slug == DEFAULT_PLUGIN_APP_SLUG:
+                return redirect(get_authenticated_home_url(request))
             raise Http404('Plugin page not available')
 
         context = provider.render(request)
