@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from core.mongodb import get_collection, is_available
+from core.mongodb import get_collection, is_available, mongo_write_enabled
 
 
 ACTIVITY_TYPE_LABELS = {
@@ -15,6 +15,13 @@ ACTIVITY_TYPE_LABELS = {
     'create_folder': 'Create Folder',
     'permission_change': 'Permission Change',
 }
+
+
+
+def _get_mongo_collection(collection_name, *, write=False):
+    if write and not mongo_write_enabled(collection_name):
+        return None
+    return get_collection(collection_name)
 
 
 @dataclass
@@ -172,7 +179,7 @@ def build_plugin_log_document(instance):
 
 
 def upsert_activity_log(instance):
-    collection = get_collection('activity_logs')
+    collection = _get_mongo_collection('activity_logs', write=True)
     if collection is None:
         return False
     document = build_activity_log_document(instance)
@@ -181,7 +188,7 @@ def upsert_activity_log(instance):
 
 
 def upsert_notification(instance):
-    collection = get_collection('notifications')
+    collection = _get_mongo_collection('notifications', write=True)
     if collection is None:
         return False
     document = build_notification_document(instance)
@@ -190,7 +197,7 @@ def upsert_notification(instance):
 
 
 def upsert_audit_log(instance):
-    collection = get_collection('account_audit_logs')
+    collection = _get_mongo_collection('account_audit_logs', write=True)
     if collection is None:
         return False
     document = build_audit_log_document(instance)
@@ -199,7 +206,7 @@ def upsert_audit_log(instance):
 
 
 def upsert_team_news(instance):
-    collection = get_collection('team_news')
+    collection = _get_mongo_collection('team_news', write=True)
     if collection is None:
         return False
     document = build_team_news_document(instance)
@@ -208,7 +215,7 @@ def upsert_team_news(instance):
 
 
 def upsert_plugin_log(instance):
-    collection = get_collection('plugin_logs')
+    collection = _get_mongo_collection('plugin_logs', write=True)
     if collection is None:
         return False
     document = build_plugin_log_document(instance)
@@ -217,7 +224,7 @@ def upsert_plugin_log(instance):
 
 
 def log_search_event(*, user=None, query='', source='web', results=None):
-    collection = get_collection('search_events')
+    collection = _get_mongo_collection('search_events', write=True)
     if collection is None:
         return False
     profile = getattr(user, 'profile', None) if user else None
@@ -237,7 +244,7 @@ def log_search_event(*, user=None, query='', source='web', results=None):
 def get_user_activity_entries(user, limit=200):
     if not is_available():
         return []
-    collection = get_collection('activity_logs')
+    collection = _get_mongo_collection('activity_logs')
     if collection is None:
         return []
     rows = collection.find({'user_id': user.id}).sort('created_at', -1).limit(limit)
@@ -262,7 +269,7 @@ def get_user_activity_entries(user, limit=200):
 def get_plugin_log_entries(limit=50):
     if not is_available():
         return []
-    collection = get_collection('plugin_logs')
+    collection = _get_mongo_collection('plugin_logs')
     if collection is None:
         return []
     rows = collection.find().sort('created_at', -1).limit(limit)

@@ -181,7 +181,7 @@ USE_TZ = True
 LANGUAGES = [
     ('de', 'Deutsch'),
     ('en', 'English'),
-    ('fr', 'Français'),
+    ('fr', 'FranÃ§ais'),
 ]
 LOCALE_PATHS = [
     os.path.join(CLOUDSERVICE_DIR, 'locale'),
@@ -208,8 +208,8 @@ COLLABORA_ACCESS_TOKEN_TTL = config('COLLABORA_ACCESS_TOKEN_TTL', default=3600, 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # ========== MongoDB Configuration (optional) ==========
-# Wenn MONGODB_ENABLED=False oder keine Verbindung möglich → stiller Fallback,
-# die App läuft normal mit SQLite/PostgreSQL weiter.
+# Wenn MONGODB_ENABLED=False oder keine Verbindung mÃ¶glich â†’ stiller Fallback,
+# die App lÃ¤uft normal mit SQLite/PostgreSQL weiter.
 MONGODB_ENABLED = config('MONGODB_ENABLED', default=True, cast=bool)
 MONGODB_URI = config('MONGODB_URI', default='')
 MONGODB_HOST = config('MONGODB_HOST', default='212.44.166.234')
@@ -220,6 +220,11 @@ MONGODB_PASSWORD = config('MONGODB_PASSWORD', default='')
 MONGODB_AUTH_SOURCE = config('MONGODB_AUTH_SOURCE', default='cloudservice')
 MONGODB_CONNECT_TIMEOUT_MS = config('MONGODB_CONNECT_TIMEOUT_MS', default=3000, cast=int)
 MONGODB_SERVER_SELECTION_TIMEOUT_MS = config('MONGODB_SERVER_SELECTION_TIMEOUT_MS', default=3000, cast=int)
+MONGODB_DNS_NAMESERVERS = config('MONGODB_DNS_NAMESERVERS', default='')
+MONGODB_DNS_TIMEOUT_MS = config('MONGODB_DNS_TIMEOUT_MS', default=3000, cast=int)
+MONGODB_DNS_LIFETIME_MS = config('MONGODB_DNS_LIFETIME_MS', default=10000, cast=int)
+MONGODB_COLLECTION_PREFIX = config('MONGODB_COLLECTION_PREFIX', default='cloudservice_')
+MONGODB_WRITE_COLLECTIONS = config('MONGODB_WRITE_COLLECTIONS', default='activity_logs,account_audit_logs,plugin_logs')
 
 # ========== REST Framework Configuration ==========
 REST_FRAMEWORK = {
@@ -328,8 +333,8 @@ CHANNEL_LAYERS = {
 }
 
 # ========== File Upload Configuration ==========
-FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760   # 10 MB – darüber schreibt Django auf Disk statt RAM
-DATA_UPLOAD_MAX_MEMORY_SIZE = None       # Kein Limit für Upload-Daten
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760   # 10 MB â€“ darÃ¼ber schreibt Django auf Disk statt RAM
+DATA_UPLOAD_MAX_MEMORY_SIZE = None       # Kein Limit fÃ¼r Upload-Daten
 FILE_UPLOAD_PERMISSIONS = 0o644
 FILE_UPLOAD_DIRECTORY_PERMISSIONS = 0o755
 
