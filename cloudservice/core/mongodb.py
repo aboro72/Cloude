@@ -26,6 +26,10 @@ def _build_uri() -> str:
     from django.conf import settings
     from urllib.parse import quote_plus
 
+    explicit_uri = getattr(settings, 'MONGODB_URI', '')
+    if explicit_uri:
+        return explicit_uri
+
     user = getattr(settings, 'MONGODB_USER', '')
     password = getattr(settings, 'MONGODB_PASSWORD', '')
     host = getattr(settings, 'MONGODB_HOST', 'localhost')
@@ -62,7 +66,7 @@ def _init_client():
         _client = client
         _available = True
         logger.info(
-            "MongoDB verbunden → %s:%s / db=%s",
+            "MongoDB verbunden -> %s:%s / db=%s",
             settings.MONGODB_HOST, settings.MONGODB_PORT, settings.MONGODB_DB,
         )
     except (ConnectionFailure, ServerSelectionTimeoutError, Exception) as exc:
@@ -128,6 +132,6 @@ def ping() -> dict:
     try:
         from django.conf import settings
         get_db().command('ping')
-        return {'ok': True, 'info': f"MongoDB OK → {settings.MONGODB_HOST}:{settings.MONGODB_PORT}/{settings.MONGODB_DB}"}
+        return {'ok': True, 'info': f"MongoDB OK -> {settings.MONGODB_HOST}:{settings.MONGODB_PORT}/{settings.MONGODB_DB}"}
     except Exception as exc:
         return {'ok': False, 'info': str(exc)}

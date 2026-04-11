@@ -61,12 +61,12 @@
 {% block content %}
 <div class="container">
     <div class="mb-3 d-flex align-items-center gap-2">
-        <a href="{% url 'sharing:team_news_list' group.id %}" class="text-decoration-none text-muted small">
+        <a href="{% url 'sharing:team_news_list' group.company.slug group.id %}" class="text-decoration-none text-muted small">
             <i class="bi bi-arrow-left me-1"></i>Zurück zu News
         </a>
         {% if can_manage_site %}
             <span class="text-muted">|</span>
-            <a href="{% url 'sharing:team_news_edit' group.id news.id %}" class="text-decoration-none small">
+            <a href="{% url 'sharing:team_news_edit' group.company.slug group.id news.id %}" class="text-decoration-none small">
                 <i class="bi bi-pencil me-1"></i>Bearbeiten
             </a>
         {% endif %}

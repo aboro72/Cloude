@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block title %}{% if object %}Firma bearbeiten{% else %}Neue Firma{% endif %} - CloudService{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="max-width:860px;">
+    <div class="card border rounded-4">
+        <div class="card-header">
+            <h4 class="mb-0">{% if object %}Firma bearbeiten{% else %}Neue Firma{% endif %}</h4>
+        </div>
+        <div class="card-body p-4">
+            <form method="post">
+                {% csrf_token %}
+                {% if form.non_field_errors %}
+                <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+                {% endif %}
+                <div class="row g-3">
+                    {% for field in form %}
+                    <div class="col-12 {% if field.name == 'name' or field.name == 'domain' or field.name == 'owner' or field.name == 'employee_limit' or field.name == 'is_active' %}col-md-6{% endif %}">
+                        <label class="form-label fw-semibold">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                        {% if field.errors %}<div class="text-danger small mt-1">{{ field.errors|join:", " }}</div>{% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="d-flex justify-content-end gap-2 mt-4">
+                    {% if object %}
+                    <a href="{% url 'departments:company_detail' object.slug %}" class="btn btn-outline-secondary rounded-pill px-4">Abbrechen</a>
+                    {% else %}
+                    <a href="{% url 'departments:company_list' %}" class="btn btn-outline-secondary rounded-pill px-4">Abbrechen</a>
+                    {% endif %}
+                    <button type="submit" class="btn btn-primary rounded-pill px-4">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

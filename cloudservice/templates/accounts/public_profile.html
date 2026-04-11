@@ -34,9 +34,14 @@
                             <div class="text-muted fs-6">{{ viewed_profile.job_title }}</div>
                         {% endif %}
                         <div class="d-flex flex-wrap gap-2 mt-2">
-                            {% if viewed_profile.department %}
+                            {% if viewed_profile.company %}
                                 <span class="badge bg-primary bg-opacity-10 text-primary">
-                                    <i class="bi bi-building me-1"></i>{{ viewed_profile.department }}
+                                    <i class="bi bi-buildings me-1"></i>{{ viewed_profile.company.name }}
+                                </span>
+                            {% endif %}
+                            {% if viewed_profile.area_name %}
+                                <span class="badge bg-primary bg-opacity-10 text-primary">
+                                    <i class="bi bi-building me-1"></i>{{ viewed_profile.area_name }}
                                 </span>
                             {% endif %}
                             {% if viewed_profile.location %}

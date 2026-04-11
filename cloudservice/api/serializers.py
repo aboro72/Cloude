@@ -34,6 +34,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
     storage_used = serializers.SerializerMethodField()
     storage_remaining = serializers.SerializerMethodField()
     storage_used_percentage = serializers.SerializerMethodField()
+    company_name = serializers.CharField(source='company.name', read_only=True)
+    area_name = serializers.CharField(source='area_name', read_only=True)
 
     class Meta:
         model = UserProfile
@@ -41,6 +43,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'id', 'role', 'phone_number', 'bio', 'website',
             'language', 'timezone', 'theme', 'storage_quota',
             'storage_used', 'storage_remaining', 'storage_used_percentage',
+            'company', 'company_name', 'department_ref', 'area_name',
             'is_email_verified', 'is_two_factor_enabled', 'is_active'
         ]
         read_only_fields = ['id', 'storage_used', 'storage_remaining', 'storage_used_percentage']
@@ -194,18 +197,36 @@ class PublicLinkSerializer(serializers.ModelSerializer):
         return obj.is_expired()
 
 
-class ActivityLogSerializer(serializers.ModelSerializer):
-    """Serializer for ActivityLog model"""
-    user_username = serializers.CharField(source='user.username', read_only=True)
-    activity_type_display = serializers.CharField(source='get_activity_type_display', read_only=True)
+class ActivityLogSerializer(serializers.Serializer):
+    """Serializer for ActivityLog model and Mongo-backed activity entries."""
+    id = serializers.IntegerField(read_only=True)
+    user = serializers.SerializerMethodField()
+    user_username = serializers.SerializerMethodField()
+    activity_type = serializers.CharField(read_only=True)
+    activity_type_display = serializers.SerializerMethodField()
+    file = serializers.SerializerMethodField()
+    folder = serializers.SerializerMethodField()
+    description = serializers.CharField(read_only=True)
+    ip_address = serializers.CharField(read_only=True)
+    created_at = serializers.DateTimeField(read_only=True)
 
-    class Meta:
-        model = ActivityLog
-        fields = [
-            'id', 'user', 'user_username', 'activity_type', 'activity_type_display',
-            'file', 'folder', 'description', 'ip_address', 'created_at'
-        ]
-        read_only_fields = fields
+    def get_user(self, obj):
+        return getattr(obj, 'user_id', None) or getattr(getattr(obj, 'user', None), 'id', None)
+
+    def get_user_username(self, obj):
+        return getattr(obj, 'username', None) or getattr(getattr(obj, 'user', None), 'username', '')
+
+    def get_activity_type_display(self, obj):
+        display = getattr(obj, 'get_activity_type_display', None)
+        if callable(display):
+            return display()
+        return display or getattr(obj, 'activity_type', '')
+
+    def get_file(self, obj):
+        return getattr(obj, 'file_id', None) or getattr(getattr(obj, 'file', None), 'id', None)
+
+    def get_folder(self, obj):
+        return getattr(obj, 'folder_id', None) or getattr(getattr(obj, 'folder', None), 'id', None)
 
 
 class NotificationSerializer(serializers.ModelSerializer):
@@ -308,11 +329,12 @@ class DepartmentMemberSerializer(serializers.Serializer):
 class DepartmentSerializer(serializers.ModelSerializer):
     head_name = serializers.SerializerMethodField()
     member_count = serializers.IntegerField(read_only=True)
+    company_name = serializers.CharField(source='company.name', read_only=True)
 
     class Meta:
         from departments.models import Department
         model = Department
-        fields = ['id', 'name', 'slug', 'description', 'icon', 'color',
+        fields = ['id', 'company', 'company_name', 'name', 'slug', 'description', 'icon', 'color',
                   'head', 'head_name', 'member_count', 'created_at']
         read_only_fields = ['id', 'slug', 'created_at']
 
@@ -327,11 +349,14 @@ class DepartmentSerializer(serializers.ModelSerializer):
 class GroupShareSerializer(serializers.ModelSerializer):
     owner_name = serializers.CharField(source='owner.username', read_only=True)
     member_count = serializers.SerializerMethodField()
+    company_name = serializers.CharField(source='company.name', read_only=True)
+    department_name = serializers.CharField(source='department.name', read_only=True)
 
     class Meta:
         from sharing.models import GroupShare
         model = GroupShare
-        fields = ['id', 'group_name', 'owner', 'owner_name', 'permission',
+        fields = ['id', 'company', 'company_name', 'department', 'department_name',
+                  'group_name', 'owner', 'owner_name', 'permission',
                   'member_count', 'content_type', 'object_id']
         read_only_fields = ['id', 'owner']
 

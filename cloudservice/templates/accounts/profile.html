@@ -172,6 +172,7 @@
                                     <p class="mb-2 text-white-50">@{{ user.username }}</p>
                                     <div class="d-flex flex-wrap gap-2">
                                         <span class="badge text-bg-light">{{ profile.get_role_display }}</span>
+                                        {% if company %}<span class="badge text-bg-light">{{ company.name }}</span>{% endif %}
                                         <span class="badge text-bg-light">{{ profile.get_theme_display }}</span>
                                         <span class="badge text-bg-light">{{ profile.get_design_variant_display }}</span>
                                     </div>
@@ -228,6 +229,14 @@
                         </div>
                         <div class="card-body">
                             <div class="info-list">
+                                <div class="info-row">
+                                    <span class="info-label">Firma</span>
+                                    <span>{{ company.name|default:"Nicht zugeordnet" }}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Bereich</span>
+                                    <span>{{ area.name|default:"Nicht zugeordnet" }}</span>
+                                </div>
                                 <div class="info-row">
                                     <span class="info-label">E-Mail</span>
                                     <span>{{ user.email|default:"Nicht hinterlegt" }}</span>
@@ -304,6 +313,14 @@
                                 <a href="/accounts/settings/" class="btn btn-primary">
                                     <i class="bi bi-sliders me-2"></i>Einstellungen oeffnen
                                 </a>
+                                {% if company_can_manage %}
+                                <a href="{% url 'departments:company_detail' company.slug %}" class="btn btn-outline-secondary">
+                                    <i class="bi bi-buildings me-2"></i>Firma verwalten
+                                </a>
+                                <a href="{% url 'departments:company_detail' company.slug %}#einladungen" class="btn btn-outline-secondary">
+                                    <i class="bi bi-person-plus me-2"></i>Mitarbeiter einladen
+                                </a>
+                                {% endif %}
                             </div>
                         </div>
                     </div>

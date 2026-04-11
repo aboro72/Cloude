@@ -23,7 +23,7 @@
                             </div>
                         {% endfor %}
                         <button type="submit" class="btn btn-primary">Freigeben</button>
-                        <a href="{% url 'sharing:groups_list' %}" class="btn btn-secondary">Zurueck</a>
+                        <a href="{% url 'sharing:groups_list' group.company.slug %}" class="btn btn-secondary">Zurueck</a>
                     </form>
                 </div>
             </div>

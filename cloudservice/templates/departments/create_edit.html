@@ -1,14 +1,14 @@
 {% extends 'base.html' %}
-{% block title %}{{ page_title }} – CloudService{% endblock %}
+{% block title %}{{ page_title }} - CloudService{% endblock %}
 
 {% block content %}
 <div class="container py-4" style="max-width:760px;">
 
     <nav aria-label="breadcrumb" class="mb-3">
         <ol class="breadcrumb small">
-            <li class="breadcrumb-item"><a href="{% url 'departments:list' %}">Abteilungen</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'departments:list' company.slug %}">Bereiche</a></li>
             {% if object %}
-            <li class="breadcrumb-item"><a href="{% url 'departments:detail' object.slug %}">{{ object.name }}</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'departments:detail' object.company.slug object.slug %}">{{ object.name }}</a></li>
             {% endif %}
             <li class="breadcrumb-item active">{{ page_title }}</li>
         </ol>
@@ -26,94 +26,64 @@
             <div class="alert alert-danger rounded-3">{{ form.non_field_errors }}</div>
             {% endif %}
 
-            <!-- Preview banner -->
             <div class="rounded-4 p-4 mb-4 text-white position-relative overflow-hidden" id="dept-preview"
                  style="background:linear-gradient(135deg,#667eea,#667eeacc);">
                 <div class="d-flex align-items-center gap-3">
                     <i class="bi bi-building" id="preview-icon" style="font-size:2.5rem;opacity:.9;"></i>
                     <div>
-                        <h4 class="fw-bold mb-0" id="preview-name">Abteilungsname</h4>
-                        <div class="small opacity-75" id="preview-desc">Kurzbeschreibung…</div>
+                        <h4 class="fw-bold mb-0" id="preview-name">Bereichsname</h4>
+                        <div class="small opacity-75" id="preview-desc">Kurzbeschreibung...</div>
                     </div>
                 </div>
             </div>
 
             <div class="row g-3">
+                <div class="col-12">
+                    <label class="form-label fw-semibold">Firma</label>
+                    {{ form.company }}
+                    {% if form.company.errors %}<div class="text-danger small mt-1">{{ form.company.errors|join:", " }}</div>{% endif %}
+                </div>
 
-                <!-- Name -->
                 <div class="col-12">
                     <label class="form-label fw-semibold">Name <span class="text-danger">*</span></label>
                     <input type="text" name="name" id="id_name" class="form-control rounded-3{% if form.name.errors %} is-invalid{% endif %}"
-                           value="{{ form.name.value|default:'' }}" placeholder="z.B. Marketing" required>
+                           value="{{ form.name.value|default:'' }}" placeholder="z.B. Vertrieb" required>
                     {% if form.name.errors %}<div class="invalid-feedback">{{ form.name.errors|join:", " }}</div>{% endif %}
                 </div>
 
-                <!-- Description -->
                 <div class="col-12">
                     <label class="form-label fw-semibold">Beschreibung</label>
                     <textarea name="description" id="id_description" rows="3" class="form-control rounded-3"
-                              placeholder="Aufgaben und Fokus dieser Abteilung…">{{ form.description.value|default:'' }}</textarea>
+                              placeholder="Aufgaben und Fokus dieses Bereichs...">{{ form.description.value|default:'' }}</textarea>
                 </div>
 
-                <!-- Icon -->
                 <div class="col-sm-6">
                     <label class="form-label fw-semibold">Symbol</label>
-                    <select name="icon" id="id_icon" class="form-select rounded-3">
-                        {% for css_class, label in icons %}
-                        <option value="{{ css_class }}"
-                            {% if form.icon.value == css_class %}selected{% elif not form.icon.value and css_class == 'bi-building' %}selected{% endif %}>
-                            {{ label }}
-                        </option>
-                        {% endfor %}
-                    </select>
-                    <div class="mt-2 d-flex align-items-center gap-2 text-muted small">
-                        <i class="bi bi-building" id="icon-preview" style="font-size:1.4rem;"></i>
-                        <span id="icon-label-preview">Gebäude</span>
-                    </div>
+                    {{ form.icon }}
                 </div>
 
-                <!-- Color -->
                 <div class="col-sm-6">
                     <label class="form-label fw-semibold">Farbe</label>
-                    <div class="d-flex align-items-center gap-3">
-                        <input type="color" name="color" id="id_color" class="form-control form-control-color rounded-3"
-                               value="{{ form.color.value|default:'#667eea' }}" style="width:56px;height:42px;padding:4px;">
-                        <div class="d-flex flex-wrap gap-2">
-                            {% for hex in '#667eea,#764ba2,#f093fb,#4facfe,#00f2fe,#43e97b,#38f9d7,#fa709a,#fee140,#f6d365,#fd7c3a,#e74c3c,#2ecc71,#3498db,#9b59b6,#1abc9c' %}
-                            <span class="color-dot" data-color="{{ hex }}" title="{{ hex }}"
-                                  style="width:22px;height:22px;border-radius:50%;background:{{ hex }};cursor:pointer;border:2px solid transparent;transition:.15s;"></span>
-                            {% endfor %}
-                        </div>
-                    </div>
+                    {{ form.color }}
                     {% if form.color.errors %}<div class="text-danger small mt-1">{{ form.color.errors|join:", " }}</div>{% endif %}
                 </div>
 
-                <!-- Head (Abteilungsleiter) -->
                 <div class="col-12">
-                    <label class="form-label fw-semibold">Abteilungsleiter</label>
-                    <select name="head" id="id_head" class="form-select rounded-3">
-                        <option value="">— kein Abteilungsleiter —</option>
-                        {% for u in all_users %}
-                        <option value="{{ u.pk }}"
-                            {% if form.head.value|stringformat:"s" == u.pk|stringformat:"s" %}selected{% endif %}>
-                            {{ u.get_full_name|default:u.username }} ({{ u.username }})
-                        </option>
-                        {% endfor %}
-                    </select>
+                    <label class="form-label fw-semibold">Bereichsleitung</label>
+                    {{ form.head }}
                 </div>
-
-            </div><!-- /row -->
+            </div>
 
             <hr class="my-4">
 
             <div class="d-flex gap-2 justify-content-end">
                 {% if object %}
-                <a href="{% url 'departments:detail' object.slug %}" class="btn btn-outline-secondary rounded-pill px-4">Abbrechen</a>
+                <a href="{% url 'departments:detail' object.company.slug object.slug %}" class="btn btn-outline-secondary rounded-pill px-4">Abbrechen</a>
                 {% else %}
-                <a href="{% url 'departments:list' %}" class="btn btn-outline-secondary rounded-pill px-4">Abbrechen</a>
+                <a href="{% url 'departments:list' company.slug %}" class="btn btn-outline-secondary rounded-pill px-4">Abbrechen</a>
                 {% endif %}
                 <button type="submit" class="btn btn-primary rounded-pill px-4">
-                    <i class="bi bi-check-lg me-1"></i>{% if object %}Änderungen speichern{% else %}Abteilung erstellen{% endif %}
+                    <i class="bi bi-check-lg me-1"></i>{% if object %}Aenderungen speichern{% else %}Bereich erstellen{% endif %}
                 </button>
             </div>
 
@@ -123,55 +93,31 @@
 
 <script>
 (function () {
-    var nameEl   = document.getElementById('id_name');
-    var descEl   = document.getElementById('id_description');
-    var iconSel  = document.getElementById('id_icon');
-    var colorEl  = document.getElementById('id_color');
-    var preview  = document.getElementById('dept-preview');
+    var nameEl = document.getElementById('id_name');
+    var descEl = document.getElementById('id_description');
+    var iconSel = document.getElementById('id_icon');
+    var colorEl = document.getElementById('id_color');
+    var preview = document.getElementById('dept-preview');
     var previewIcon = document.getElementById('preview-icon');
     var previewName = document.getElementById('preview-name');
     var previewDesc = document.getElementById('preview-desc');
-    var iconPreview = document.getElementById('icon-preview');
-    var iconLabelPreview = document.getElementById('icon-label-preview');
 
     function updatePreview() {
-        var name  = nameEl.value.trim() || 'Abteilungsname';
-        var desc  = descEl.value.trim() || 'Kurzbeschreibung…';
-        var icon  = iconSel.value || 'bi-building';
-        var color = colorEl.value || '#667eea';
+        var name = nameEl.value.trim() || 'Bereichsname';
+        var desc = descEl.value.trim() || 'Kurzbeschreibung...';
+        var icon = iconSel ? (iconSel.value || 'bi-building') : 'bi-building';
+        var color = colorEl ? (colorEl.value || '#667eea') : '#667eea';
 
         preview.style.background = 'linear-gradient(135deg,' + color + ',' + color + 'cc)';
         previewIcon.className = 'bi ' + icon;
         previewName.textContent = name;
         previewDesc.textContent = desc;
-
-        // small icon preview
-        iconPreview.className = 'bi ' + icon;
-        var selOpt = iconSel.options[iconSel.selectedIndex];
-        iconLabelPreview.textContent = selOpt ? selOpt.text : '';
     }
 
-    nameEl.addEventListener('input', updatePreview);
-    descEl.addEventListener('input', updatePreview);
-    iconSel.addEventListener('change', updatePreview);
-    colorEl.addEventListener('input', updatePreview);
-
-    // Color dots
-    document.querySelectorAll('.color-dot').forEach(function(dot) {
-        dot.addEventListener('click', function() {
-            colorEl.value = this.dataset.color;
-            document.querySelectorAll('.color-dot').forEach(function(d) { d.style.borderColor = 'transparent'; });
-            this.style.borderColor = '#333';
-            updatePreview();
-        });
-    });
-
-    // Highlight current color dot on load
-    var cur = colorEl.value.toLowerCase();
-    document.querySelectorAll('.color-dot').forEach(function(d) {
-        if (d.dataset.color.toLowerCase() === cur) d.style.borderColor = '#333';
-    });
-
+    if (nameEl) nameEl.addEventListener('input', updatePreview);
+    if (descEl) descEl.addEventListener('input', updatePreview);
+    if (iconSel) iconSel.addEventListener('change', updatePreview);
+    if (colorEl) colorEl.addEventListener('input', updatePreview);
     updatePreview();
 })();
 </script>

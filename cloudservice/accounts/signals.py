@@ -6,6 +6,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.contrib.auth.models import User
 from accounts.models import UserProfile, AuditLog
+from core.mongo_audit import upsert_audit_log
 import logging
 
 logger = logging.getLogger(__name__)
@@ -56,3 +57,7 @@ def log_audit_action(sender, instance, created, **kwargs):
             f"Security event: {instance.user.username} - "
             f"{instance.get_action_display()} from {instance.ip_address}"
         )
+    try:
+        upsert_audit_log(instance)
+    except Exception as exc:
+        logger.warning("Mongo sync failed for AuditLog %s: %s", instance.pk, exc)

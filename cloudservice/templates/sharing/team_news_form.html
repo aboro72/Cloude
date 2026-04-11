@@ -47,7 +47,7 @@
                             </div>
                         {% endfor %}
                         <button type="submit" class="btn btn-primary">Speichern</button>
-                        <a href="{% url 'sharing:team_news_list' group.id %}" class="btn btn-secondary">Abbrechen</a>
+                        <a href="{% url 'sharing:team_news_list' group.company.slug group.id %}" class="btn btn-secondary">Abbrechen</a>
                     </form>
                 </div>
             </div>

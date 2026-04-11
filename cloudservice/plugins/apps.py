@@ -24,6 +24,8 @@ class PluginsConfig(AppConfig):
         Called when the app is ready.
         Discover plugins and register hooks for enabled ones.
         """
+        import plugins.signals  # noqa: F401
+
         # Skip during migrations or other management commands
         skip_commands = ['migrate', 'makemigrations', 'collectstatic', 'check']
         if any(cmd in sys.argv for cmd in skip_commands):

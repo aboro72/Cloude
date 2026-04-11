@@ -10,6 +10,7 @@ from django.contrib import messages
 from django.http import Http404
 from pathlib import Path
 from core.models import ActivityLog
+from core.mongo_audit import get_plugin_log_entries, get_user_activity_entries, log_search_event
 from core.navigation import DEFAULT_PLUGIN_APP_SLUG, get_authenticated_home_url
 from plugins.hooks import hook_registry, UI_DASHBOARD_WIDGET, UI_APP_PAGE
 import logging
@@ -102,6 +103,9 @@ class ActivityLogView(LoginRequiredMixin, ListView):
     paginate_by = 50
 
     def get_queryset(self):
+        mongo_entries = get_user_activity_entries(self.request.user, limit=500)
+        if mongo_entries:
+            return mongo_entries
         return ActivityLog.objects.filter(user=self.request.user)
 
 
@@ -188,6 +192,15 @@ def search(request):
             'people': list(people),
         }
         total = sum(len(v) for v in results.values())
+        try:
+            log_search_event(
+                user=request.user,
+                query=query,
+                source='web',
+                results={key: len(value) for key, value in results.items()},
+            )
+        except Exception:
+            pass
 
     return render(request, 'core/search.html', {
         'query': query,
@@ -250,7 +263,8 @@ class SettingsView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
         try:
             from plugins.models import Plugin, PluginLog
             context['plugins'] = Plugin.objects.all().order_by('-uploaded_at')
-            context['plugin_logs'] = PluginLog.objects.all().order_by('-created_at')[:20]
+            mongo_logs = get_plugin_log_entries(limit=20)
+            context['plugin_logs'] = mongo_logs or PluginLog.objects.all().order_by('-created_at')[:20]
             context['has_plugins'] = Plugin.objects.exists()
         except Exception as e:
             logger.error(f"Failed to load plugin data: {e}")

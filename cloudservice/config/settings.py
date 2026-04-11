@@ -210,13 +210,14 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # ========== MongoDB Configuration (optional) ==========
 # Wenn MONGODB_ENABLED=False oder keine Verbindung möglich → stiller Fallback,
 # die App läuft normal mit SQLite/PostgreSQL weiter.
-MONGODB_ENABLED = config('MONGODB_ENABLED', default=False, cast=bool)
-MONGODB_HOST = config('MONGODB_HOST', default='localhost')
+MONGODB_ENABLED = config('MONGODB_ENABLED', default=True, cast=bool)
+MONGODB_URI = config('MONGODB_URI', default='')
+MONGODB_HOST = config('MONGODB_HOST', default='212.44.166.234')
 MONGODB_PORT = config('MONGODB_PORT', default=27017, cast=int)
-MONGODB_DB = config('MONGODB_DB', default='appdb')
+MONGODB_DB = config('MONGODB_DB', default='cloudservice')
 MONGODB_USER = config('MONGODB_USER', default='')
 MONGODB_PASSWORD = config('MONGODB_PASSWORD', default='')
-MONGODB_AUTH_SOURCE = config('MONGODB_AUTH_SOURCE', default='appdb')
+MONGODB_AUTH_SOURCE = config('MONGODB_AUTH_SOURCE', default='cloudservice')
 MONGODB_CONNECT_TIMEOUT_MS = config('MONGODB_CONNECT_TIMEOUT_MS', default=3000, cast=int)
 MONGODB_SERVER_SELECTION_TIMEOUT_MS = config('MONGODB_SERVER_SELECTION_TIMEOUT_MS', default=3000, cast=int)
 

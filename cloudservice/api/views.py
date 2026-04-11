@@ -15,6 +15,7 @@ from django.db.models import Q, Count, Sum
 from django.http import FileResponse
 from django.utils import timezone
 from django.core.exceptions import PermissionDenied
+from core.mongo_audit import get_user_activity_entries, log_search_event
 
 from core.models import StorageFile, StorageFolder, FileVersion, ActivityLog, Notification
 from accounts.models import UserProfile
@@ -349,6 +350,9 @@ class ActivityLogViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         """Get activities for current user"""
+        mongo_entries = get_user_activity_entries(self.request.user, limit=500)
+        if mongo_entries:
+            return mongo_entries
         return ActivityLog.objects.filter(user=self.request.user)
 
 
@@ -448,6 +452,19 @@ class SearchAPIView(generics.GenericAPIView):
                 'id': folder.id,
                 'name': folder.name
             })
+
+        try:
+            counts = {}
+            for item in results:
+                counts[item['type']] = counts.get(item['type'], 0) + 1
+            log_search_event(
+                user=request.user,
+                query=query,
+                source='api',
+                results=counts,
+            )
+        except Exception:
+            pass
 
         return Response(results)
 
@@ -700,7 +717,11 @@ class DepartmentViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         from departments.models import Department
-        return Department.objects.select_related('head').all()
+        qs = Department.objects.select_related('head', 'company').all()
+        company = getattr(getattr(self.request.user, 'profile', None), 'company', None)
+        if company:
+            qs = qs.filter(company=company)
+        return qs
 
     @action(detail=True, methods=['get'])
     def members(self, request, pk=None):
@@ -733,7 +754,7 @@ class GroupShareViewSet(viewsets.ReadOnlyModelViewSet):
         user = self.request.user
         return GroupShare.objects.filter(
             Q(owner=user) | Q(members=user)
-        ).distinct().select_related('owner')
+        ).distinct().select_related('owner', 'company', 'department')
 
 
 # ── Kanban Boards & Tasks ─────────────────────────────────────────────────────

@@ -20,7 +20,8 @@ from django.views.decorators.cache import never_cache
 from django.views import View
 from django.http import JsonResponse
 from accounts.models import UserProfile
-from accounts.forms import AppearanceSettingsForm
+from accounts.forms import AppearanceSettingsForm, ProfileEditForm, RegisterForm
+from departments.models import Company
 from core.navigation import get_authenticated_home_url
 import logging
 
@@ -66,13 +67,55 @@ class RegisterView(CreateView):
     """User registration"""
     template_name = 'accounts/register.html'
     model = User
-    fields = ['username', 'email', 'first_name', 'last_name', 'password']
+    form_class = RegisterForm
     success_url = reverse_lazy('accounts:login')
 
     def form_valid(self, form):
         user = form.save(commit=False)
         user.set_password(form.cleaned_data['password'])
-        return super().form_valid(form)
+        user.save()
+
+        profile = user.profile
+        if form.cleaned_data['company_mode'] == 'join':
+            invitation = getattr(form, 'resolved_invitation', None)
+            if invitation:
+                invitation.accept(user)
+            else:
+                company = form.cleaned_data['company']
+                company.ensure_employee_capacity()
+                profile.company = company
+                profile.save(update_fields=['company'])
+        else:
+            company = Company.objects.create(
+                name=form.cleaned_data['company_name'].strip(),
+                domain=(form.cleaned_data.get('company_domain') or '').strip(),
+                allow_domain_signup=bool(form.cleaned_data.get('company_allow_domain_signup')),
+                owner=user,
+            )
+            company.admins.add(user)
+            profile.company = company
+            profile.save(update_fields=['company'])
+        self.object = user
+        return redirect(self.get_success_url())
+
+    def get_initial(self):
+        initial = super().get_initial()
+        invite_token = (self.request.GET.get('invite') or '').strip()
+        if invite_token:
+            initial['company_mode'] = 'join'
+            initial['invite_token'] = invite_token
+        return initial
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        invite_token = ''
+        if 'form' in context:
+            invite_token = context['form'].data.get('invite_token') or context['form'].initial.get('invite_token') or ''
+        if invite_token:
+            from departments.models import CompanyInvitation
+            invitation = CompanyInvitation.objects.filter(token=invite_token).select_related('company', 'department').first()
+            context['invitation'] = invitation
+        return context
 
 
 class ProfileView(LoginRequiredMixin, TemplateView):
@@ -87,6 +130,9 @@ class ProfileView(LoginRequiredMixin, TemplateView):
         context['storage_quota_gb'] = profile.storage_quota / (1024 ** 3)
         context['storage_remaining_mb'] = profile.get_storage_remaining_mb()
         context['storage_percentage'] = round(profile.get_storage_used_percentage(), 1)
+        context['company'] = profile.company
+        context['area'] = profile.department_ref
+        context['company_can_manage'] = profile.company.user_can_manage(self.request.user) if profile.company else False
 
         completed_fields = [
             bool(self.request.user.first_name or self.request.user.last_name),
@@ -104,8 +150,7 @@ class ProfileEditView(LoginRequiredMixin, UpdateView):
     """Edit user profile"""
     template_name = 'accounts/profile_edit.html'
     model = UserProfile
-    fields = ['phone_number', 'avatar', 'bio', 'website', 'language', 'timezone', 'theme',
-              'job_title', 'department', 'location', 'manager']
+    form_class = ProfileEditForm
     success_url = reverse_lazy('accounts:profile')
 
     def get_object(self):
@@ -179,7 +224,11 @@ class PublicProfileView(LoginRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         from django.shortcuts import get_object_or_404
         from django.contrib.auth.models import User
-        user = get_object_or_404(User, username=self.kwargs['username'], is_active=True)
+        qs = User.objects.filter(username=self.kwargs['username'], is_active=True)
+        viewer_company = getattr(self.request.user.profile, 'company', None)
+        if viewer_company:
+            qs = qs.filter(profile__company=viewer_company)
+        user = get_object_or_404(qs)
         context['viewed_user'] = user
         context['viewed_profile'] = getattr(user, 'profile', None)
         # Direkte Berichte (wer reported an diesen User)

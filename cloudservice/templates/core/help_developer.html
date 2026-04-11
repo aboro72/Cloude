@@ -387,7 +387,7 @@ if not dept.user_can_manage(request.user):
 
                         <h5 class="mt-4">Permissions in Templates</h5>
 <pre class="bg-dark text-light p-3 rounded"><code">{% raw %}{% if user.is_staff or perms.departments.create_department %}
-    &lt;a href="{% url 'departments:create' %}"&gt;Neue Abteilung&lt;/a&gt;
+    &lt;a href="/departments/firmen/default-company/neu/"&gt;Neuer Bereich&lt;/a&gt;
 {% endif %}
 
 {% if can_manage %}

@@ -4,8 +4,13 @@
     <div class="d-flex align-items-center justify-content-between mb-4">
         <div>
             <h4 class="mb-0"><i class="bi bi-people-fill me-2 text-primary"></i>Mitarbeiterverzeichnis</h4>
-            <small class="text-muted">{{ people|length }} Person{{ people|length|pluralize:",en" }}</small>
+            <small class="text-muted">{% if company %}{{ company.name }} - {% endif %}{{ people|length }} Person{{ people|length|pluralize:",en" }}</small>
         </div>
+        {% if company_can_manage and company_invite_url %}
+        <a href="{{ company_invite_url }}" class="btn btn-primary">
+            <i class="bi bi-person-plus me-1"></i>Mitarbeiter einladen
+        </a>
+        {% endif %}
     </div>
 
     <!-- Suche + Filter -->
@@ -60,9 +65,9 @@
                             <div class="text-muted small mt-1">{{ person.profile.job_title }}</div>
                         {% endif %}
 
-                        {% if person.profile.department %}
+                        {% if person.profile.area_name %}
                             <span class="badge bg-primary bg-opacity-10 text-primary mt-2 small">
-                                {{ person.profile.department }}
+                                {{ person.profile.area_name }}
                             </span>
                         {% endif %}
 

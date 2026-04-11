@@ -107,6 +107,8 @@
                 <h1 class="h2 mb-2">{{ group.group_name }}</h1>
                 <p class="mb-3 text-white-50">Zusammenarbeitsbereich mit Bibliothek, News, Mitgliedern und Webparts.</p>
                 <div class="d-flex flex-wrap gap-2">
+                    {% if company %}<span class="badge text-bg-light">Firma: {{ company.name }}</span>{% endif %}
+                    {% if department %}<span class="badge text-bg-light">Bereich: {{ department.name }}</span>{% endif %}
                     <span class="badge text-bg-light">Owner: {{ group.owner.username }}</span>
                     <span class="badge text-bg-light">{{ group.members.count }} Mitglieder</span>
                     <span class="badge text-bg-light">{{ group.get_permission_display }}</span>
@@ -116,12 +118,12 @@
                 {% for link in quick_links %}
                     <a href="{{ link.url }}" class="btn btn-light">{{ link.label }}</a>
                 {% endfor %}
-                <a href="{% url 'sharing:team_news_list' group.id %}" class="btn btn-outline-light">News</a>
+                <a href="{% url 'sharing:team_news_list' group.company.slug group.id %}" class="btn btn-outline-light">News</a>
                 {% if can_manage_site %}
-                    <a href="{% url 'sharing:team_news_create' group.id %}" class="btn btn-light">
+                    <a href="{% url 'sharing:team_news_create' group.company.slug group.id %}" class="btn btn-light">
                         <i class="bi bi-plus-lg me-1"></i>Neue Team-News
                     </a>
-                    <a href="{% url 'sharing:group_edit' group.id %}" class="btn btn-outline-light">Team Site bearbeiten</a>
+                    <a href="{% url 'sharing:group_edit' group.company.slug group.id %}" class="btn btn-outline-light">Team Site bearbeiten</a>
                 {% endif %}
             </div>
         </div>
@@ -133,7 +135,7 @@
                 <h4 class="mb-3">News und Aktivitaeten</h4>
                 <div class="site-list">
                     {% for item in site_news %}
-                        <a href="{% url 'sharing:team_news_detail' group.id item.id %}" class="site-row text-decoration-none text-body">
+                        <a href="{% url 'sharing:team_news_detail' group.company.slug group.id item.id %}" class="site-row text-decoration-none text-body">
                             <i class="bi bi-megaphone text-primary"></i>
                             <div>
                                 <div class="fw-semibold">{{ item.title }}</div>

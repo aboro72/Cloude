@@ -7,6 +7,7 @@ Django 5.x Features: Enhanced models with new field types.
 from django.db import models
 from django.contrib.auth.models import User, AbstractUser
 from django.core.validators import MinValueValidator, MaxValueValidator, RegexValidator
+from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 from django.db.models import Sum, F
@@ -149,6 +150,22 @@ class UserProfile(models.Model):
         blank=True,
         verbose_name=_('Job title'),
     )
+    company = models.ForeignKey(
+        'departments.Company',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='user_profiles',
+        verbose_name=_('Company'),
+    )
+    department_ref = models.ForeignKey(
+        'departments.Department',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='user_profiles',
+        verbose_name=_('Area'),
+    )
     department = models.CharField(
         max_length=100,
         blank=True,
@@ -212,6 +229,29 @@ class UserProfile(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.get_role_display()}"
+
+    @property
+    def company_name(self):
+        return self.company.name if self.company else ''
+
+    @property
+    def area_name(self):
+        if self.department_ref:
+            return self.department_ref.name
+        return self.department
+
+    def save(self, *args, **kwargs):
+        if self.department_ref:
+            self.department = self.department_ref.name
+            if not self.company_id and self.department_ref.company_id:
+                self.company = self.department_ref.company
+        if self.company_id and self.user_id:
+            if not self.company.can_add_employee(exclude_user=self.user):
+                raise ValidationError(
+                    f'Die Firma "{self.company.name}" hat bereits das Mitarbeiterlimit von '
+                    f'{self.company.employee_limit} erreicht.'
+                )
+        super().save(*args, **kwargs)
 
     def get_storage_used(self):
         """

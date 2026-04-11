@@ -89,7 +89,7 @@ class UserProfileAdmin(admin.ModelAdmin):
         'is_active',
     )
     list_filter = ('role', 'is_active', 'is_email_verified', 'is_two_factor_enabled')
-    search_fields = ('user__username', 'user__email')
+    search_fields = ('user__username', 'user__email', 'company__name', 'department_ref__name')
     readonly_fields = ('created_at', 'updated_at', 'last_login_at', 'storage_used_gb', 'storage_quota_bytes')
     fieldsets = (
         ('Benutzer', {'fields': ('user', 'role', 'is_active')}),
@@ -98,6 +98,11 @@ class UserProfileAdmin(admin.ModelAdmin):
             'Profil',
             {
                 'fields': (
+                    'company',
+                    'department_ref',
+                    'job_title',
+                    'location',
+                    'manager',
                     'phone_number',
                     'avatar',
                     'bio',

@@ -85,7 +85,7 @@
                         <div class="row g-0">
                             {% for site in results.team_sites %}
                             <div class="col-sm-6 col-lg-4">
-                                <a href="/sharing/group/{{ site.pk }}/"
+                                <a href="{% url 'sharing:group_detail' site.company.slug site.pk %}"
                                    class="d-flex align-items-center gap-3 p-3 text-decoration-none text-dark search-item-hover">
                                     <div class="rounded-circle bg-success d-flex align-items-center justify-content-center text-white fw-bold flex-shrink-0"
                                          style="width:42px;height:42px;font-size:1.1rem;">

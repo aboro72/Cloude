@@ -34,7 +34,7 @@
                             </div>
                         {% endfor %}
                         <button type="submit" class="btn btn-primary">Speichern</button>
-                        <a href="{% url 'sharing:group_detail' object.id %}" class="btn btn-secondary">Abbrechen</a>
+                        <a href="{% url 'sharing:group_detail' object.company.slug object.id %}" class="btn btn-secondary">Abbrechen</a>
                     </form>
                 </div>
             </div>

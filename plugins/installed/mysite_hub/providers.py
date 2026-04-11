@@ -73,7 +73,7 @@ class DepartmentManagementPageProvider(DepartmentPageProvider):
     settings_focus_key = 'management_focus'
     department_links = [
         {'label': 'MySite Hub', 'url': reverse_lazy('core:plugin_app', kwargs={'slug': 'mysite'})},
-        {'label': 'Team Sites', 'url': reverse_lazy('sharing:groups_list')},
+        {'label': 'Team Sites', 'url': reverse_lazy('sharing:groups_root')},
     ]
 
 
@@ -123,7 +123,7 @@ class DepartmentEngineeringPageProvider(DepartmentPageProvider):
     settings_summary_key = 'engineering_summary'
     settings_focus_key = 'engineering_focus'
     department_links = [
-        {'label': 'Team Sites', 'url': reverse_lazy('sharing:groups_list')},
+        {'label': 'Team Sites', 'url': reverse_lazy('sharing:groups_root')},
         {'label': 'Landing Widgets', 'url': reverse_lazy('core:landing')},
     ]
 
@@ -182,7 +182,7 @@ class MySitePageProvider(PluginPageProvider):
                         'summary': ta.summary or ta.content[:100],
                         'time': ta.created_at,
                         'icon': 'bi-people',
-                        'url': f'/sharing/group/{ta.group_id}/news/{ta.pk}/',
+                        'url': reverse('sharing:team_news_detail', kwargs={'company_slug': ta.group.company.slug, 'group_id': ta.group_id, 'news_id': ta.pk}),
                     })
             except Exception:
                 pass
@@ -217,10 +217,10 @@ class MySitePageProvider(PluginPageProvider):
                 'title': share.group_name,
                 'description': f'Gruppenbereich mit {share.members.count()} Mitgliedern und Berechtigung {share.get_permission_display()}.',
                 'meta': 'Team Site',
-                'url': reverse('sharing:group_detail', kwargs={'group_id': share.id}),
+                'url': reverse('sharing:group_detail', kwargs={'company_slug': share.company.slug, 'group_id': share.id}),
                 'icon': 'bi-people-fill',
                 'can_manage': can_manage,
-                'news_create_url': reverse('sharing:team_news_create', kwargs={'group_id': share.id}) if can_manage else None,
+                'news_create_url': reverse('sharing:team_news_create', kwargs={'company_slug': share.company.slug, 'group_id': share.id}) if can_manage else None,
             })
 
         if team_sites:
@@ -231,21 +231,21 @@ class MySitePageProvider(PluginPageProvider):
                 'title': 'Projektboard',
                 'description': 'Vorlage fuer Status, Dokumente, Aufgaben und gemeinsame Ablage.',
                 'meta': 'Empfohlene Site',
-                'url': reverse('sharing:groups_list'),
+                'url': reverse('sharing:groups_root'),
                 'icon': 'bi-kanban',
             },
             {
                 'title': 'Vertrieb',
                 'description': 'Angebote, Freigaben, Kundendokumente und Team-News an einem Ort.',
                 'meta': 'Abteilungs-Site',
-                'url': reverse('sharing:groups_list'),
+                'url': reverse('sharing:groups_root'),
                 'icon': 'bi-briefcase',
             },
             {
                 'title': 'IT Operations',
                 'description': 'Runbooks, Releases, technische Doku und operative Uebersichten.',
                 'meta': 'Operations-Site',
-                'url': reverse('sharing:groups_list'),
+                'url': reverse('sharing:groups_root'),
                 'icon': 'bi-cpu',
             },
         ]
@@ -275,7 +275,12 @@ class MySitePageProvider(PluginPageProvider):
     def _build_department_pages(self):
         try:
             from departments.models import Department
-            depts = Department.objects.select_related('head').order_by('name')[:8]
+            company = getattr(getattr(self, '_request_user', None), 'profile', None)
+            company = getattr(company, 'company', None)
+            depts = Department.objects.select_related('head', 'company').order_by('name')
+            if company:
+                depts = depts.filter(company=company)
+            depts = depts[:8]
             if depts:
                 result = []
                 for d in depts:
@@ -285,7 +290,7 @@ class MySitePageProvider(PluginPageProvider):
                         'owner': d.head.get_full_name() or d.head.username if d.head else '',
                         'icon': d.icon,
                         'color': d.color,
-                        'url': reverse('departments:detail', kwargs={'slug': d.slug}),
+                        'url': reverse('departments:detail', kwargs={'company_slug': d.company.slug, 'slug': d.slug}),
                     })
                 return result
         except Exception:
@@ -298,7 +303,7 @@ class MySitePageProvider(PluginPageProvider):
                 'owner': '',
                 'icon': 'bi-building',
                 'color': '#667eea',
-                'url': reverse('departments:list'),
+                'url': reverse('departments:root'),
             },
         ]
 
@@ -316,10 +321,26 @@ class MySitePageProvider(PluginPageProvider):
         return 'mysite_hub/page.html'
 
     def get_context(self, request):
+        self._request_user = request.user
         settings = get_mysite_plugin_settings()
         profile = request.user.profile
         recent_files = StorageFile.objects.filter(owner=request.user).order_by('-updated_at')[:5]
         incoming_shares = UserShare.objects.filter(shared_with=request.user, is_active=True).order_by('-created_at')[:4]
+
+        quick_links = [
+            {'title': 'Meine Dateien', 'description': 'Dokumente, Uploads und Ordner an einem Ort.', 'url': reverse('storage:file_list'), 'icon': 'bi-folder2-open'},
+            {'title': 'Geteilte Inhalte', 'description': 'Freigegebene Dateien und Zusammenarbeit.', 'url': reverse('sharing:shared_with_me'), 'icon': 'bi-people'},
+            {'title': 'Profil', 'description': 'Persoenliche Angaben, Avatar und Design verwalten.', 'url': reverse('accounts:profile'), 'icon': 'bi-person-badge'},
+            {'title': 'Landing', 'description': 'Widgets und persoenliche Startansicht.', 'url': reverse('core:landing'), 'icon': 'bi-speedometer2'},
+            {'title': 'Firma', 'description': 'Firmenkontext, Bereiche und Limits verwalten.', 'url': reverse('departments:company_detail', kwargs={'company_slug': profile.company.slug}) if profile.company else reverse('departments:company_list'), 'icon': 'bi-buildings'},
+        ]
+        if profile.company and profile.company.user_can_manage(request.user):
+            quick_links.append({
+                'title': 'Einladungen',
+                'description': 'Neue Mitarbeiter sicher per Link oder E-Mail onboarden.',
+                'url': reverse('departments:company_detail', kwargs={'company_slug': profile.company.slug}) + '#einladungen',
+                'icon': 'bi-person-plus',
+            })
 
         return {
             'hero_title': f"MySite von {request.user.get_full_name() or request.user.username}",
@@ -330,12 +351,7 @@ class MySitePageProvider(PluginPageProvider):
             'storage_used_mb': profile.get_storage_used_mb(),
             'storage_remaining_mb': profile.get_storage_remaining_mb(),
             'storage_percent': round(profile.get_storage_used_percentage(), 1),
-            'quick_links': [
-                {'title': 'Meine Dateien', 'description': 'Dokumente, Uploads und Ordner an einem Ort.', 'url': reverse('storage:file_list'), 'icon': 'bi-folder2-open'},
-                {'title': 'Geteilte Inhalte', 'description': 'Freigegebene Dateien und Zusammenarbeit.', 'url': reverse('sharing:shared_with_me'), 'icon': 'bi-people'},
-                {'title': 'Profil', 'description': 'Persoenliche Angaben, Avatar und Design verwalten.', 'url': reverse('accounts:profile'), 'icon': 'bi-person-badge'},
-                {'title': 'Landing', 'description': 'Widgets und persoenliche Startansicht.', 'url': reverse('core:landing'), 'icon': 'bi-speedometer2'},
-            ],
+            'quick_links': quick_links,
             'news_items': self._build_news_items(request),
             'team_sites': self._build_team_sites(request),
             'document_libraries': self._build_document_libraries(request),

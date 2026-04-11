@@ -376,13 +376,21 @@ class GroupShare(models.Model):
         verbose_name=_('Permission')
     )
 
+    company = models.ForeignKey(
+        'departments.Company',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='team_sites',
+        verbose_name=_('Firma'),
+    )
     department = models.ForeignKey(
         'departments.Department',
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
         related_name='team_sites',
-        verbose_name=_('Abteilung'),
+        verbose_name=_('Bereich'),
     )
 
     is_active = models.BooleanField(
@@ -405,6 +413,13 @@ class GroupShare(models.Model):
 
     def __str__(self):
         return f"Group: {self.group_name}"
+
+    def save(self, *args, **kwargs):
+        if self.department_id and self.department and self.department.company_id:
+            self.company = self.department.company
+        elif not self.company_id and hasattr(self.owner, 'profile') and self.owner.profile.company_id:
+            self.company = self.owner.profile.company
+        super().save(*args, **kwargs)
 
     def user_can_manage(self, user):
         if not user or not user.is_authenticated:

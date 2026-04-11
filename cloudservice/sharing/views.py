@@ -4,8 +4,10 @@ File and folder sharing management.
 """
 
 from django.db import models
+from django.views import View
 from django.views.generic import CreateView, DeleteView, ListView, TemplateView, DetailView, UpdateView
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.models import User
 from django.shortcuts import redirect, get_object_or_404, render
 from django.urls import reverse_lazy
 from django.http import JsonResponse, FileResponse, Http404
@@ -13,6 +15,7 @@ from django.db.models import Q
 from django.contrib.contenttypes.models import ContentType
 from django.utils import timezone
 
+from departments.models import Company
 from sharing.models import UserShare, PublicLink, GroupShare, ShareLog, TeamSiteNews
 from sharing.forms import TeamSiteNewsForm
 from core.models import ActivityLog, StorageFile, StorageFolder
@@ -20,6 +23,30 @@ from core.navigation import get_optional_plugin_app_url
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def _user_company(user):
+    if not user or not user.is_authenticated or not hasattr(user, 'profile'):
+        return None
+    return user.profile.company
+
+
+def _url_company(user, company_slug):
+    queryset = Company.objects.filter(slug=company_slug, is_active=True)
+    user_company = _user_company(user)
+    if user_company and not user.has_perm('departments.manage_any_company'):
+        queryset = queryset.filter(pk=user_company.pk)
+    return get_object_or_404(queryset)
+
+
+def _group_queryset(user):
+    queryset = GroupShare.objects.filter(
+        Q(owner=user) | Q(team_leaders=user) | Q(members=user)
+    ).distinct()
+    company = _user_company(user)
+    if company:
+        queryset = queryset.filter(company=company)
+    return queryset
 
 
 class ShareView(LoginRequiredMixin, CreateView):
@@ -240,18 +267,37 @@ class GroupsListView(LoginRequiredMixin, ListView):
     template_name = 'sharing/groups_list.html'
     context_object_name = 'groups'
 
+    def get_company(self):
+        return _url_company(self.request.user, self.kwargs['company_slug'])
+
     def get_queryset(self):
-        return GroupShare.objects.filter(
-            Q(owner=self.request.user) | Q(members=self.request.user)
-        ).distinct()
+        return _group_queryset(self.request.user).filter(company=self.get_company()).select_related('company', 'department', 'owner')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['company'] = self.get_company()
+        return context
+
+
+class GroupCompanyRedirectView(LoginRequiredMixin, View):
+    def get(self, request):
+        company = _user_company(request.user)
+        if not company:
+            return render(request, '403.html', {
+                'error_message': 'Dein Nutzer ist noch keiner Firma zugeordnet.',
+            }, status=403)
+        return redirect('sharing:groups_list', company_slug=company.slug)
 
 
 class CreateGroupView(LoginRequiredMixin, CreateView):
     """Create sharing group"""
     template_name = 'sharing/create_group.html'
     model = GroupShare
-    fields = ['group_name', 'members', 'background_image', 'background_video']
-    success_url = reverse_lazy('sharing:groups_list')
+    fields = ['company', 'department', 'group_name', 'members', 'background_image', 'background_video']
+    success_url = reverse_lazy('sharing:groups_root')
+
+    def get_company(self):
+        return _url_company(self.request.user, self.kwargs['company_slug'])
 
     def dispatch(self, request, *args, **kwargs):
         if not request.user.has_perm('sharing.create_groupshare'):
@@ -270,6 +316,7 @@ class CreateGroupView(LoginRequiredMixin, CreateView):
         )
 
         form.instance.owner = self.request.user
+        form.instance.company = self.get_company()
         form.instance.content_type = ContentType.objects.get_for_model(StorageFolder)
         form.instance.object_id = site_folder.id
         form.instance.permission = 'admin'
@@ -279,7 +326,22 @@ class CreateGroupView(LoginRequiredMixin, CreateView):
         return response
 
     def get_success_url(self):
-        return reverse_lazy('sharing:group_detail', kwargs={'group_id': self.object.id})
+        return reverse_lazy('sharing:group_detail', kwargs={'company_slug': self.object.company.slug, 'group_id': self.object.id})
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['company'] = self.get_company()
+        return context
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        company = self.get_company()
+        form.fields['company'].queryset = form.fields['company'].queryset.filter(is_active=True).order_by('name')
+        form.fields['company'].queryset = form.fields['company'].queryset.filter(pk=company.pk)
+        form.fields['company'].initial = company.pk
+        form.fields['department'].queryset = form.fields['department'].queryset.filter(company=company).order_by('name')
+        form.fields['members'].queryset = form.fields['members'].queryset.filter(profile__company=company, is_active=True)
+        return form
 
 
 class GroupDetailView(LoginRequiredMixin, DetailView):
@@ -289,10 +351,11 @@ class GroupDetailView(LoginRequiredMixin, DetailView):
     pk_url_kwarg = 'group_id'
     model = GroupShare
 
+    def get_company(self):
+        return _url_company(self.request.user, self.kwargs['company_slug'])
+
     def get_queryset(self):
-        return GroupShare.objects.filter(
-            Q(owner=self.request.user) | Q(members=self.request.user)
-        ).distinct()
+        return _group_queryset(self.request.user).filter(company=self.get_company())
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -310,6 +373,8 @@ class GroupDetailView(LoginRequiredMixin, DetailView):
         context['background_image_url'] = group.background_image.url if group.background_image else ''
         context['background_video_url'] = group.background_video.url if group.background_video else ''
         context['can_manage_site'] = group.user_can_manage(self.request.user)
+        context['company'] = group.company
+        context['department'] = group.department
         context['site_webparts'] = [
             {'title': 'News', 'icon': 'bi-megaphone', 'description': 'Aktuelle Meldungen und Team-Updates.'},
             {'title': 'Dokumentbibliothek', 'icon': 'bi-folder2-open', 'description': 'Dateien, Versionen und Ordner der Team Site.'},
@@ -330,38 +395,52 @@ class GroupUpdateView(LoginRequiredMixin, UpdateView):
     """Edit Team Site metadata."""
     model = GroupShare
     template_name = 'sharing/group_edit.html'
-    fields = ['group_name', 'members', 'team_leaders', 'background_image', 'background_video']
+    fields = ['company', 'department', 'group_name', 'members', 'team_leaders', 'background_image', 'background_video']
     pk_url_kwarg = 'group_id'
 
+    def get_company(self):
+        return _url_company(self.request.user, self.kwargs['company_slug'])
+
     def get_queryset(self):
-        return GroupShare.objects.filter(
-            Q(owner=self.request.user) | Q(team_leaders=self.request.user)
-        ).distinct()
+        return _group_queryset(self.request.user).filter(company=self.get_company())
 
     def get_success_url(self):
-        return reverse_lazy('sharing:group_detail', kwargs={'group_id': self.object.id})
+        return reverse_lazy('sharing:group_detail', kwargs={'company_slug': self.object.company.slug, 'group_id': self.object.id})
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        company = self.object.company or self.get_company()
+        form.fields['company'].queryset = form.fields['company'].queryset.filter(is_active=True).order_by('name')
+        if company:
+            form.fields['company'].queryset = form.fields['company'].queryset.filter(pk=company.pk)
+            form.fields['department'].queryset = form.fields['department'].queryset.filter(company=company).order_by('name')
+            user_qs = User.objects.filter(profile__company=company, is_active=True).order_by('last_name', 'username')
+            form.fields['members'].queryset = user_qs
+            form.fields['team_leaders'].queryset = user_qs
+        return form
 
 
 class TeamSiteManageMixin(LoginRequiredMixin):
+    def get_company(self):
+        return _url_company(self.request.user, self.kwargs['company_slug'])
+
     def get_group(self):
-        """Gibt die Team-Site zurück — nur wenn User Mitglied ist, sonst 404."""
+        """Gibt die Team-Site zurueck, wenn der Nutzer in der Firma Zugriff hat."""
         return get_object_or_404(
-            GroupShare.objects.filter(
-                Q(owner=self.request.user) | Q(team_leaders=self.request.user) | Q(members=self.request.user)
-            ).distinct(),
+            _group_queryset(self.request.user).filter(company=self.get_company()),
             id=self.kwargs['group_id'],
         )
 
     def _permission_denied(self, request, group):
-        """Zeigt eine verständliche 403-Seite statt eines stummen 404."""
+        """Zeigt eine verstaendliche 403-Seite statt eines stummen 404."""
         from django.shortcuts import render as _render
         return _render(request, '403.html', {
             'error_message': (
-                f'Du bist Mitglied von „{group.group_name}", '
-                f'aber nur Team-Leader oder der Besitzer darf hier Änderungen vornehmen.'
+                f'Du bist Mitglied von "{group.group_name}", '
+                f'aber nur Team-Leader oder der Besitzer darf hier Aenderungen vornehmen.'
             ),
-            'back_url': reverse_lazy('sharing:group_detail', kwargs={'group_id': group.pk}),
-            'back_label': f'Zurück zu {group.group_name}',
+            'back_url': reverse_lazy('sharing:group_detail', kwargs={'company_slug': group.company.slug, 'group_id': group.pk}),
+            'back_label': f'Zurueck zu {group.group_name}',
         }, status=403)
 
     def dispatch(self, request, *args, **kwargs):
@@ -388,6 +467,7 @@ class TeamSiteNewsListView(TeamSiteManageMixin, ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['group'] = self.group
+        context['company'] = self.group.company
         context['can_manage_site'] = self.group.user_can_manage(self.request.user)
         return context
 
@@ -418,6 +498,7 @@ class TeamSiteNewsDetailView(TeamSiteManageMixin, DetailView):
 
         context = super().get_context_data(**kwargs)
         context['group'] = self.group
+        context['company'] = self.group.company
         context['can_manage_site'] = self.group.user_can_manage(self.request.user)
 
         news_obj = self.object
@@ -462,11 +543,12 @@ class TeamSiteNewsCreateView(TeamSiteManageMixin, CreateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['group'] = self.group
+        context['company'] = self.group.company
         context['form_mode'] = 'create'
         return context
 
     def get_success_url(self):
-        return reverse_lazy('sharing:team_news_detail', kwargs={'group_id': self.group.id, 'news_id': self.object.id})
+        return reverse_lazy('sharing:team_news_detail', kwargs={'company_slug': self.group.company.slug, 'group_id': self.group.id, 'news_id': self.object.id})
 
 
 class TeamSiteNewsUpdateView(TeamSiteManageMixin, UpdateView):
@@ -482,11 +564,12 @@ class TeamSiteNewsUpdateView(TeamSiteManageMixin, UpdateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['group'] = self.group
+        context['company'] = self.group.company
         context['form_mode'] = 'edit'
         return context
 
     def get_success_url(self):
-        return reverse_lazy('sharing:team_news_detail', kwargs={'group_id': self.group.id, 'news_id': self.object.id})
+        return reverse_lazy('sharing:team_news_detail', kwargs={'company_slug': self.group.company.slug, 'group_id': self.group.id, 'news_id': self.object.id})
 
 
 class GroupShareView(LoginRequiredMixin, CreateView):
@@ -498,10 +581,10 @@ class GroupShareView(LoginRequiredMixin, CreateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['group'] = get_object_or_404(
-            GroupShare,
+            _group_queryset(self.request.user).filter(company=_url_company(self.request.user, self.kwargs['company_slug'])),
             id=self.kwargs.get('group_id'),
-            owner=self.request.user
         )
+        context['company'] = context['group'].company
         return context
 
 

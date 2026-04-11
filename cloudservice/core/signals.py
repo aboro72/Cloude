@@ -6,7 +6,8 @@ Handles automatic tasks on model changes.
 from django.db.models.signals import post_save, post_delete, pre_delete
 from django.dispatch import receiver
 from django.contrib.auth.models import User
-from core.models import StorageFile, StorageFolder, FileVersion, ActivityLog
+from core.models import StorageFile, StorageFolder, FileVersion, ActivityLog, Notification
+from core.mongo_audit import upsert_activity_log, upsert_notification
 import os
 import logging
 
@@ -155,3 +156,19 @@ try:
 
 except Exception:
     pass  # news-App evtl. noch nicht geladen
+
+
+@receiver(post_save, sender=ActivityLog)
+def sync_activity_log_to_mongo(sender, instance, **kwargs):
+    try:
+        upsert_activity_log(instance)
+    except Exception as exc:
+        logger.warning("Mongo sync failed for ActivityLog %s: %s", instance.pk, exc)
+
+
+@receiver(post_save, sender=Notification)
+def sync_notification_to_mongo(sender, instance, **kwargs):
+    try:
+        upsert_notification(instance)
+    except Exception as exc:
+        logger.warning("Mongo sync failed for Notification %s: %s", instance.pk, exc)

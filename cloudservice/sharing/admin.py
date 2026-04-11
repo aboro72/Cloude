@@ -5,8 +5,8 @@ from sharing.models import GroupShare, PublicLink, TeamSiteNews, UserShare
 
 @admin.register(GroupShare)
 class GroupShareAdmin(admin.ModelAdmin):
-    list_display = ('group_name', 'owner', 'permission', 'is_active', 'created_at')
-    search_fields = ('group_name', 'owner__username')
+    list_display = ('group_name', 'company', 'department', 'owner', 'permission', 'is_active', 'created_at')
+    search_fields = ('group_name', 'owner__username', 'company__name', 'department__name')
     filter_horizontal = ('members', 'team_leaders')
 
 

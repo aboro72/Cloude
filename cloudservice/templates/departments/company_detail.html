@@ -1,0 +1,178 @@
+{% extends 'base.html' %}
+{% block title %}{{ company.name }} - Firmenverwaltung{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="rounded-4 p-4 mb-4 text-white" style="background:linear-gradient(135deg,var(--primary-color),var(--secondary-color));">
+        <div class="d-flex flex-column flex-lg-row justify-content-between gap-3">
+            <div>
+                <div class="small text-white-50 mb-2">Firmenverwaltung</div>
+                <h2 class="fw-black mb-1">{{ company.name }}</h2>
+                <div class="text-white-50">{{ company.domain|default:"Keine Domain gepflegt" }}</div>
+                {% if company.description %}<p class="mb-0 mt-2">{{ company.description }}</p>{% endif %}
+            </div>
+            {% if can_manage_company %}
+            <div>
+                <a href="{% url 'departments:company_edit' company.slug %}" class="btn btn-light rounded-pill px-4">
+                    <i class="bi bi-pencil me-1"></i>Firma bearbeiten
+                </a>
+            </div>
+            {% endif %}
+        </div>
+        <div class="row g-3 mt-2">
+            <div class="col-sm-3"><div class="bg-white bg-opacity-10 rounded-3 p-3"><div class="small text-white-50">Mitarbeiter</div><div class="h4 mb-0">{{ company.employee_count }} / {{ company.employee_limit }}</div></div></div>
+            <div class="col-sm-3"><div class="bg-white bg-opacity-10 rounded-3 p-3"><div class="small text-white-50">Freie Plaetze</div><div class="h4 mb-0">{{ company.seats_remaining }}</div></div></div>
+            <div class="col-sm-3"><div class="bg-white bg-opacity-10 rounded-3 p-3"><div class="small text-white-50">Bereiche</div><div class="h4 mb-0">{{ company.area_count }}</div></div></div>
+            <div class="col-sm-3"><div class="bg-white bg-opacity-10 rounded-3 p-3"><div class="small text-white-50">Teams</div><div class="h4 mb-0">{{ company.team_count }}</div></div></div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-4">
+            <div class="card border rounded-4 h-100">
+                <div class="card-header"><h5 class="mb-0">Stammdaten</h5></div>
+                <div class="card-body">
+                    <div class="small text-muted mb-2">Owner</div>
+                    <div class="mb-3">{{ owner_name }}</div>
+                    <div class="small text-muted mb-2">Admins</div>
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for admin_user in company.admins.all %}
+                        <span class="badge bg-light text-dark border">{{ admin_user.get_full_name|default:admin_user.username }}</span>
+                        {% empty %}
+                        <span class="text-muted">Keine Admins</span>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            <div class="card border rounded-4 mt-4" id="einladungen">
+                <div class="card-header"><h5 class="mb-0">Onboarding</h5></div>
+                <div class="card-body">
+                    <div class="small text-muted mb-2">Registrierung per Domain</div>
+                    <div class="mb-3">
+                        {% if company.allow_domain_signup and company.domain %}
+                            <span class="badge bg-success">Aktiv fuer {{ company.domain }}</span>
+                        {% elif company.domain %}
+                            <span class="badge bg-secondary">Nur per Einladung</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Keine Domain konfiguriert</span>
+                        {% endif %}
+                    </div>
+                    <div class="small text-muted mb-2">Registrierungspfad</div>
+                    <div class="small"><code>{{ company_invite_url }}&lt;token&gt;</code></div>
+                    <div class="form-text">Fuer Einladungen wird automatisch ein Token angehaengt.</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-8">
+            {% if can_manage_company %}
+            <div class="card border rounded-4 mb-4">
+                <div class="card-header"><h5 class="mb-0">Mitarbeiter einladen</h5></div>
+                <div class="card-body">
+                    <form method="post" action="{% url 'departments:company_invite_create' company.slug %}" class="row g-3">
+                        {% csrf_token %}
+                        <div class="col-md-6">
+                            <label for="{{ invite_form.email.id_for_label }}" class="form-label">E-Mail</label>
+                            {{ invite_form.email }}
+                        </div>
+                        <div class="col-md-3">
+                            <label for="{{ invite_form.role.id_for_label }}" class="form-label">Rolle</label>
+                            {{ invite_form.role }}
+                        </div>
+                        <div class="col-md-3">
+                            <label for="{{ invite_form.department.id_for_label }}" class="form-label">Bereich</label>
+                            {{ invite_form.department }}
+                        </div>
+                        <div class="col-md-6">
+                            <label for="{{ invite_form.expires_at.id_for_label }}" class="form-label">Gueltig bis</label>
+                            {{ invite_form.expires_at }}
+                        </div>
+                        <div class="col-12 d-flex justify-content-between align-items-center">
+                            <div class="small text-muted">Neue Nutzer werden nach Annahme automatisch der Firma und optional dem Bereich zugeordnet.</div>
+                            <button type="submit" class="btn btn-primary rounded-pill px-4">Einladung erstellen</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+            <div class="card border rounded-4 mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Bereiche</h5>
+                    <a href="{% url 'departments:list' company.slug %}" class="btn btn-sm btn-outline-primary rounded-pill">Oeffnen</a>
+                </div>
+                <div class="card-body">
+                    {% for area in areas %}
+                    <div class="d-flex justify-content-between border-bottom py-2">
+                        <span>{{ area.name }}</span>
+                        <a href="{% url 'departments:detail' company.slug area.slug %}">Details</a>
+                    </div>
+                    {% empty %}
+                    <div class="text-muted">Noch keine Bereiche angelegt.</div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="card border rounded-4">
+                <div class="card-header"><h5 class="mb-0">Mitarbeiter</h5></div>
+                <div class="card-body">
+                    {% for employee in employees %}
+                        {% with person=employee.user %}
+                        <div class="d-flex justify-content-between border-bottom py-2">
+                            {% if person %}
+                                <span>{{ person.get_full_name|default:person.username }}</span>
+                            {% else %}
+                                <span class="text-muted">Unbekannter Nutzer</span>
+                            {% endif %}
+                            <span class="text-muted">{{ employee.area_name|default:"Ohne Bereich" }}</span>
+                        </div>
+                        {% endwith %}
+                    {% empty %}
+                    <div class="text-muted">Noch keine Mitarbeiter zugeordnet.</div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="card border rounded-4 mt-4">
+                <div class="card-header"><h5 class="mb-0">Einladungen</h5></div>
+                <div class="card-body">
+                    {% for invitation in invites %}
+                    <div class="border-bottom py-3">
+                        <div class="d-flex justify-content-between align-items-start gap-3">
+                            <div>
+                                <div class="fw-semibold">{{ invitation.email }}</div>
+                                <div class="small text-muted">
+                                    {{ invitation.get_role_display }}
+                                    {% if invitation.department %} · {{ invitation.department.name }}{% endif %}
+                                    · erstellt {{ invitation.created_at|date:"d.m.Y H:i" }}
+                                </div>
+                                <div class="small mt-2">
+                                    <a href="{% url 'accounts:register' %}?invite={{ invitation.token }}" class="text-decoration-none">Einladungslink oeffnen</a>
+                                </div>
+                            </div>
+                            <div class="text-end">
+                                {% if invitation.accepted_at %}
+                                    <span class="badge bg-success">Angenommen</span>
+                                {% elif invitation.is_usable %}
+                                    <span class="badge bg-primary">Aktiv</span>
+                                {% elif invitation.is_expired %}
+                                    <span class="badge bg-secondary">Abgelaufen</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Deaktiviert</span>
+                                {% endif %}
+                                <div class="small text-muted mt-2">bis {{ invitation.expires_at|date:"d.m.Y H:i" }}</div>
+                                {% if can_manage_company and invitation.is_usable %}
+                                <form method="post" action="{% url 'departments:company_invite_revoke' company.slug invitation.id %}" class="mt-2">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill">Sperren</button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-muted">Noch keine Einladungen vorhanden.</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
