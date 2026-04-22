@@ -159,11 +159,13 @@ class Plugin(models.Model):
 
     def get_setting(self, key, default=None):
         """Get a specific setting value."""
-        return self.settings.get(key, default)
+        return (self.settings or {}).get(key, default)
 
     def set_setting(self, key, value):
         """Set a specific setting value."""
-        self.settings[key] = value
+        current_settings = self.settings or {}
+        current_settings[key] = value
+        self.settings = current_settings
         self.save(update_fields=['settings'])
 
     class Meta:

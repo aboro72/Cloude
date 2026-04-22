@@ -632,10 +632,12 @@ class PluginSettingsView(APIView):
 
         # Prepare fields with current values
         fields = []
-        for key, field_def in plugin.settings_schema.items():
+        settings_schema = plugin.settings_schema or {}
+        current_settings = plugin.settings or {}
+        for key, field_def in settings_schema.items():
             field = {
                 'key': key,
-                'value': plugin.settings.get(key, field_def.get('default', '')),
+                'value': current_settings.get(key, field_def.get('default', '')),
                 **field_def
             }
             fields.append(field)
@@ -656,7 +658,8 @@ class PluginSettingsView(APIView):
         try:
             # Get settings from form
             new_settings = {}
-            for key, field_def in plugin.settings_schema.items():
+            settings_schema = plugin.settings_schema or {}
+            for key, field_def in settings_schema.items():
                 value = request.POST.get(key, '')
 
                 # Type conversion based on schema
