@@ -1,6 +1,74 @@
 from django import forms
+from django.contrib.auth.models import User
+from django.utils.text import slugify
 
-from accounts.models import UserProfile
+from accounts.models import Company, UserProfile
+
+
+class RegisterForm(forms.ModelForm):
+    company_name = forms.CharField(
+        max_length=180,
+        label='Firma',
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Firmenname'}),
+    )
+    workspace_type = forms.ChoiceField(
+        label='Workspace-Typ',
+        choices=Company.WORKSPACE_TYPE_CHOICES,
+        initial='directory',
+        widget=forms.Select(attrs={'class': 'form-select'}),
+    )
+    workspace_key = forms.CharField(
+        max_length=63,
+        label='Verzeichnis / Subdomain',
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'z.B. acme'}),
+        help_text='Wird als eigenes Firmen-Verzeichnis oder als Subdomain-Kennung verwendet.',
+    )
+    password = forms.CharField(
+        label='Passwort',
+        strip=False,
+        widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Passwort'}),
+        help_text='Mindestens 8 Zeichen.',
+    )
+
+    class Meta:
+        model = User
+        fields = ['username', 'email', 'first_name', 'last_name', 'password']
+
+    def clean_company_name(self):
+        company_name = self.cleaned_data['company_name'].strip()
+        if not company_name:
+            raise forms.ValidationError('Bitte geben Sie einen Firmennamen an.')
+        if Company.objects.filter(name__iexact=company_name).exists():
+            raise forms.ValidationError('Diese Firma ist bereits registriert.')
+        return company_name
+
+    def clean_workspace_key(self):
+        workspace_key = slugify(self.cleaned_data['workspace_key']).replace('_', '-')
+        if not workspace_key:
+            raise forms.ValidationError('Bitte geben Sie eine gueltige Workspace-Kennung an.')
+        if Company.objects.filter(workspace_key=workspace_key).exists():
+            raise forms.ValidationError('Diese Workspace-Kennung ist bereits vergeben.')
+        return workspace_key
+
+    def clean_password(self):
+        password = self.cleaned_data['password']
+        if len(password) < 8:
+            raise forms.ValidationError('Das Passwort muss mindestens 8 Zeichen lang sein.')
+        return password
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.set_password(self.cleaned_data['password'])
+        if commit:
+            user.save()
+            profile = user.profile
+            profile.company = Company.objects.create(
+                name=self.cleaned_data['company_name'],
+                workspace_type=self.cleaned_data['workspace_type'],
+                workspace_key=self.cleaned_data['workspace_key'],
+            )
+            profile.save(update_fields=['company'])
+        return user
 
 
 class AppearanceSettingsForm(forms.ModelForm):

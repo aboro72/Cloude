@@ -3,7 +3,14 @@ import re
 from django import forms
 from django.contrib import admin
 
-from accounts.models import AuditLog, PasswordReset, TwoFactorAuth, UserProfile, UserSession
+from accounts.models import AuditLog, Company, PasswordReset, TwoFactorAuth, UserProfile, UserSession
+
+
+@admin.register(Company)
+class CompanyAdmin(admin.ModelAdmin):
+    list_display = ('name', 'workspace_type', 'workspace_key', 'included_free_employees', 'created_at')
+    list_filter = ('workspace_type',)
+    search_fields = ('name', 'slug', 'workspace_key')
 
 
 class UserProfileAdminForm(forms.ModelForm):
@@ -82,6 +89,7 @@ class UserProfileAdmin(admin.ModelAdmin):
     form = UserProfileAdminForm
     list_display = (
         'user',
+        'company',
         'role',
         'storage_quota_gb',
         'storage_used_gb',
@@ -89,10 +97,10 @@ class UserProfileAdmin(admin.ModelAdmin):
         'is_active',
     )
     list_filter = ('role', 'is_active', 'is_email_verified', 'is_two_factor_enabled')
-    search_fields = ('user__username', 'user__email')
+    search_fields = ('user__username', 'user__email', 'company__name')
     readonly_fields = ('created_at', 'updated_at', 'last_login_at', 'storage_used_gb', 'storage_quota_bytes')
     fieldsets = (
-        ('Benutzer', {'fields': ('user', 'role', 'is_active')}),
+        ('Benutzer', {'fields': ('user', 'company', 'role', 'is_active')}),
         ('Speicher', {'fields': ('storage_quota_display', 'storage_quota_bytes', 'storage_used_gb')}),
         (
             'Profil',

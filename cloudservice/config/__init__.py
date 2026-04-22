@@ -1,8 +1,12 @@
 import os
+import pymysql
 from celery import Celery
 
 # Set default Django settings
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+pymysql.version_info = (2, 2, 1, "final", 0)
+pymysql.__version__ = "2.2.1"
+pymysql.install_as_MySQLdb()
 
 # Initialize Celery
 app = Celery('cloudservice')

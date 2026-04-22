@@ -14,6 +14,7 @@ from core import views as core_views
 
 urlpatterns = [
     path('', core_views.home, name='home'),
+    path('firmen/<slug:workspace_key>/', core_views.company_home, name='company_home'),
     path('admin/', admin.site.urls),
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),

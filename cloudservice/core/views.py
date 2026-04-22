@@ -5,7 +5,7 @@ Main dashboard and activity views.
 
 from django.views.generic import TemplateView, ListView
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.http import Http404
 from pathlib import Path
@@ -58,6 +58,42 @@ def home(request):
         'lp': lp,
         'lp_html': page.get('html', ''),
         'lp_css':  page.get('css', ''),
+    })
+
+
+def company_home(request, workspace_key):
+    """Public company landing page under /firmen/<workspace_key>/."""
+    from accounts.models import Company
+
+    company = get_object_or_404(Company, workspace_key=workspace_key)
+    if request.user.is_authenticated:
+        return redirect(get_authenticated_home_url(request))
+
+    try:
+        from landing_editor.providers import get_landing_settings
+        lp = get_landing_settings()
+    except Exception:
+        lp = {}
+    try:
+        from landing_editor.providers import get_page_content
+        page = get_page_content('landing')
+    except Exception:
+        page = {}
+
+    lp = dict(lp)
+    lp['hero_badge'] = 'Firmen-Workspace'
+    lp['hero_title_line1'] = company.name
+    lp['hero_title_line2'] = 'Eigener Bereich fuer Teams und Mitarbeiter.'
+    lp['hero_subtitle'] = (
+        f"Workspace fuer {company.name} unter {company.workspace_label} - "
+        "mit Bereichen fuer Teams, Mitarbeiter und gemeinsame Inhalte."
+    )
+
+    return render(request, 'home.html', {
+        'lp': lp,
+        'lp_html': page.get('html', ''),
+        'lp_css': page.get('css', ''),
+        'company': company,
     })
 
 

@@ -5,10 +5,15 @@
 {% block content %}
 <div class="container">
     <div class="row justify-content-center">
-        <div class="col-md-6 col-lg-5">
+        <div class="col-md-7 col-lg-6">
             <div class="card" style="margin-top: 50px;">
                 <div class="card-body p-5">
-                    <h2 class="card-title text-center mb-4">✍️ Registrierung</h2>
+                    <h2 class="card-title text-center mb-4">Registrierung</h2>
+
+                    <div class="alert alert-info small" role="alert">
+                        Registrieren Sie Ihre <strong>Firma</strong> mit eigenem Verzeichnis oder eigener Subdomain.
+                        Bis zu <strong>5 Mitarbeiter</strong> sind kostenfrei enthalten.
+                    </div>
 
                     {% if form.non_field_errors %}
                         <div class="alert alert-danger" role="alert">
@@ -22,65 +27,95 @@
                         {% csrf_token %}
 
                         <div class="mb-3">
-                            <label for="{{ form.username.id_for_label }}" class="form-label">
-                                👤 Benutzername
-                            </label>
+                            <label for="{{ form.username.id_for_label }}" class="form-label">Benutzername</label>
                             <input type="text"
                                    class="form-control {% if form.username.errors %}is-invalid{% endif %}"
                                    name="username"
                                    id="{{ form.username.id_for_label }}"
+                                   value="{{ form.username.value|default:'' }}"
                                    placeholder="Benutzername"
                                    required>
                             {% if form.username.errors %}
-                                <div class="invalid-feedback d-block">
-                                    {{ form.username.errors }}
-                                </div>
+                                <div class="invalid-feedback d-block">{{ form.username.errors }}</div>
                             {% endif %}
                         </div>
 
                         <div class="mb-3">
-                            <label for="{{ form.email.id_for_label }}" class="form-label">
-                                📧 E-Mail
-                            </label>
+                            <label for="{{ form.email.id_for_label }}" class="form-label">E-Mail</label>
                             <input type="email"
                                    class="form-control {% if form.email.errors %}is-invalid{% endif %}"
                                    name="email"
                                    id="{{ form.email.id_for_label }}"
+                                   value="{{ form.email.value|default:'' }}"
                                    placeholder="E-Mail-Adresse"
                                    required>
                             {% if form.email.errors %}
-                                <div class="invalid-feedback d-block">
-                                    {{ form.email.errors }}
-                                </div>
+                                <div class="invalid-feedback d-block">{{ form.email.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.first_name.id_for_label }}" class="form-label">Vorname (Optional)</label>
+                                <input type="text"
+                                       class="form-control"
+                                       name="first_name"
+                                       id="{{ form.first_name.id_for_label }}"
+                                       value="{{ form.first_name.value|default:'' }}"
+                                       placeholder="Vorname">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.last_name.id_for_label }}" class="form-label">Nachname (Optional)</label>
+                                <input type="text"
+                                       class="form-control"
+                                       name="last_name"
+                                       id="{{ form.last_name.id_for_label }}"
+                                       value="{{ form.last_name.value|default:'' }}"
+                                       placeholder="Nachname">
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.company_name.id_for_label }}" class="form-label">Firma</label>
+                            <input type="text"
+                                   class="form-control {% if form.company_name.errors %}is-invalid{% endif %}"
+                                   name="company_name"
+                                   id="{{ form.company_name.id_for_label }}"
+                                   value="{{ form.company_name.value|default:'' }}"
+                                   placeholder="Firmenname"
+                                   required>
+                            {% if form.company_name.errors %}
+                                <div class="invalid-feedback d-block">{{ form.company_name.errors }}</div>
                             {% endif %}
                         </div>
 
                         <div class="mb-3">
-                            <label for="{{ form.first_name.id_for_label }}" class="form-label">
-                                👤 Vorname (Optional)
-                            </label>
-                            <input type="text"
-                                   class="form-control"
-                                   name="first_name"
-                                   id="{{ form.first_name.id_for_label }}"
-                                   placeholder="Vorname">
+                            <label for="{{ form.workspace_type.id_for_label }}" class="form-label">Workspace-Typ</label>
+                            {{ form.workspace_type }}
+                            {% if form.workspace_type.errors %}
+                                <div class="invalid-feedback d-block">{{ form.workspace_type.errors }}</div>
+                            {% endif %}
                         </div>
 
                         <div class="mb-3">
-                            <label for="{{ form.last_name.id_for_label }}" class="form-label">
-                                👤 Nachname (Optional)
-                            </label>
+                            <label for="{{ form.workspace_key.id_for_label }}" class="form-label">Verzeichnis / Subdomain</label>
                             <input type="text"
-                                   class="form-control"
-                                   name="last_name"
-                                   id="{{ form.last_name.id_for_label }}"
-                                   placeholder="Nachname">
+                                   class="form-control {% if form.workspace_key.errors %}is-invalid{% endif %}"
+                                   name="workspace_key"
+                                   id="{{ form.workspace_key.id_for_label }}"
+                                   value="{{ form.workspace_key.value|default:'' }}"
+                                   placeholder="z.B. acme"
+                                   required>
+                            <small class="form-text text-muted">
+                                Eigener Firmenbereich, zum Beispiel <code>/firmen/acme/</code> oder <code>acme.ihre-domain.tld</code>.
+                            </small>
+                            {% if form.workspace_key.errors %}
+                                <div class="invalid-feedback d-block">{{ form.workspace_key.errors }}</div>
+                            {% endif %}
                         </div>
 
                         <div class="mb-3">
-                            <label for="{{ form.password.id_for_label }}" class="form-label">
-                                🔑 Passwort
-                            </label>
+                            <label for="{{ form.password.id_for_label }}" class="form-label">Passwort</label>
                             <input type="password"
                                    class="form-control {% if form.password.errors %}is-invalid{% endif %}"
                                    name="password"
@@ -88,17 +123,15 @@
                                    placeholder="Passwort"
                                    required>
                             {% if form.password.errors %}
-                                <div class="invalid-feedback d-block">
-                                    {{ form.password.errors }}
-                                </div>
+                                <div class="invalid-feedback d-block">{{ form.password.errors }}</div>
                             {% endif %}
                             <small class="form-text text-muted">
-                                Mindestens 8 Zeichen
+                                Mindestens 8 Zeichen. Bis zu 5 Mitarbeiter pro Firma sind kostenfrei.
                             </small>
                         </div>
 
                         <button type="submit" class="btn btn-primary w-100 mb-3">
-                            Registrieren
+                            Firma registrieren
                         </button>
                     </form>
 
@@ -106,9 +139,7 @@
 
                     <p class="text-center text-muted mb-0">
                         Bereits registriert?
-                        <a href="/accounts/login/" class="text-decoration-none">
-                            Hier einloggen
-                        </a>
+                        <a href="/accounts/login/" class="text-decoration-none">Hier einloggen</a>
                     </p>
                 </div>
             </div>

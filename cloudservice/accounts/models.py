@@ -10,7 +10,73 @@ from django.core.validators import MinValueValidator, MaxValueValidator, RegexVa
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 from django.db.models import Sum, F
+from django.utils.text import slugify
 import uuid
+
+
+class Company(models.Model):
+    """Represents a registered company workspace."""
+
+    WORKSPACE_TYPE_CHOICES = [
+        ('directory', _('Directory')),
+        ('subdomain', _('Subdomain')),
+    ]
+
+    name = models.CharField(
+        max_length=180,
+        unique=True,
+        verbose_name=_('Company name'),
+    )
+    slug = models.SlugField(
+        max_length=180,
+        unique=True,
+        verbose_name=_('Company slug'),
+    )
+    workspace_type = models.CharField(
+        max_length=20,
+        choices=WORKSPACE_TYPE_CHOICES,
+        default='directory',
+        verbose_name=_('Workspace type'),
+    )
+    workspace_key = models.SlugField(
+        max_length=63,
+        unique=True,
+        verbose_name=_('Workspace key'),
+        help_text=_('Used for the company directory or subdomain.'),
+    )
+    included_free_employees = models.PositiveSmallIntegerField(
+        default=5,
+        verbose_name=_('Included free employees'),
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name=_('Created at'),
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name=_('Updated at'),
+    )
+
+    class Meta:
+        verbose_name = _('Company')
+        verbose_name_plural = _('Companies')
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def workspace_label(self):
+        if self.workspace_type == 'subdomain':
+            return f'{self.workspace_key}.*'
+        return f'/firmen/{self.workspace_key}/'
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name)
+        if not self.workspace_key:
+            self.workspace_key = self.slug
+        super().save(*args, **kwargs)
 
 
 class UserProfile(models.Model):
@@ -57,6 +123,14 @@ class UserProfile(models.Model):
         on_delete=models.CASCADE,
         related_name='profile',
         verbose_name=_('User')
+    )
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='members',
+        verbose_name=_('Company'),
     )
     role = models.CharField(
         max_length=20,

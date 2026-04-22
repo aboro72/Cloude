@@ -20,7 +20,7 @@ from django.views.decorators.cache import never_cache
 from django.views import View
 from django.http import JsonResponse
 from accounts.models import UserProfile
-from accounts.forms import AppearanceSettingsForm
+from accounts.forms import AppearanceSettingsForm, RegisterForm
 from core.navigation import get_authenticated_home_url
 import logging
 
@@ -66,13 +66,8 @@ class RegisterView(CreateView):
     """User registration"""
     template_name = 'accounts/register.html'
     model = User
-    fields = ['username', 'email', 'first_name', 'last_name', 'password']
+    form_class = RegisterForm
     success_url = reverse_lazy('accounts:login')
-
-    def form_valid(self, form):
-        user = form.save(commit=False)
-        user.set_password(form.cleaned_data['password'])
-        return super().form_valid(form)
 
 
 class ProfileView(LoginRequiredMixin, TemplateView):

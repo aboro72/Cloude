@@ -30,7 +30,7 @@ class NewsCategory(models.Model):
 
 class NewsArticle(models.Model):
     title = models.CharField(max_length=255, verbose_name=_('Title'))
-    slug = models.SlugField(unique=True, max_length=280, verbose_name=_('Slug'))
+    slug = models.SlugField(unique=True, max_length=191, verbose_name=_('Slug'))
     category = models.ForeignKey(
         NewsCategory,
         on_delete=models.SET_NULL,
@@ -76,11 +76,13 @@ class NewsArticle(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.slug:
-            base = slugify(self.title)
+            max_length = self._meta.get_field('slug').max_length
+            base = slugify(self.title)[:max_length]
             slug = base
             n = 1
             while NewsArticle.objects.filter(slug=slug).exclude(pk=self.pk).exists():
-                slug = f'{base}-{n}'
+                suffix = f'-{n}'
+                slug = f'{base[:max_length - len(suffix)]}{suffix}'
                 n += 1
             self.slug = slug
         super().save(*args, **kwargs)
