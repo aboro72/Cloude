@@ -42,12 +42,6 @@ class PluginLoader:
         self.PLUGINS_DIR.mkdir(parents=True, exist_ok=True)
         logger.debug(f"PluginLoader initialized with PLUGINS_DIR: {self.PLUGINS_DIR}")
 
-    @staticmethod
-    def _normalize_settings_config(manifest: Dict[str, Any]) -> Dict[str, Any]:
-        """Return a safe plugin settings config dict."""
-        settings_config = manifest.get('settings') or {}
-        return settings_config if isinstance(settings_config, dict) else {}
-
     def discover_plugins(self) -> List[Dict[str, Any]]:
         """
         Discover plugins from folder structure in PLUGINS_DIR.
@@ -97,9 +91,9 @@ class PluginLoader:
                 module_name = slug.replace('-', '_')
 
                 # Extract settings schema if present
-                settings_config = self._normalize_settings_config(manifest)
+                settings_config = manifest.get('settings', {})
                 has_settings = settings_config.get('has_settings', False)
-                settings_schema = settings_config.get('schema') or {}
+                settings_schema = settings_config.get('schema', {})
 
                 plugin, created = Plugin.objects.get_or_create(
                     slug=slug,
@@ -128,7 +122,7 @@ class PluginLoader:
                     )
                 else:
                     # Update manifest and settings schema if version changed
-                    if plugin.version != manifest['version'] or (plugin.settings_schema or {}) != settings_schema:
+                    if plugin.version != manifest['version'] or plugin.settings_schema != settings_schema:
                         plugin.version = manifest['version']
                         plugin.manifest = manifest
                         plugin.has_settings = has_settings
@@ -325,16 +319,12 @@ class PluginLoader:
                 logger.debug(f"Added {module_name} to INSTALLED_APPS")
 
             # Create and register AppConfig instance.
-            # apps.populate() also initializes app_config.models via import_models().
-            # Without that, internal Django code can hit app_config.models.values()
-            # while models is still None, which breaks plugin activation.
+            # IMPORTANT: apps.populate() normally sets app_config.apps = self after __init__.
+            # We must do the same here, otherwise app_config.apps remains None and any
+            # internal Django call to app_config.apps.check_models_ready() will crash.
             app_config_instance = app_config_class(module_name, plugin_module)
             app_config_instance.apps = apps  # mirror what Apps.populate() does
-            if getattr(app_config_instance, 'models', None) is None:
-                app_config_instance.models = {}
             apps.app_configs[module_name] = app_config_instance
-            app_config_instance.import_models()
-            apps.clear_cache()
             logger.debug(f"Registered AppConfig: {module_name}")
 
             # Call ready() to initialize signals, hooks, etc.
@@ -346,7 +336,7 @@ class PluginLoader:
             plugin.enabled = True
             plugin.activated_at = timezone.now()
             plugin.error_message = ''
-            plugin.save(update_fields=['status', 'enabled', 'activated_at', 'error_message', 'module_name'])
+            plugin.save()
 
             # Log the action
             PluginLog.objects.create(
@@ -362,7 +352,7 @@ class PluginLoader:
             logger.error(f"Failed to load plugin {plugin_id}: {e}")
             plugin.status = 'error'
             plugin.error_message = str(e)
-            plugin.save(update_fields=['status', 'error_message'])
+            plugin.save()
 
             PluginLog.objects.create(
                 plugin=plugin,
@@ -427,7 +417,7 @@ class PluginLoader:
             # Update plugin status
             plugin.enabled = False
             plugin.status = 'inactive'
-            plugin.save(update_fields=['enabled', 'status'])
+            plugin.save()
 
             # Log the action
             PluginLog.objects.create(
@@ -568,13 +558,9 @@ class PluginLoader:
             config_module = importlib.import_module(config_module_path)
             app_config_class = getattr(config_module, config_class_name)
 
-            # Important: this method is called during Django startup. Do NOT mutate
-            # apps.app_configs here, otherwise Django's apps.populate() can crash with
-            # "dictionary changed size during iteration".
+            # Create instance and call ready() to register hooks only
+            # Don't modify apps.app_configs or INSTALLED_APPS
             app_config_instance = app_config_class(module_name, plugin_module)
-            app_config_instance.apps = apps
-            if getattr(app_config_instance, 'models', None) is None:
-                app_config_instance.models = {}
             app_config_instance.ready()
 
             logger.info(f"Registered hooks for plugin: {plugin.name}")

@@ -21,6 +21,28 @@ logger = logging.getLogger(__name__)
 mimetypes.add_type('application/plugin', '.plug')  # Universal plugin format
 
 
+def _company_file_upload_path(instance, filename):
+    """
+    Build storage path scoped by company and user:
+      companies/<workspace_key>/users/<username>/files/<filename>
+    Falls back to users/<username>/files/<filename> when no company is set.
+    """
+    try:
+        workspace_key = instance.owner.profile.company.workspace_key
+        return f'companies/{workspace_key}/users/{instance.owner.username}/files/{filename}'
+    except Exception:
+        return f'users/{instance.owner.username}/files/{filename}'
+
+
+def _company_version_upload_path(instance, filename):
+    """Version upload path scoped by company and user."""
+    try:
+        workspace_key = instance.file.owner.profile.company.workspace_key
+        return f'companies/{workspace_key}/users/{instance.file.owner.username}/versions/{filename}'
+    except Exception:
+        return f'users/{instance.file.owner.username}/versions/{filename}'
+
+
 class TimeStampedModel(models.Model):
     """
     Abstract base model with timestamp fields.
@@ -155,7 +177,7 @@ class StorageFile(TimeStampedModel):
         db_index=True
     )
     file = models.FileField(
-        upload_to='files/%Y/%m/%d/%H%M%S',
+        upload_to=_company_file_upload_path,
         verbose_name=_('File'),
     )
     size = models.BigIntegerField(
@@ -372,7 +394,7 @@ class FileVersion(TimeStampedModel):
         db_index=True
     )
     file_data = models.FileField(
-        upload_to='versions/%Y/%m/%d/',
+        upload_to=_company_version_upload_path,
         verbose_name=_('Version file')
     )
     file_hash = models.CharField(

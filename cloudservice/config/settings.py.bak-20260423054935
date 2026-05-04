@@ -71,7 +71,6 @@ LOCAL_APPS = [
     'tasks_board.apps.TasksBoardConfig',
     'forms_builder.apps.FormsBuilderConfig',
     'departments.apps.DepartmentsConfig',
-    'messenger.apps.MessengerConfig',
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -333,24 +332,16 @@ CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 # ========== Channels (WebSocket) Configuration ==========
 ASGI_APPLICATION = 'config.asgi.application'
 
-if DEBUG:
-    # In-memory channel layer for development — no Redis required
-    CHANNEL_LAYERS = {
-        'default': {
-            'BACKEND': 'channels.layers.InMemoryChannelLayer',
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [config('REDIS_URL', default='redis://127.0.0.1:6379/0')],
+            'capacity': 1500,
+            'expiry': 10,
         },
-    }
-else:
-    CHANNEL_LAYERS = {
-        'default': {
-            'BACKEND': 'channels_redis.core.RedisChannelLayer',
-            'CONFIG': {
-                'hosts': [config('REDIS_URL', default='redis://127.0.0.1:6379/0')],
-                'capacity': 1500,
-                'expiry': 10,
-            },
-        },
-    }
+    },
+}
 
 # ========== File Upload Configuration ==========
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760   # 10 MB – darüber schreibt Django auf Disk statt RAM
@@ -379,15 +370,11 @@ ALLOWED_FILE_EXTENSIONS = {
 SECURE_SSL_REDIRECT = config('SECURE_SSL_REDIRECT', default=False, cast=bool)
 SESSION_COOKIE_SECURE = config('SESSION_COOKIE_SECURE', default=False, cast=bool)
 CSRF_COOKIE_SECURE = config('CSRF_COOKIE_SECURE', default=False, cast=bool)
-# Honor reverse-proxy headers (nginx/Cloudflare) so Django can detect HTTPS correctly.
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-USE_X_FORWARDED_HOST = True
 CSRF_TRUSTED_ORIGINS = [
     'http://localhost:8000',
     'http://127.0.0.1:8000',
     'http://localhost:3000',
     'https://storage1.aborosoft.com',
-    'https://cloudshare.aborosoft.com',
 ]
 CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_SAMESITE = 'Lax'

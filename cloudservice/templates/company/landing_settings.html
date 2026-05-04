@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}Landing-Page bearbeiten – {{ company.name }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex align-items-center gap-3 mb-4">
+        <a href="{% url 'company_home' workspace_key=company.workspace_key %}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Zur Landing-Page
+        </a>
+        <h1 class="h4 mb-0">Landing-Page: {{ company.name }}</h1>
+    </div>
+
+    {% if messages %}
+        {% for msg in messages %}
+        <div class="alert alert-{{ msg.tags|default:'info' }} alert-dismissible fade show" role="alert">
+            {{ msg }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="row g-4">
+
+            <!-- Text & Branding -->
+            <div class="col-lg-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3"><i class="bi bi-type me-2"></i>Texte</h5>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Titel</label>
+                            {{ form.landing_title }}
+                            <div class="form-text">{{ form.landing_title.help_text }}</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Untertitel / Beschreibung</label>
+                            {{ form.landing_subtitle }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Colors -->
+            <div class="col-lg-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3"><i class="bi bi-palette me-2"></i>Farben</h5>
+                        <div class="row g-3">
+                            <div class="col-6">
+                                <label class="form-label fw-semibold">Primärfarbe</label>
+                                <div class="d-flex gap-2 align-items-center">
+                                    <input type="color" class="form-control form-control-color"
+                                        value="{{ company.landing_primary_color }}"
+                                        id="primary_color_picker">
+                                    {{ form.landing_primary_color }}
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label fw-semibold">Sekundärfarbe</label>
+                                <div class="d-flex gap-2 align-items-center">
+                                    <input type="color" class="form-control form-control-color"
+                                        value="{{ company.landing_secondary_color }}"
+                                        id="secondary_color_picker">
+                                    {{ form.landing_secondary_color }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Logo & Hero -->
+            <div class="col-lg-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3"><i class="bi bi-image me-2"></i>Logo &amp; Hero</h5>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Firmen-Logo</label>
+                            {% if company.landing_logo %}
+                                <div class="mb-2">
+                                    <img src="{{ company.landing_logo.url }}" alt="Logo" style="max-height:60px; max-width:160px; object-fit:contain;" class="border rounded p-1">
+                                </div>
+                            {% endif %}
+                            {{ form.landing_logo }}
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Hero-Stil</label>
+                            {{ form.landing_hero_style }}
+                        </div>
+
+                        <div class="mb-3" id="hero-image-field">
+                            <label class="form-label fw-semibold">Hero-Hintergrundbild</label>
+                            {% if company.landing_hero_image %}
+                                <div class="mb-2">
+                                    <img src="{{ company.landing_hero_image.url }}" alt="Hero" style="max-height:80px; max-width:200px; object-fit:cover; border-radius:8px;">
+                                </div>
+                            {% endif %}
+                            {{ form.landing_hero_image }}
+                        </div>
+
+                        <div class="mb-3" id="hero-video-field">
+                            <label class="form-label fw-semibold">Hero-Hintergrundvideo</label>
+                            {% if company.landing_hero_video %}
+                                <div class="mb-2 text-success"><i class="bi bi-check-circle"></i> Video hochgeladen</div>
+                            {% endif %}
+                            {{ form.landing_hero_video }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Custom Code -->
+            <div class="col-lg-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3"><i class="bi bi-code-slash me-2"></i>Eigener Code</h5>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Eigenes CSS</label>
+                            <textarea name="landing_custom_css" class="form-control font-monospace" rows="5"
+                                placeholder="/* Eigenes CSS */">{{ form.landing_custom_css.value|default:'' }}</textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Eigener HTML-Block</label>
+                            <textarea name="landing_custom_html" class="form-control font-monospace" rows="5"
+                                placeholder="<!-- Eigener HTML-Inhalt -->">{{ form.landing_custom_html.value|default:'' }}</textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="d-flex gap-2 mt-4">
+            <button type="submit" class="btn btn-primary px-4">
+                <i class="bi bi-save me-1"></i> Speichern
+            </button>
+            <a href="{% url 'company_home' workspace_key=company.workspace_key %}" class="btn btn-outline-secondary" target="_blank">
+                <i class="bi bi-eye me-1"></i> Vorschau
+            </a>
+        </div>
+    </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // Sync color pickers with text inputs
+    function syncColor(pickerId, inputName) {
+        var picker = document.getElementById(pickerId);
+        var input = document.querySelector('[name="' + inputName + '"]');
+        if (!picker || !input) return;
+        picker.addEventListener('input', function () { input.value = picker.value; });
+        input.addEventListener('input', function () {
+            if (/^#[0-9A-Fa-f]{6}$/.test(input.value)) picker.value = input.value;
+        });
+    }
+    syncColor('primary_color_picker', 'landing_primary_color');
+    syncColor('secondary_color_picker', 'landing_secondary_color');
+
+    // Show/hide hero image/video fields based on style
+    var styleSelect = document.querySelector('[name="landing_hero_style"]');
+    var imgField = document.getElementById('hero-image-field');
+    var vidField = document.getElementById('hero-video-field');
+    function updateHeroFields() {
+        if (!styleSelect) return;
+        imgField.style.display = styleSelect.value === 'image' ? '' : 'none';
+        vidField.style.display = styleSelect.value === 'video' ? '' : 'none';
+    }
+    if (styleSelect) {
+        styleSelect.addEventListener('change', updateHeroFields);
+        updateHeroFields();
+    }
+});
+</script>
+{% endblock %}

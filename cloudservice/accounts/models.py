@@ -22,6 +22,17 @@ class Company(models.Model):
         ('subdomain', _('Subdomain')),
     ]
 
+    HERO_STYLE_CHOICES = [
+        ('gradient', _('Gradient')),
+        ('image', _('Image')),
+        ('video', _('Video')),
+    ]
+
+    HEX_COLOR_VALIDATOR = RegexValidator(
+        regex=r'^#[0-9A-Fa-f]{6}$',
+        message=_('Use a valid hex color like #667EEA.'),
+    )
+
     name = models.CharField(
         max_length=180,
         unique=True,
@@ -48,6 +59,66 @@ class Company(models.Model):
         default=5,
         verbose_name=_('Included free employees'),
     )
+
+    # Landing page customization
+    landing_title = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name=_('Landing page title'),
+        help_text=_('Leave blank to use company name.'),
+    )
+    landing_subtitle = models.CharField(
+        max_length=400,
+        blank=True,
+        verbose_name=_('Landing page subtitle'),
+    )
+    landing_logo = models.ImageField(
+        upload_to='companies/logos/',
+        null=True,
+        blank=True,
+        verbose_name=_('Company logo'),
+    )
+    landing_hero_style = models.CharField(
+        max_length=20,
+        choices=HERO_STYLE_CHOICES,
+        default='gradient',
+        verbose_name=_('Hero style'),
+    )
+    landing_hero_image = models.ImageField(
+        upload_to='companies/hero/',
+        null=True,
+        blank=True,
+        verbose_name=_('Hero background image'),
+    )
+    landing_hero_video = models.FileField(
+        upload_to='companies/hero/',
+        null=True,
+        blank=True,
+        verbose_name=_('Hero background video'),
+    )
+    landing_primary_color = models.CharField(
+        max_length=7,
+        default='#667eea',
+        validators=[HEX_COLOR_VALIDATOR],
+        verbose_name=_('Primary brand color'),
+    )
+    landing_secondary_color = models.CharField(
+        max_length=7,
+        default='#764ba2',
+        validators=[HEX_COLOR_VALIDATOR],
+        verbose_name=_('Secondary brand color'),
+    )
+    landing_custom_html = models.TextField(
+        blank=True,
+        verbose_name=_('Custom HTML block'),
+        help_text=_('Additional HTML shown on the landing page.'),
+    )
+    landing_custom_css = models.TextField(
+        blank=True,
+        verbose_name=_('Custom CSS'),
+        help_text=_('Custom CSS applied on the landing page.'),
+    )
+
     created_at = models.DateTimeField(
         auto_now_add=True,
         verbose_name=_('Created at'),
@@ -69,7 +140,11 @@ class Company(models.Model):
     def workspace_label(self):
         if self.workspace_type == 'subdomain':
             return f'{self.workspace_key}.*'
-        return f'/firmen/{self.workspace_key}/'
+        return f'/{self.workspace_key}/mysite/'
+
+    @property
+    def effective_landing_title(self):
+        return self.landing_title or self.name
 
     def save(self, *args, **kwargs):
         if not self.slug:

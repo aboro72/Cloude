@@ -61,8 +61,14 @@ def home(request):
     })
 
 
+def company_home_redirect(request, workspace_key):
+    """Redirect legacy /firmen/<workspace_key>/ URLs to /<workspace_key>/mysite/."""
+    from django.urls import reverse
+    return redirect(reverse('company_home', kwargs={'workspace_key': workspace_key}), permanent=True)
+
+
 def company_home(request, workspace_key):
-    """Public company landing page under /firmen/<workspace_key>/."""
+    """Public company landing page under /<workspace_key>/mysite/."""
     from accounts.models import Company
 
     company = get_object_or_404(Company, workspace_key=workspace_key)
@@ -81,19 +87,70 @@ def company_home(request, workspace_key):
         page = {}
 
     lp = dict(lp)
-    lp['hero_badge'] = 'Firmen-Workspace'
-    lp['hero_title_line1'] = company.name
-    lp['hero_title_line2'] = 'Eigener Bereich fuer Teams und Mitarbeiter.'
+    lp['hero_badge'] = company.name
+    lp['hero_title_line1'] = company.effective_landing_title
+    lp['hero_title_line2'] = company.landing_subtitle or 'Eigener Bereich fuer Teams und Mitarbeiter.'
     lp['hero_subtitle'] = (
-        f"Workspace fuer {company.name} unter {company.workspace_label} - "
-        "mit Bereichen fuer Teams, Mitarbeiter und gemeinsame Inhalte."
+        company.landing_subtitle or (
+            f"Workspace fuer {company.name} - "
+            "mit Bereichen fuer Teams, Mitarbeiter und gemeinsame Inhalte."
+        )
     )
+    if company.landing_primary_color:
+        lp['primary_color'] = company.landing_primary_color
+    if company.landing_secondary_color:
+        lp['secondary_color'] = company.landing_secondary_color
 
-    return render(request, 'home.html', {
+    return render(request, 'company/landing.html', {
         'lp': lp,
         'lp_html': page.get('html', ''),
         'lp_css': page.get('css', ''),
         'company': company,
+    })
+
+
+def company_landing_settings(request, workspace_key):
+    """Company admin: edit the company's landing page."""
+    from accounts.models import Company
+    from django import forms as django_forms
+
+    company = get_object_or_404(Company, workspace_key=workspace_key)
+
+    if not request.user.is_authenticated:
+        return redirect('accounts:login')
+
+    profile = getattr(request.user, 'profile', None)
+    is_company_admin = (
+        request.user.is_superuser
+        or (profile and profile.company == company and profile.role in ('admin', 'moderator'))
+    )
+    if not is_company_admin:
+        messages.error(request, 'Kein Zugriff.')
+        return redirect('company_home', workspace_key=workspace_key)
+
+    class CompanyLandingForm(django_forms.ModelForm):
+        class Meta:
+            model = Company
+            fields = [
+                'landing_title', 'landing_subtitle',
+                'landing_logo', 'landing_hero_style',
+                'landing_hero_image', 'landing_hero_video',
+                'landing_primary_color', 'landing_secondary_color',
+                'landing_custom_html', 'landing_custom_css',
+            ]
+
+    if request.method == 'POST':
+        form = CompanyLandingForm(request.POST, request.FILES, instance=company)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Landing-Page gespeichert.')
+            return redirect('company_landing_settings', workspace_key=workspace_key)
+    else:
+        form = CompanyLandingForm(instance=company)
+
+    return render(request, 'company/landing_settings.html', {
+        'company': company,
+        'form': form,
     })
 
 

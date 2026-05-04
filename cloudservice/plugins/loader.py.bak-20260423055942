@@ -568,13 +568,14 @@ class PluginLoader:
             config_module = importlib.import_module(config_module_path)
             app_config_class = getattr(config_module, config_class_name)
 
-            # Important: this method is called during Django startup. Do NOT mutate
-            # apps.app_configs here, otherwise Django's apps.populate() can crash with
-            # "dictionary changed size during iteration".
+            # Mirror the parts of Apps.populate() that plugins commonly rely on.
             app_config_instance = app_config_class(module_name, plugin_module)
             app_config_instance.apps = apps
             if getattr(app_config_instance, 'models', None) is None:
                 app_config_instance.models = {}
+            apps.app_configs[module_name] = app_config_instance
+            app_config_instance.import_models()
+            apps.clear_cache()
             app_config_instance.ready()
 
             logger.info(f"Registered hooks for plugin: {plugin.name}")

@@ -1,0 +1,810 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}Messenger – {{ company.name }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* ── Messenger Layout ─────────────────────────────────────────────── */
+    :root {
+        --msg-sidebar: 260px;
+        --msg-header: 56px;
+        --msg-input: 80px;
+    }
+    body { overflow: hidden; }
+    .messenger-wrap {
+        display: flex;
+        height: calc(100vh - 56px); /* subtract main navbar */
+        background: #f0f2f5;
+    }
+
+    /* Sidebar */
+    .msg-sidebar {
+        width: var(--msg-sidebar);
+        background: #1e1f22;
+        color: #b5bac1;
+        display: flex;
+        flex-direction: column;
+        flex-shrink: 0;
+        overflow: hidden;
+    }
+    .msg-sidebar-header {
+        padding: 1rem;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        font-weight: 700;
+        font-size: 0.92rem;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .msg-sidebar-section {
+        padding: 0.5rem 0.5rem 0.25rem;
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #80848e;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .msg-sidebar-section a { color: #80848e; text-decoration: none; font-size: 1rem; line-height: 1; }
+    .msg-sidebar-section a:hover { color: #fff; }
+    .msg-sidebar-list { list-style: none; padding: 0; margin: 0; }
+    .msg-sidebar-list li a {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.35rem 0.75rem;
+        border-radius: 4px;
+        color: #b5bac1;
+        text-decoration: none;
+        font-size: 0.88rem;
+        transition: background 0.1s, color 0.1s;
+        margin: 0 0.25rem;
+    }
+    .msg-sidebar-list li a:hover { background: rgba(255,255,255,0.08); color: #fff; }
+    .msg-sidebar-list li a.active { background: #404249; color: #fff; }
+    .msg-sidebar-list li .badge-unread {
+        margin-left: auto;
+        background: #da373c;
+        color: #fff;
+        border-radius: 10px;
+        font-size: 0.68rem;
+        padding: 0.05rem 0.4rem;
+        font-weight: 700;
+    }
+    .msg-sidebar-scroll {
+        flex: 1;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: #404249 transparent;
+    }
+
+    /* Main area */
+    .msg-main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        background: #fff;
+    }
+    .msg-channel-header {
+        height: var(--msg-header);
+        border-bottom: 1px solid #e3e5e8;
+        padding: 0 1.25rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        background: #fff;
+        flex-shrink: 0;
+    }
+    .msg-channel-header .channel-name {
+        font-weight: 700;
+        font-size: 1rem;
+    }
+    .msg-channel-header .channel-desc {
+        font-size: 0.82rem;
+        color: #80848e;
+        border-left: 1px solid #d1d3d6;
+        padding-left: 0.75rem;
+        margin-left: 0.25rem;
+    }
+    .msg-channel-header .ms-auto { display: flex; gap: 0.5rem; align-items: center; }
+
+    /* Messages area */
+    .msg-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1rem 1.25rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        scrollbar-width: thin;
+        scrollbar-color: #d1d3d6 transparent;
+    }
+    .msg-load-more {
+        text-align: center;
+        margin-bottom: 0.5rem;
+    }
+    .msg-group {
+        display: flex;
+        gap: 0.75rem;
+        padding: 0.2rem 0;
+        position: relative;
+    }
+    .msg-group:hover { background: #f2f3f5; border-radius: 4px; }
+    .msg-group:hover .msg-actions { opacity: 1; }
+    .msg-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.78rem;
+        font-weight: 700;
+        flex-shrink: 0;
+        margin-top: 0.15rem;
+    }
+    .msg-body { flex: 1; min-width: 0; }
+    .msg-meta { font-size: 0.8rem; margin-bottom: 0.2rem; }
+    .msg-meta .author { font-weight: 700; color: #060607; }
+    .msg-meta .time { color: #80848e; font-size: 0.72rem; margin-left: 0.4rem; }
+    .msg-content { font-size: 0.9rem; color: #2e3338; line-height: 1.55; word-break: break-word; }
+    .msg-content.deleted { color: #80848e; font-style: italic; }
+    .msg-system {
+        text-align: center;
+        font-size: 0.78rem;
+        color: #80848e;
+        padding: 0.5rem 0;
+    }
+    .msg-system::before, .msg-system::after {
+        content: '';
+        display: inline-block;
+        width: 60px;
+        height: 1px;
+        background: #e3e5e8;
+        vertical-align: middle;
+        margin: 0 0.5rem;
+    }
+    .msg-reply-preview {
+        background: #f2f3f5;
+        border-left: 3px solid #667eea;
+        padding: 0.25rem 0.5rem;
+        border-radius: 3px;
+        font-size: 0.78rem;
+        color: #4e5058;
+        margin-bottom: 0.2rem;
+    }
+    .msg-reactions { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.25rem; }
+    .msg-reaction-btn {
+        background: #f2f3f5;
+        border: 1px solid #e3e5e8;
+        border-radius: 10px;
+        padding: 0.1rem 0.45rem;
+        font-size: 0.8rem;
+        cursor: pointer;
+        transition: background 0.1s;
+    }
+    .msg-reaction-btn:hover { background: #e3e5e8; }
+    .msg-reaction-btn.mine { background: #e8eaf6; border-color: #9fa8da; }
+    .msg-actions {
+        position: absolute;
+        right: 0.5rem;
+        top: 0.2rem;
+        opacity: 0;
+        background: #fff;
+        border: 1px solid #e3e5e8;
+        border-radius: 6px;
+        display: flex;
+        gap: 0;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        transition: opacity 0.1s;
+    }
+    .msg-actions button {
+        background: none;
+        border: none;
+        padding: 0.3rem 0.5rem;
+        cursor: pointer;
+        color: #4e5058;
+        font-size: 0.82rem;
+        border-radius: 5px;
+    }
+    .msg-actions button:hover { background: #f2f3f5; color: #060607; }
+
+    /* Input area */
+    .msg-input-wrap {
+        padding: 0.75rem 1.25rem;
+        border-top: 1px solid #e3e5e8;
+        background: #fff;
+        flex-shrink: 0;
+    }
+    .msg-reply-bar {
+        background: #f2f3f5;
+        border-left: 3px solid #667eea;
+        padding: 0.35rem 0.75rem;
+        border-radius: 3px;
+        font-size: 0.8rem;
+        margin-bottom: 0.5rem;
+        display: none;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .msg-input-box {
+        display: flex;
+        gap: 0.5rem;
+        align-items: flex-end;
+        background: #f2f3f5;
+        border-radius: 8px;
+        padding: 0.5rem 0.75rem;
+    }
+    #msg-input {
+        flex: 1;
+        border: none;
+        background: transparent;
+        outline: none;
+        resize: none;
+        font-size: 0.92rem;
+        max-height: 150px;
+        line-height: 1.5;
+        font-family: inherit;
+    }
+    .msg-send-btn {
+        background: #667eea;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        padding: 0.4rem 0.8rem;
+        cursor: pointer;
+        transition: background 0.15s;
+        flex-shrink: 0;
+    }
+    .msg-send-btn:hover { background: #5a6fd6; }
+    .msg-send-btn:disabled { background: #b5bac1; cursor: not-allowed; }
+
+    .typing-indicator {
+        font-size: 0.75rem;
+        color: #80848e;
+        height: 1.2rem;
+        padding-left: 0.25rem;
+        margin-top: 0.25rem;
+    }
+
+    /* Empty state */
+    .msg-empty {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 0.75rem;
+        color: #80848e;
+        text-align: center;
+    }
+    .msg-empty i { font-size: 3rem; opacity: 0.4; }
+
+    /* Video placeholder */
+    .video-placeholder {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        font-size: 0.82rem;
+        color: #80848e;
+        border: 1px dashed #d1d3d6;
+        border-radius: 6px;
+        padding: 0.3rem 0.7rem;
+        cursor: not-allowed;
+        title: attr(title);
+    }
+
+    @media (max-width: 640px) {
+        .msg-sidebar { display: none; }
+        .msg-channel-header .channel-desc { display: none; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="messenger-wrap">
+
+    <!-- Sidebar -->
+    <aside class="msg-sidebar">
+        <div class="msg-sidebar-header">
+            <span><i class="bi bi-buildings me-1"></i>{{ company.name }}</span>
+            <a href="{% url 'company_home' workspace_key=company.workspace_key %}" title="Zur Firmen-Seite" class="text-muted" style="font-size:0.8rem;">
+                <i class="bi bi-box-arrow-up-right"></i>
+            </a>
+        </div>
+
+        <div class="msg-sidebar-scroll">
+            <!-- Channels -->
+            <div class="msg-sidebar-section">
+                <span>Kanäle</span>
+                <a href="{% url 'messenger:create_channel' workspace_key=company.workspace_key %}" title="Neuen Kanal erstellen">+</a>
+            </div>
+            <ul class="msg-sidebar-list">
+                {% for room, membership in channels %}
+                <li>
+                    <a href="{% url 'messenger:room' workspace_key=company.workspace_key room_slug=room.slug %}"
+                       class="{% if active_room and active_room.pk == room.pk %}active{% endif %}">
+                        <i class="bi bi-hash"></i>
+                        <span class="text-truncate">{{ room.name }}</span>
+                        {% with unread=room.unread_count %}
+                            {% if unread > 0 %}<span class="badge-unread">{{ unread }}</span>{% endif %}
+                        {% endwith %}
+                    </a>
+                </li>
+                {% endfor %}
+                {% for room in open_channels %}
+                <li>
+                    <a href="{% url 'messenger:room' workspace_key=company.workspace_key room_slug=room.slug %}"
+                       style="opacity:0.55;">
+                        <i class="bi bi-hash"></i>
+                        <span class="text-truncate">{{ room.name }}</span>
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+
+            <!-- Direct Messages -->
+            <div class="msg-sidebar-section mt-2">
+                <span>Direktnachrichten</span>
+            </div>
+            <ul class="msg-sidebar-list">
+                {% for room, membership in directs %}
+                <li>
+                    <a href="{% url 'messenger:room' workspace_key=company.workspace_key room_slug=room.slug %}"
+                       class="{% if active_room and active_room.pk == room.pk %}active{% endif %}">
+                        <i class="bi bi-person-circle"></i>
+                        <span class="text-truncate">
+                            {% for m in room.memberships.all %}
+                                {% if m.user != request.user %}{{ m.user.get_full_name|default:m.user.username }}{% endif %}
+                            {% endfor %}
+                        </span>
+                    </a>
+                </li>
+                {% empty %}
+                <li style="padding:0.35rem 1rem;font-size:0.8rem;color:#80848e;">Noch keine DMs</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </aside>
+
+    <!-- Main Chat Area -->
+    <main class="msg-main">
+        {% if active_room %}
+
+        <!-- Channel Header -->
+        <div class="msg-channel-header">
+            {% if active_room.room_type == 'direct' %}
+                <i class="bi bi-person-circle text-secondary"></i>
+            {% else %}
+                <i class="bi bi-hash text-secondary"></i>
+            {% endif %}
+            <span class="channel-name">{{ active_room.name }}</span>
+            {% if active_room.description %}
+            <span class="channel-desc">{{ active_room.description|truncatechars:60 }}</span>
+            {% endif %}
+            <div class="ms-auto">
+                <!-- Members badge -->
+                <span class="badge bg-light text-muted border" title="Mitglieder">
+                    <i class="bi bi-people"></i> {{ room_members.count }}
+                </span>
+                <!-- Invite (owner/admin only) -->
+                {% if membership.role in "owner,admin" %}
+                <button class="btn btn-sm btn-outline-secondary" onclick="openInviteModal()" title="Einladungslink erstellen">
+                    <i class="bi bi-person-plus"></i>
+                </button>
+                {% endif %}
+                <!-- Video placeholder -->
+                <span class="video-placeholder" title="Videokonferenz – demnächst verfügbar">
+                    <i class="bi bi-camera-video"></i> Video (bald)
+                </span>
+            </div>
+        </div>
+
+        <!-- Messages -->
+        <div class="msg-messages" id="msg-messages">
+            <div class="msg-load-more">
+                <button class="btn btn-sm btn-outline-secondary" id="load-more-btn" onclick="loadMore()" style="font-size:0.78rem;">
+                    Ältere Nachrichten laden
+                </button>
+            </div>
+
+            {% for msg in messages_list %}
+                {% if msg.message_type == 'system' %}
+                <div class="msg-system">{{ msg.content }}</div>
+                {% else %}
+                <div class="msg-group" id="msg-{{ msg.pk }}" data-msg-id="{{ msg.pk }}">
+                    <div class="msg-avatar">
+                        {{ msg.author.get_full_name|default:msg.author.username|slice:":2"|upper }}
+                    </div>
+                    <div class="msg-body">
+                        <div class="msg-meta">
+                            <span class="author">{{ msg.author.get_full_name|default:msg.author.username }}</span>
+                            <span class="time">{{ msg.created_at|date:"d.m.Y H:i" }}</span>
+                        </div>
+                        {% if msg.reply_to and not msg.reply_to.is_deleted %}
+                        <div class="msg-reply-preview">
+                            <strong>{{ msg.reply_to.author.get_full_name|default:msg.reply_to.author.username }}</strong>:
+                            {{ msg.reply_to.content|truncatechars:80 }}
+                        </div>
+                        {% endif %}
+                        <div class="msg-content {% if msg.is_deleted %}deleted{% endif %}">
+                            {% if msg.is_deleted %}
+                                <em>Diese Nachricht wurde gelöscht.</em>
+                            {% else %}
+                                {{ msg.content|linebreaksbr }}
+                            {% endif %}
+                        </div>
+                        {% if msg.reactions and not msg.is_deleted %}
+                        <div class="msg-reactions" id="reactions-{{ msg.pk }}">
+                            {% for emoji, users in msg.reactions.items %}
+                            <button class="msg-reaction-btn {% if request.user.pk|stringformat:'s' in users %}mine{% endif %}"
+                                    onclick="sendReaction({{ msg.pk }}, '{{ emoji }}')">
+                                {{ emoji }} {{ users|length }}
+                            </button>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <div class="msg-reactions" id="reactions-{{ msg.pk }}"></div>
+                        {% endif %}
+                    </div>
+                    {% if not msg.is_deleted %}
+                    <div class="msg-actions">
+                        <button onclick="startReply({{ msg.pk }}, '{{ msg.content|truncatechars:50|escapejs }}')" title="Antworten">
+                            <i class="bi bi-reply"></i>
+                        </button>
+                        <button onclick="showEmojiPicker({{ msg.pk }})" title="Reaktion">
+                            <i class="bi bi-emoji-smile"></i>
+                        </button>
+                        {% if msg.author == request.user or request.user.is_superuser %}
+                        <button onclick="deleteMessage({{ msg.pk }})" title="Löschen" style="color:#da373c;">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+
+        <!-- Typing indicator -->
+        <div class="typing-indicator px-4" id="typing-indicator"></div>
+
+        <!-- Input -->
+        <div class="msg-input-wrap">
+            <div class="msg-reply-bar" id="reply-bar">
+                <span id="reply-preview-text"></span>
+                <button class="btn btn-sm btn-link text-muted p-0" onclick="cancelReply()"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="msg-input-box">
+                <textarea id="msg-input" rows="1" placeholder="Nachricht an #{{ active_room.name }} …"
+                          onkeydown="handleInputKeydown(event)"
+                          oninput="autoResize(this); sendTyping()"></textarea>
+                <button class="msg-send-btn" onclick="sendMessage()" id="send-btn">
+                    <i class="bi bi-send"></i>
+                </button>
+            </div>
+        </div>
+
+        {% else %}
+        <!-- No active room -->
+        <div class="msg-empty">
+            <i class="bi bi-chat-dots"></i>
+            <p class="mb-1 fw-semibold">Kanal auswählen</p>
+            <p style="font-size:0.85rem;">Wähle links einen Kanal oder starte eine Direktnachricht.</p>
+            <a href="{% url 'messenger:create_channel' workspace_key=company.workspace_key %}" class="btn btn-primary btn-sm mt-2">
+                <i class="bi bi-plus-lg me-1"></i> Neuen Kanal erstellen
+            </a>
+        </div>
+        {% endif %}
+    </main>
+</div>
+
+<!-- Emoji Quick-Picker (inline, no lib) -->
+<div id="emoji-picker" style="display:none;position:fixed;background:#fff;border:1px solid #e3e5e8;border-radius:8px;padding:0.5rem;box-shadow:0 4px 16px rgba(0,0,0,0.15);z-index:9999;font-size:1.2rem;">
+    {% for e in "👍,👎,❤️,😂,😮,🎉,🙏,🔥"|split:"," %}
+    <button onclick="emojiPick('{{ e }}')" style="border:none;background:none;cursor:pointer;padding:0.2rem;">{{ e }}</button>
+    {% endfor %}
+</div>
+
+<!-- Invite Modal -->
+<div class="modal fade" id="inviteModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Einladungslink</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-2">
+                    <label class="form-label small">E-Mail (optional)</label>
+                    <input type="email" class="form-control form-control-sm" id="invite-email" placeholder="nutzer@firma.de">
+                </div>
+                <div class="row g-2 mb-2">
+                    <div class="col">
+                        <label class="form-label small">Max. Nutzungen</label>
+                        <input type="number" class="form-control form-control-sm" id="invite-max-uses" value="1" min="0">
+                    </div>
+                    <div class="col">
+                        <label class="form-label small">Gültig (Tage)</label>
+                        <input type="number" class="form-control form-control-sm" id="invite-days" value="7" min="0">
+                    </div>
+                </div>
+                <button class="btn btn-primary btn-sm w-100" onclick="createInvite()">Link erstellen</button>
+                <div id="invite-result" class="mt-2" style="display:none;">
+                    <div class="input-group input-group-sm">
+                        <input type="text" class="form-control" id="invite-url-field" readonly>
+                        <button class="btn btn-outline-secondary" onclick="copyInvite()"><i class="bi bi-clipboard"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if active_room %}
+<script>
+const ROOM_ID = {{ active_room.pk }};
+const WORKSPACE_KEY = '{{ company.workspace_key }}';
+const CURRENT_USER_ID = {{ request.user.pk }};
+const CSRF_TOKEN = '{{ csrf_token }}';
+
+let ws = null;
+let replyToId = null;
+let typingTimer = null;
+let oldestMsgId = {% if messages_list %}{{ messages_list.0.pk }}{% else %}null{% endif %};
+let emojiTargetMsgId = null;
+
+// ── WebSocket ────────────────────────────────────────────────────────────
+function connectWS() {
+    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    ws = new WebSocket(`${proto}://${window.location.host}/ws/messenger/${ROOM_ID}/`);
+
+    ws.onopen = () => {
+        console.log('Chat WS connected');
+        ws.send(JSON.stringify({type: 'mark_read'}));
+    };
+
+    ws.onmessage = (e) => {
+        const data = JSON.parse(e.data);
+        if (data.type === 'chat_message') appendMessage(data.message);
+        else if (data.type === 'typing') showTyping(data.author);
+        else if (data.type === 'message_deleted') markDeleted(data.message_id);
+        else if (data.type === 'reaction') updateReactions(data.message_id, data.reactions);
+    };
+
+    ws.onclose = () => setTimeout(connectWS, 3000);
+    ws.onerror = (e) => console.error('WS error', e);
+}
+
+// ── Send ─────────────────────────────────────────────────────────────────
+function sendMessage() {
+    const input = document.getElementById('msg-input');
+    const content = input.value.trim();
+    if (!content || !ws || ws.readyState !== 1) return;
+    ws.send(JSON.stringify({
+        type: 'chat_message',
+        content: content,
+        reply_to_id: replyToId || null,
+    }));
+    input.value = '';
+    autoResize(input);
+    cancelReply();
+}
+
+function handleInputKeydown(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+    }
+}
+
+function sendTyping() {
+    if (!ws || ws.readyState !== 1) return;
+    clearTimeout(typingTimer);
+    ws.send(JSON.stringify({type: 'typing'}));
+    typingTimer = setTimeout(() => {}, 2000);
+}
+
+// ── Render ───────────────────────────────────────────────────────────────
+function appendMessage(msg) {
+    const container = document.getElementById('msg-messages');
+    if (msg.message_type === 'system') {
+        const div = document.createElement('div');
+        div.className = 'msg-system';
+        div.textContent = msg.content;
+        container.appendChild(div);
+    } else {
+        const initials = msg.author.slice(0, 2).toUpperCase();
+        const time = new Date(msg.created_at).toLocaleString('de-DE', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+        const canDelete = msg.author_id === CURRENT_USER_ID;
+        const div = document.createElement('div');
+        div.className = 'msg-group';
+        div.id = `msg-${msg.id}`;
+        div.dataset.msgId = msg.id;
+        div.innerHTML = `
+            <div class="msg-avatar">${initials}</div>
+            <div class="msg-body">
+                <div class="msg-meta"><span class="author">${escHtml(msg.author)}</span><span class="time">${time}</span></div>
+                <div class="msg-content">${escHtml(msg.content).replace(/\n/g,'<br>')}</div>
+                <div class="msg-reactions" id="reactions-${msg.id}"></div>
+            </div>
+            <div class="msg-actions">
+                <button onclick="startReply(${msg.id},'${escHtml(msg.content.slice(0,50)).replace(/'/g,"\\'")}')"><i class="bi bi-reply"></i></button>
+                <button onclick="showEmojiPicker(${msg.id})"><i class="bi bi-emoji-smile"></i></button>
+                ${canDelete ? `<button onclick="deleteMessage(${msg.id})" style="color:#da373c;"><i class="bi bi-trash"></i></button>` : ''}
+            </div>`;
+        container.appendChild(div);
+    }
+    container.scrollTop = container.scrollHeight;
+    // mark read
+    if (ws && ws.readyState === 1) ws.send(JSON.stringify({type: 'mark_read'}));
+}
+
+function markDeleted(msgId) {
+    const el = document.getElementById(`msg-${msgId}`);
+    if (!el) return;
+    const body = el.querySelector('.msg-content');
+    if (body) { body.className = 'msg-content deleted'; body.innerHTML = '<em>Diese Nachricht wurde gelöscht.</em>'; }
+    const actions = el.querySelector('.msg-actions');
+    if (actions) actions.remove();
+}
+
+function updateReactions(msgId, reactions) {
+    const el = document.getElementById(`reactions-${msgId}`);
+    if (!el) return;
+    el.innerHTML = '';
+    for (const [emoji, users] of Object.entries(reactions)) {
+        const mine = users.includes(String(CURRENT_USER_ID));
+        const btn = document.createElement('button');
+        btn.className = 'msg-reaction-btn' + (mine ? ' mine' : '');
+        btn.textContent = `${emoji} ${users.length}`;
+        btn.onclick = () => sendReaction(msgId, emoji);
+        el.appendChild(btn);
+    }
+}
+
+// ── Typing indicator ─────────────────────────────────────────────────────
+let typingUsers = {};
+function showTyping(author) {
+    typingUsers[author] = Date.now();
+    renderTyping();
+    setTimeout(renderTyping, 3000);
+}
+function renderTyping() {
+    const now = Date.now();
+    for (const [a, t] of Object.entries(typingUsers)) {
+        if (now - t > 3000) delete typingUsers[a];
+    }
+    const el = document.getElementById('typing-indicator');
+    if (!el) return;
+    const names = Object.keys(typingUsers);
+    el.textContent = names.length ? `${names.join(', ')} schreibt…` : '';
+}
+
+// ── Reply ────────────────────────────────────────────────────────────────
+function startReply(msgId, preview) {
+    replyToId = msgId;
+    const bar = document.getElementById('reply-bar');
+    bar.style.display = 'flex';
+    document.getElementById('reply-preview-text').textContent = `Antwort auf: ${preview}`;
+    document.getElementById('msg-input').focus();
+}
+function cancelReply() {
+    replyToId = null;
+    document.getElementById('reply-bar').style.display = 'none';
+}
+
+// ── Delete ───────────────────────────────────────────────────────────────
+function deleteMessage(msgId) {
+    if (!confirm('Nachricht löschen?')) return;
+    if (ws && ws.readyState === 1) ws.send(JSON.stringify({type: 'delete_message', message_id: msgId}));
+}
+
+// ── Reactions ────────────────────────────────────────────────────────────
+function sendReaction(msgId, emoji) {
+    if (ws && ws.readyState === 1) ws.send(JSON.stringify({type: 'react', message_id: msgId, emoji}));
+}
+
+function showEmojiPicker(msgId) {
+    emojiTargetMsgId = msgId;
+    const picker = document.getElementById('emoji-picker');
+    const el = document.getElementById(`msg-${msgId}`);
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    picker.style.top = (rect.top - 50) + 'px';
+    picker.style.left = (rect.right - 240) + 'px';
+    picker.style.display = 'block';
+    setTimeout(() => document.addEventListener('click', closePicker, {once: true}), 10);
+}
+function emojiPick(emoji) {
+    if (emojiTargetMsgId) sendReaction(emojiTargetMsgId, emoji);
+    document.getElementById('emoji-picker').style.display = 'none';
+    emojiTargetMsgId = null;
+}
+function closePicker() { document.getElementById('emoji-picker').style.display = 'none'; }
+
+// ── Load more ────────────────────────────────────────────────────────────
+async function loadMore() {
+    if (!oldestMsgId) return;
+    const resp = await fetch(`/{{ company.workspace_key }}/messenger/messages/${ROOM_ID}/load/?before=${oldestMsgId}`);
+    const data = await resp.json();
+    const container = document.getElementById('msg-messages');
+    const btn = document.getElementById('load-more-btn');
+    if (!data.messages.length) { btn.disabled = true; btn.textContent = 'Keine weiteren Nachrichten'; return; }
+    oldestMsgId = data.messages[0].id;
+    const fragment = document.createDocumentFragment();
+    for (const msg of data.messages) {
+        if (msg.message_type === 'system') {
+            const d = document.createElement('div'); d.className = 'msg-system'; d.textContent = msg.content;
+            fragment.appendChild(d);
+        } else {
+            const initials = msg.author.slice(0,2).toUpperCase();
+            const time = new Date(msg.created_at).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+            const d = document.createElement('div');
+            d.className = 'msg-group'; d.id = `msg-${msg.id}`; d.dataset.msgId = msg.id;
+            d.innerHTML = `
+                <div class="msg-avatar">${initials}</div>
+                <div class="msg-body">
+                    <div class="msg-meta"><span class="author">${escHtml(msg.author)}</span><span class="time">${time}</span></div>
+                    ${msg.reply_preview ? `<div class="msg-reply-preview">${escHtml(msg.reply_preview)}</div>` : ''}
+                    <div class="msg-content ${msg.is_deleted?'deleted':''}">${msg.is_deleted ? '<em>Gelöscht.</em>' : escHtml(msg.content).replace(/\n/g,'<br>')}</div>
+                    <div class="msg-reactions" id="reactions-${msg.id}"></div>
+                </div>`;
+            fragment.appendChild(d);
+            if (msg.reactions) updateReactions(msg.id, msg.reactions);
+        }
+    }
+    // Insert after load-more button
+    const anchor = btn.closest('.msg-load-more');
+    anchor.after(fragment);
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────
+function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 150) + 'px';
+}
+function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ── Invite ───────────────────────────────────────────────────────────────
+function openInviteModal() {
+    new bootstrap.Modal(document.getElementById('inviteModal')).show();
+}
+async function createInvite() {
+    const email = document.getElementById('invite-email').value;
+    const maxUses = document.getElementById('invite-max-uses').value;
+    const days = document.getElementById('invite-days').value;
+    const resp = await fetch(`/{{ company.workspace_key }}/messenger/channel/{{ active_room.slug }}/invite/`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
+        body: JSON.stringify({email, max_uses: parseInt(maxUses), days: parseInt(days)}),
+    });
+    const data = await resp.json();
+    if (data.invite_url) {
+        document.getElementById('invite-url-field').value = data.invite_url;
+        document.getElementById('invite-result').style.display = 'block';
+    }
+}
+function copyInvite() {
+    navigator.clipboard.writeText(document.getElementById('invite-url-field').value);
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    connectWS();
+    const msgs = document.getElementById('msg-messages');
+    if (msgs) msgs.scrollTop = msgs.scrollHeight;
+});
+</script>
+{% endif %}
+{% endblock %}

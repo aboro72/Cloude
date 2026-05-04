@@ -10,11 +10,11 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, Spec
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from core import views as core_views
+from messenger import views as messenger_views
 
 
 urlpatterns = [
     path('', core_views.home, name='home'),
-    path('firmen/<slug:workspace_key>/', core_views.company_home, name='company_home'),
     path('admin/', admin.site.urls),
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
@@ -33,6 +33,13 @@ urlpatterns = [
     path('tasks/', include('tasks_board.urls', namespace='tasks_board')),
     path('forms/', include('forms_builder.urls', namespace='forms_builder')),
     path('departments/', include('departments.urls', namespace='departments')),
+    # Global messenger invite (cross-company)
+    path('messenger/invite/<uuid:token>/', messenger_views.invite_accept, name='messenger_invite'),
+    # Company workspace routes — must come after all fixed prefixes
+    path('firmen/<slug:workspace_key>/', core_views.company_home_redirect, name='company_home_legacy'),
+    path('<slug:workspace_key>/mysite/', core_views.company_home, name='company_home'),
+    path('<slug:workspace_key>/mysite/settings/', core_views.company_landing_settings, name='company_landing_settings'),
+    path('<slug:workspace_key>/messenger/', include('messenger.urls', namespace='messenger')),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

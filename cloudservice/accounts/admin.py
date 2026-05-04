@@ -8,9 +8,32 @@ from accounts.models import AuditLog, Company, PasswordReset, TwoFactorAuth, Use
 
 @admin.register(Company)
 class CompanyAdmin(admin.ModelAdmin):
-    list_display = ('name', 'workspace_type', 'workspace_key', 'included_free_employees', 'created_at')
-    list_filter = ('workspace_type',)
+    list_display = ('name', 'workspace_type', 'workspace_key', 'workspace_label', 'included_free_employees', 'created_at')
+    list_filter = ('workspace_type', 'landing_hero_style')
     search_fields = ('name', 'slug', 'workspace_key')
+    fieldsets = (
+        ('Firma', {
+            'fields': ('name', 'slug', 'workspace_type', 'workspace_key', 'included_free_employees'),
+        }),
+        ('Landing-Page Texte', {
+            'fields': ('landing_title', 'landing_subtitle'),
+        }),
+        ('Landing-Page Design', {
+            'fields': (
+                'landing_logo', 'landing_hero_style',
+                'landing_hero_image', 'landing_hero_video',
+                'landing_primary_color', 'landing_secondary_color',
+            ),
+        }),
+        ('Landing-Page Code', {
+            'classes': ('collapse',),
+            'fields': ('landing_custom_html', 'landing_custom_css'),
+        }),
+    )
+
+    @admin.display(description='URL-Pfad')
+    def workspace_label(self, obj):
+        return obj.workspace_label
 
 
 class UserProfileAdminForm(forms.ModelForm):
