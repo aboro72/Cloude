@@ -409,3 +409,112 @@ class NewsArticleSerializer(serializers.ModelSerializer):
         if obj.author:
             return obj.author.get_full_name() or obj.author.username
         return None
+
+
+# ── Messenger ─────────────────────────────────────────────────────────────────
+
+class ChatMembershipSerializer(serializers.ModelSerializer):
+    user_id = serializers.IntegerField(source='user.id', read_only=True)
+    username = serializers.CharField(source='user.username', read_only=True)
+    full_name = serializers.SerializerMethodField()
+
+    class Meta:
+        from messenger.models import ChatMembership
+        model = ChatMembership
+        fields = ['id', 'user_id', 'username', 'full_name', 'role',
+                  'joined_at', 'last_read_at', 'is_muted']
+        read_only_fields = ['id', 'user_id', 'username', 'full_name', 'joined_at']
+
+    def get_full_name(self, obj):
+        return obj.user.get_full_name() or obj.user.username
+
+
+class ChatMessageSerializer(serializers.ModelSerializer):
+    author_name = serializers.SerializerMethodField()
+    author_id = serializers.IntegerField(source='author.id', read_only=True)
+    reply_to_preview = serializers.SerializerMethodField()
+    storage_file_name = serializers.CharField(source='storage_file.name', read_only=True)
+
+    class Meta:
+        from messenger.models import ChatMessage
+        model = ChatMessage
+        fields = ['id', 'room', 'author_id', 'author_name', 'message_type',
+                  'content', 'reply_to', 'reply_to_preview',
+                  'storage_file', 'storage_file_name',
+                  'reactions', 'is_edited', 'edited_at', 'is_deleted', 'created_at']
+        read_only_fields = ['id', 'author_id', 'author_name', 'reply_to_preview',
+                            'storage_file_name', 'is_edited', 'edited_at',
+                            'is_deleted', 'created_at']
+
+    def get_author_name(self, obj):
+        if obj.author:
+            return obj.author.get_full_name() or obj.author.username
+        return 'Gelöscht'
+
+    def get_reply_to_preview(self, obj):
+        if not obj.reply_to:
+            return None
+        return {
+            'id': obj.reply_to.id,
+            'author': obj.reply_to.author.username if obj.reply_to.author else 'Gelöscht',
+            'content': obj.reply_to.content[:80] if not obj.reply_to.is_deleted else '[gelöscht]',
+        }
+
+
+class ChatRoomSerializer(serializers.ModelSerializer):
+    unread_count = serializers.SerializerMethodField()
+    last_message = serializers.SerializerMethodField()
+    member_count = serializers.SerializerMethodField()
+
+    class Meta:
+        from messenger.models import ChatRoom
+        model = ChatRoom
+        fields = ['id', 'name', 'slug', 'room_type', 'description',
+                  'is_private', 'is_archived', 'member_count',
+                  'unread_count', 'last_message', 'created_at']
+        read_only_fields = ['id', 'slug', 'created_at']
+
+    def get_unread_count(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.unread_count(request.user)
+        return 0
+
+    def get_last_message(self, obj):
+        msg = obj.get_last_message()
+        if not msg:
+            return None
+        return {
+            'id': msg.id,
+            'author': msg.author.username if msg.author else 'Gelöscht',
+            'content': msg.content[:60] if not msg.is_deleted else '[gelöscht]',
+            'created_at': msg.created_at.isoformat(),
+        }
+
+    def get_member_count(self, obj):
+        return obj.members.count()
+
+
+class ChatRoomDetailSerializer(ChatRoomSerializer):
+    memberships = ChatMembershipSerializer(many=True, read_only=True)
+
+    class Meta(ChatRoomSerializer.Meta):
+        fields = ChatRoomSerializer.Meta.fields + ['memberships', 'video_enabled',
+                                                    'video_provider', 'updated_at']
+
+
+class ChatInviteSerializer(serializers.ModelSerializer):
+    room_name = serializers.CharField(source='room.name', read_only=True)
+    invited_by_name = serializers.CharField(source='invited_by.username', read_only=True)
+    is_valid = serializers.SerializerMethodField()
+
+    class Meta:
+        from messenger.models import ChatInvite
+        model = ChatInvite
+        fields = ['id', 'token', 'room', 'room_name', 'invited_by', 'invited_by_name',
+                  'invited_email', 'max_uses', 'use_count', 'expires_at',
+                  'created_at', 'is_valid']
+        read_only_fields = ['id', 'token', 'invited_by', 'use_count', 'created_at']
+
+    def get_is_valid(self, obj):
+        return obj.is_valid()

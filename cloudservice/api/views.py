@@ -30,8 +30,10 @@ from api.serializers import (
     GroupShareSerializer,
     TaskBoardSerializer, TaskSerializer,
     NewsCategorySerializer, NewsArticleSerializer,
+    ChatRoomSerializer, ChatRoomDetailSerializer,
+    ChatMessageSerializer, ChatMembershipSerializer, ChatInviteSerializer,
 )
-from api.permissions import IsFileOwnerOrShared, IsPublicLinkValid
+from api.permissions import IsFileOwnerOrShared, IsPublicLinkValid, IsChatRoomMember, IsChatMessageAuthor
 import logging
 
 logger = logging.getLogger(__name__)
@@ -808,6 +810,292 @@ class TaskViewSet(viewsets.ReadOnlyModelViewSet):
         return Task.objects.filter(
             Q(assigned_to=user) | Q(created_by=user)
         ).distinct().select_related('board', 'assigned_to', 'created_by')
+
+
+# ── News ──────────────────────────────────────────────────────────────────────
+
+# ── Messenger ─────────────────────────────────────────────────────────────────
+
+class ChatRoomViewSet(viewsets.ModelViewSet):
+    """
+    CRUD für Chat-Räume (Kanäle, Gruppen, Direktnachrichten).
+
+    - GET  /messenger/rooms/           → eigene Räume (Mitglied oder Ersteller)
+    - POST /messenger/rooms/           → neuen Kanal/Gruppe anlegen
+    - GET  /messenger/rooms/{id}/      → Raumdetail inkl. Mitgliederliste
+    - POST /messenger/rooms/{id}/join/ → öffentlichem Raum beitreten
+    - POST /messenger/rooms/{id}/leave/→ Raum verlassen
+    - POST /messenger/rooms/{id}/mark_read/ → alle Nachrichten als gelesen markieren
+    """
+    permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['name', 'description']
+    ordering_fields = ['name', 'created_at']
+    ordering = ['name']
+
+    def get_serializer_class(self):
+        if self.action == 'retrieve':
+            return ChatRoomDetailSerializer
+        return ChatRoomSerializer
+
+    def get_queryset(self):
+        from messenger.models import ChatRoom
+        user = self.request.user
+        return (
+            ChatRoom.objects
+            .filter(members=user, is_archived=False)
+            .distinct()
+            .select_related('created_by')
+            .prefetch_related('memberships__user')
+        )
+
+    def perform_create(self, serializer):
+        from messenger.models import ChatRoom, ChatMembership
+        room = serializer.save(
+            company=self.request.user.profile.company,
+            created_by=self.request.user,
+        )
+        ChatMembership.objects.create(room=room, user=self.request.user, role='owner')
+
+    @action(detail=True, methods=['post'])
+    def join(self, request, pk=None):
+        """Öffentlichem Raum beitreten."""
+        from messenger.models import ChatRoom, ChatMembership
+        room = get_object_or_404(ChatRoom, pk=pk, is_archived=False)
+        if room.is_private:
+            return Response({'detail': 'Dieser Raum ist privat.'}, status=status.HTTP_403_FORBIDDEN)
+        membership, created = ChatMembership.objects.get_or_create(
+            room=room, user=request.user, defaults={'role': 'member'}
+        )
+        return Response(
+            {'detail': 'Beigetreten.' if created else 'Bereits Mitglied.'},
+            status=status.HTTP_200_OK,
+        )
+
+    @action(detail=True, methods=['post'])
+    def leave(self, request, pk=None):
+        """Raum verlassen."""
+        from messenger.models import ChatMembership
+        room = self.get_object()
+        deleted, _ = ChatMembership.objects.filter(room=room, user=request.user).delete()
+        if not deleted:
+            return Response({'detail': 'Kein Mitglied.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'detail': 'Raum verlassen.'})
+
+    @action(detail=True, methods=['post'])
+    def mark_read(self, request, pk=None):
+        """Letzten Lesezeitpunkt auf jetzt setzen."""
+        from messenger.models import ChatMembership
+        room = self.get_object()
+        updated = ChatMembership.objects.filter(room=room, user=request.user).update(
+            last_read_at=timezone.now()
+        )
+        if not updated:
+            return Response({'detail': 'Kein Mitglied.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'detail': 'Als gelesen markiert.'})
+
+    @action(detail=True, methods=['get'])
+    def members(self, request, pk=None):
+        """Mitgliederliste eines Raums."""
+        room = self.get_object()
+        memberships = room.memberships.select_related('user').order_by('role', 'user__username')
+        return Response(ChatMembershipSerializer(memberships, many=True).data)
+
+
+class ChatMessageViewSet(viewsets.ModelViewSet):
+    """
+    Nachrichten innerhalb eines Chat-Raums.
+
+    URL-Parameter: room_pk (verschachtelt unter /messenger/rooms/{room_pk}/messages/)
+
+    - GET    → Nachrichten-Liste (paginiert, älteste zuerst)
+    - POST   → Neue Nachricht senden
+    - PATCH  → Eigene Nachricht bearbeiten
+    - DELETE → Eigene Nachricht soft-löschen
+    - POST /messages/{id}/react/ → Emoji-Reaktion togglen
+    """
+    permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['content']
+    ordering = ['created_at']
+
+    def _get_room(self):
+        from messenger.models import ChatRoom, ChatMembership
+        room_pk = self.kwargs.get('room_pk')
+        room = get_object_or_404(ChatRoom, pk=room_pk, is_archived=False)
+        if not ChatMembership.objects.filter(room=room, user=self.request.user).exists():
+            raise PermissionDenied('Du bist kein Mitglied dieses Raums.')
+        return room
+
+    def get_queryset(self):
+        from messenger.models import ChatMessage
+        room = self._get_room()
+        return (
+            ChatMessage.objects
+            .filter(room=room)
+            .select_related('author', 'reply_to__author', 'storage_file')
+            .order_by('created_at')
+        )
+
+    def get_serializer_class(self):
+        return ChatMessageSerializer
+
+    def perform_create(self, serializer):
+        room = self._get_room()
+        serializer.save(author=self.request.user, room=room)
+
+    def perform_update(self, serializer):
+        instance = self.get_object()
+        if instance.author != self.request.user:
+            raise PermissionDenied('Nur der Autor kann seine Nachricht bearbeiten.')
+        serializer.save(is_edited=True, edited_at=timezone.now())
+
+    def perform_destroy(self, instance):
+        if instance.author != self.request.user:
+            raise PermissionDenied('Nur der Autor kann seine Nachricht löschen.')
+        instance.soft_delete()
+
+    @action(detail=True, methods=['post'])
+    def react(self, request, room_pk=None, pk=None):
+        """
+        Emoji-Reaktion togglen.
+        Body: {"emoji": "👍"}
+        """
+        message = self.get_object()
+        emoji = request.data.get('emoji', '').strip()
+        if not emoji:
+            return Response({'detail': 'emoji fehlt.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        reactions = message.reactions or {}
+        user_id = str(request.user.id)
+        users = reactions.get(emoji, [])
+
+        if user_id in users:
+            users.remove(user_id)
+            if not users:
+                reactions.pop(emoji, None)
+            else:
+                reactions[emoji] = users
+        else:
+            users.append(user_id)
+            reactions[emoji] = users
+
+        message.reactions = reactions
+        message.save(update_fields=['reactions'])
+        return Response({'reactions': message.reactions})
+
+
+class DirectMessageView(APIView):
+    """
+    Direktnachricht-Kanal mit einem anderen Nutzer starten oder abrufen.
+
+    POST /messenger/direct/
+    Body: {"user_id": 42}
+    Gibt den bestehenden oder neu erstellten DM-Raum zurück.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        from messenger.models import ChatRoom, ChatMembership
+        from django.contrib.auth.models import User
+
+        target_id = request.data.get('user_id')
+        if not target_id:
+            return Response({'detail': 'user_id fehlt.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        target = get_object_or_404(User, pk=target_id)
+        if target == request.user:
+            return Response({'detail': 'Kein DM mit sich selbst.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        company = request.user.profile.company
+
+        # Vorhandenen DM-Raum suchen (beide Nutzer Mitglied, room_type=direct)
+        existing = (
+            ChatRoom.objects
+            .filter(room_type='direct', company=company, members=request.user)
+            .filter(members=target)
+        ).first()
+
+        if existing:
+            return Response(ChatRoomDetailSerializer(existing, context={'request': request}).data)
+
+        # Neuen DM-Raum erstellen
+        dm_name = f'dm-{min(request.user.id, target.id)}-{max(request.user.id, target.id)}'
+        room = ChatRoom.objects.create(
+            company=company,
+            room_type='direct',
+            name=dm_name,
+            is_private=True,
+            created_by=request.user,
+        )
+        ChatMembership.objects.bulk_create([
+            ChatMembership(room=room, user=request.user, role='member'),
+            ChatMembership(room=room, user=target, role='member'),
+        ])
+        return Response(
+            ChatRoomDetailSerializer(room, context={'request': request}).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class ChatInviteViewSet(viewsets.GenericViewSet):
+    """
+    Einladungslinks für Chat-Räume.
+
+    - POST /messenger/rooms/{room_pk}/invites/       → Invite erstellen (Owner/Admin)
+    - GET  /messenger/invites/{token}/               → Invite-Infos abrufen
+    - POST /messenger/invites/{token}/accept/        → Invite annehmen, Raum beitreten
+    """
+    permission_classes = [IsAuthenticated]
+    serializer_class = ChatInviteSerializer
+
+    def _get_room_as_manager(self, room_pk):
+        from messenger.models import ChatRoom, ChatMembership
+        room = get_object_or_404(ChatRoom, pk=room_pk)
+        membership = ChatMembership.objects.filter(room=room, user=self.request.user).first()
+        if not membership or membership.role not in ('owner', 'admin'):
+            raise PermissionDenied('Nur Owner/Admin können Einladungen erstellen.')
+        return room
+
+    def create(self, request, room_pk=None):
+        """Neuen Invite-Link anlegen."""
+        from messenger.models import ChatInvite
+        room = self._get_room_as_manager(room_pk)
+        invite = ChatInvite.objects.create(
+            room=room,
+            invited_by=request.user,
+            invited_email=request.data.get('invited_email', ''),
+            max_uses=request.data.get('max_uses', 1),
+            expires_at=request.data.get('expires_at'),
+        )
+        return Response(ChatInviteSerializer(invite).data, status=status.HTTP_201_CREATED)
+
+    def retrieve(self, request, pk=None):
+        """Invite-Details per Token abrufen."""
+        from messenger.models import ChatInvite
+        invite = get_object_or_404(ChatInvite, token=pk)
+        return Response(ChatInviteSerializer(invite).data)
+
+    @action(detail=True, methods=['post'], url_path='accept')
+    def accept(self, request, pk=None):
+        """Invite annehmen und dem Raum beitreten."""
+        from messenger.models import ChatInvite, ChatMembership
+        invite = get_object_or_404(ChatInvite, token=pk)
+        if not invite.is_valid():
+            return Response({'detail': 'Einladung ungültig oder abgelaufen.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        membership, created = ChatMembership.objects.get_or_create(
+            room=invite.room, user=request.user, defaults={'role': 'member'}
+        )
+        invite.use_count += 1
+        invite.save(update_fields=['use_count'])
+
+        return Response(
+            ChatRoomDetailSerializer(invite.room, context={'request': request}).data,
+            status=status.HTTP_200_OK,
+        )
 
 
 # ── News ──────────────────────────────────────────────────────────────────────
