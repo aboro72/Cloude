@@ -67,7 +67,14 @@ class RegisterView(CreateView):
     template_name = 'accounts/register.html'
     model = User
     form_class = RegisterForm
-    success_url = reverse_lazy('accounts:login')
+
+    def get_success_url(self):
+        try:
+            workspace_key = self.object.profile.company.workspace_key
+            from django.urls import reverse
+            return reverse('company_home', kwargs={'workspace_key': workspace_key})
+        except Exception:
+            return reverse_lazy('accounts:login')
 
 
 class ProfileView(LoginRequiredMixin, TemplateView):

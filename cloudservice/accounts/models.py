@@ -140,7 +140,7 @@ class Company(models.Model):
     def workspace_label(self):
         if self.workspace_type == 'subdomain':
             return f'{self.workspace_key}.*'
-        return f'/{self.workspace_key}/mysite/'
+        return f'/{self.workspace_key}/'
 
     @property
     def effective_landing_title(self):

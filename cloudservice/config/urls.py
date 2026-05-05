@@ -37,8 +37,9 @@ urlpatterns = [
     path('messenger/invite/<uuid:token>/', messenger_views.invite_accept, name='messenger_invite'),
     # Company workspace routes — must come after all fixed prefixes
     path('firmen/<slug:workspace_key>/', core_views.company_home_redirect, name='company_home_legacy'),
-    path('<slug:workspace_key>/mysite/', core_views.company_home, name='company_home'),
-    path('<slug:workspace_key>/mysite/settings/', core_views.company_landing_settings, name='company_landing_settings'),
+    path('<slug:workspace_key>/mysite/', core_views.company_home_redirect, name='company_home_mysite_legacy'),
+    path('<slug:workspace_key>/', core_views.company_home, name='company_home'),
+    path('<slug:workspace_key>/settings/', core_views.company_landing_settings, name='company_landing_settings'),
     path('<slug:workspace_key>/messenger/', include('messenger.urls', namespace='messenger')),
 ]
 

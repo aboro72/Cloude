@@ -68,12 +68,10 @@ def company_home_redirect(request, workspace_key):
 
 
 def company_home(request, workspace_key):
-    """Public company landing page under /<workspace_key>/mysite/."""
+    """Public company landing page at /<workspace_key>/."""
     from accounts.models import Company
 
     company = get_object_or_404(Company, workspace_key=workspace_key)
-    if request.user.is_authenticated:
-        return redirect(get_authenticated_home_url(request))
 
     try:
         from landing_editor.providers import get_landing_settings
