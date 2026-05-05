@@ -409,6 +409,15 @@ class UserProfile(models.Model):
         """Check if user is moderator"""
         return self.role in ['admin', 'moderator']
 
+    @property
+    def is_company_admin(self):
+        """True wenn Firmen-Admin: per Rolle ODER per Django-Gruppe mit 'admin'/'moderator' im Namen."""
+        if self.role in ('admin', 'moderator'):
+            return True
+        return self.user.groups.filter(
+            name__iregex=r'(admin|moderator|administrat)'
+        ).exists()
+
     @classmethod
     def get_color_preset_map(cls):
         return {

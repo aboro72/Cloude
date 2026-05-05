@@ -120,7 +120,7 @@ def company_landing_settings(request, workspace_key):
     profile = getattr(request.user, 'profile', None)
     is_company_admin = (
         request.user.is_superuser
-        or (profile and profile.company == company and profile.role in ('admin', 'moderator'))
+        or (profile and profile.company == company and profile.is_company_admin)
     )
     if not is_company_admin:
         messages.error(request, 'Kein Zugriff.')

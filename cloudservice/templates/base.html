@@ -375,6 +375,12 @@
                             <ul class="dropdown-menu dropdown-menu-end">
                                 <li><a class="dropdown-item" href="/accounts/profile/">Profil</a></li>
                                 <li><a class="dropdown-item" href="/accounts/settings/">Einstellungen</a></li>
+                                {% if user.profile.company and user.profile.is_company_admin %}
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><span class="dropdown-header"><i class="bi bi-building me-1"></i>{{ user.profile.company.name }}</span></li>
+                                    <li><a class="dropdown-item" href="{% url 'company_home' workspace_key=user.profile.company.workspace_key %}"><i class="bi bi-house me-2"></i>Firmen-Startseite</a></li>
+                                    <li><a class="dropdown-item" href="{% url 'company_landing_settings' workspace_key=user.profile.company.workspace_key %}"><i class="bi bi-brush me-2"></i>Landingpage bearbeiten</a></li>
+                                {% endif %}
                                 {% if user.is_superuser %}
                                     <li><hr class="dropdown-divider"></li>
                                     <li><a class="dropdown-item" href="{% url 'accounts:group_management' %}"><i class="bi bi-shield-lock me-2"></i>Gruppen & Berechtigungen</a></li>
