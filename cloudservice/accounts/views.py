@@ -119,6 +119,14 @@ class PasswordChangeView(DjangoPasswordChangeView):
     template_name = 'accounts/password_change.html'
     success_url = reverse_lazy('accounts:profile')
 
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        profile = getattr(self.request.user, 'profile', None)
+        if profile and profile.must_change_password:
+            profile.must_change_password = False
+            profile.save(update_fields=['must_change_password'])
+        return response
+
 
 class SettingsView(LoginRequiredMixin, TemplateView):
     """User settings"""
@@ -196,9 +204,10 @@ class GroupManagementView(LoginRequiredMixin, View):
     template_name = 'accounts/group_management.html'
 
     def _require_staff(self, request):
-        if not request.user.is_superuser:
+        profile = getattr(request.user, 'profile', None)
+        if not request.user.is_superuser and not (profile and profile.is_company_admin):
             return render(request, '403.html', {
-                'error_message': 'Nur Superuser dürfen Gruppen und Berechtigungen verwalten.',
+                'error_message': 'Nur Administratoren dürfen Gruppen und Berechtigungen verwalten.',
             }, status=403)
         return None
 

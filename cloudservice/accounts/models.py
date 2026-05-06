@@ -338,6 +338,10 @@ class UserProfile(models.Model):
         default=True,
         verbose_name=_('Is active')
     )
+    must_change_password = models.BooleanField(
+        default=False,
+        verbose_name=_('Must change password on next login')
+    )
 
     # Metadata
     created_at = models.DateTimeField(
@@ -417,6 +421,31 @@ class UserProfile(models.Model):
         return self.user.groups.filter(
             name__iregex=r'(admin|moderator|administrat)'
         ).exists()
+
+    @property
+    def is_department_manager(self):
+        """True wenn der User Leiter oder Manager irgendeiner Abteilung ist."""
+        from departments.models import Department, DepartmentMembership
+        if Department.objects.filter(head=self.user).exists():
+            return True
+        return DepartmentMembership.objects.filter(
+            user=self.user, role__in=['manager', 'head']
+        ).exists()
+
+    @property
+    def managed_departments(self):
+        """Alle Abteilungen, die der User leitet oder managed."""
+        from departments.models import Department, DepartmentMembership
+        managed_ids = set(
+            Department.objects.filter(head=self.user).values_list('id', flat=True)
+        )
+        managed_ids |= set(
+            DepartmentMembership.objects.filter(
+                user=self.user, role__in=['manager', 'head']
+            ).values_list('department_id', flat=True)
+        )
+        from departments.models import Department as Dept
+        return Dept.objects.filter(id__in=managed_ids)
 
     @classmethod
     def get_color_preset_map(cls):

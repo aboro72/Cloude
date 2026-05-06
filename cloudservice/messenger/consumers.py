@@ -129,7 +129,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def save_message(self, user, room_id, content, reply_to_id=None):
-        from messenger.models import ChatMessage, ChatRoom
+        from messenger.models import ChatMessage, ChatRoom, ChatMembership
+        from core.models import Notification
         try:
             room = ChatRoom.objects.get(pk=room_id)
             msg = ChatMessage.objects.create(
@@ -141,16 +142,51 @@ class ChatConsumer(AsyncWebsocketConsumer):
             )
             room.updated_at = timezone.now()
             room.save(update_fields=['updated_at'])
+
+            # Benachrichtigung für alle Raum-Mitglieder außer dem Sender
+            sender_name = user.get_full_name() or user.username
+            room_name = room.name or 'Direktnachricht'
+            preview = content[:80] + ('…' if len(content) > 80 else '')
+            recipients = ChatMembership.objects.filter(room=room).exclude(user=user).select_related('user')
+            for membership in recipients:
+                # Nur eine Notification pro Raum (neueste überschreibt nicht, aber dupliziere nicht innerhalb von 60s)
+                recent = Notification.objects.filter(
+                    user=membership.user,
+                    notification_type='message',
+                    url__endswith=f'/messenger/channel/{room.slug}/',
+                    is_read=False,
+                    created_at__gte=timezone.now() - timezone.timedelta(seconds=60),
+                ).exists()
+                if not recent:
+                    Notification.objects.create(
+                        user=membership.user,
+                        notification_type='message',
+                        title=f'Neue Nachricht in {room_name}',
+                        message=f'{sender_name}: {preview}',
+                        url=f'/{room.company.workspace_key}/messenger/channel/{room.slug}/',
+                    )
             return msg
         except Exception:
             return None
 
     @database_sync_to_async
     def mark_room_read(self, user, room_id):
-        from messenger.models import ChatMembership
+        from messenger.models import ChatMembership, ChatRoom
+        from core.models import Notification
         ChatMembership.objects.filter(room_id=room_id, user=user).update(
             last_read_at=timezone.now()
         )
+        # Messenger-Benachrichtigungen für diesen Raum als gelesen markieren
+        try:
+            room = ChatRoom.objects.get(pk=room_id)
+            Notification.objects.filter(
+                user=user,
+                notification_type='message',
+                url__endswith=f'/messenger/channel/{room.slug}/',
+                is_read=False,
+            ).update(is_read=True)
+        except Exception:
+            pass
 
     @database_sync_to_async
     def delete_message(self, user, message_id):

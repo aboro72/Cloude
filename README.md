@@ -13,6 +13,7 @@ Eine selbst gehostete Intranet-Plattform als SharePoint-Alternative. Plugin-basi
 - [Schnellstart](#schnellstart)
 - [Projektstruktur](#projektstruktur)
 - [Kernmodule](#kernmodule)
+- [Rollen & Berechtigungen](#rollen--berechtigungen)
 - [Plugin-System](#plugin-system)
 - [Installierte Plugins](#installierte-plugins)
 - [URL-Struktur](#url-struktur)
@@ -170,6 +171,9 @@ Cloude/
   - Hell-/Dunkel-/Auto-Theme
   - MySite-Hero (Gradient / Bild / Video)
   - Mitarbeiterverzeichnis-Felder (Jobtitel, Abteilung, Standort, Vorgesetzter)
+  - `is_company_admin` — True bei Rolle admin/moderator oder Django-Gruppe mit „admin/moderator/administrat" im Namen
+  - `is_department_manager` — True wenn User Abteilungsleiter (`head`) oder Manager-Mitglied irgendeiner Abteilung ist
+  - `managed_departments` — QuerySet aller Abteilungen, die der User leitet oder verwaltet
 - `UserSession` — Sitzungsverfolgung mit IP, User-Agent, Gerät und Ablaufzeit
 - `TwoFactorAuth` — TOTP / SMS / E-Mail (vorbereitet)
 - `AuditLog` — Login, Logout, Passwortänderungen, 2FA, Berechtigungsänderungen
@@ -209,6 +213,59 @@ Cloude/
 
 ---
 
+## Rollen & Berechtigungen
+
+### Rollenmodell
+
+| Rolle | Beschreibung | Zugang |
+|---|---|---|
+| **Superuser** | Volle Django-Superuser-Rechte | Alle Bereiche inkl. Django Admin, Gruppen, Plugin-Einstellungen |
+| **Administrator** (Gruppe) | Firmenadministrator — Gruppe mit „admin", „moderator" oder „administrat" im Namen | Benutzerverwaltung, Gruppen & Berechtigungen, Firmen-Sitebuilder, Landingpage |
+| **Abteilungsleiter / Manager** | `DepartmentMembership.role = head/manager` oder `Department.head = user` | Eigene Abteilungsseiten, Mitgliederverwaltung |
+| **Moderator** | Rolle im `UserProfile` | Firmen-Adminbereich (wie Administrator) |
+| **Mitglied** | Standardrolle | Eigener Speicher, News, Messenger, Team-Sites |
+
+### Navigations-Dropdown je Rolle
+
+Das Benutzer-Dropdown in der Navigationsleiste passt sich automatisch an die Rolle an:
+
+```
+Profil / Einstellungen
+──────────────────────────────────────  ← sichtbar für is_company_admin
+ [Firmenname]
+ → Firmen-Startseite
+ → Landingpage bearbeiten
+──────────────────────────────────────  ← sichtbar für is_department_manager
+ Meine Abteilungen
+ → [Abteilungsname 1]
+ → [Abteilungsname 2]
+ → Alle Abteilungen
+──────────────────────────────────────  ← sichtbar für is_superuser
+ → Gruppen & Berechtigungen
+ → Admin Settings
+ → Django Admin
+──────────────────────────────────────
+Logout
+```
+
+### Gruppen- und Benutzerverwaltung
+
+Erreichbar unter `/accounts/gruppen/`. Zugriff haben:
+- Superuser
+- Mitglieder der Gruppe „Administratoren" (oder jede Gruppe mit „admin" / „administrat" im Namen)
+
+Über die Oberfläche können Benutzer Gruppen zugewiesen oder daraus entfernt werden.
+
+### Firmen-Sitebuilder (GrapesJS)
+
+Der visuelle Sitebuilder ist für Firmen-Landingpages unter `/<workspace_key>/builder/` erreichbar. Zugriff:
+- Superuser
+- `is_company_admin` der jeweiligen Firma
+
+Gespeichert wird in `Company.landing_custom_html` und `Company.landing_custom_css`. Tastenkürzel: `Ctrl+S` speichert, Geräte-Toggle (Desktop / Tablet / Mobil), Undo/Redo.
+
+---
+
 ## Plugin-System
 
 Plugins sind eigenständige Django-Apps unter `plugins/installed/<name>/`. Jedes Plugin hat eine `plugin.json` und eine Standard-Django-`AppConfig`.
@@ -234,7 +291,7 @@ Hooks werden in `AppConfig.ready()` registriert. Der Plugin-Template-Loader (`pl
 
 | Plugin | Slug | Beschreibung |
 |---|---|---|
-| `landing_editor` | `landing-editor` | Visueller Page-Builder (GrapesJS) für Landing-Page, Impressum und MySite-Widget-Reihenfolge. 30+ Bootstrap-5-Blöcke. Nur für Staff. |
+| `landing_editor` | `landing-editor` | Visueller Page-Builder (GrapesJS) für globale Landing-Page, Impressum und MySite-Widget-Reihenfolge. 30+ Bootstrap-5-Blöcke. Nur für Staff. Für Firmen-Landingpages: separater Sitebuilder unter `/<workspace_key>/builder/` (Zugriff: Administratoren). |
 | `mysite_hub` | `mysite` | Persönliches Dashboard (SharePoint MySite-Stil). Widgets: News, Kürzliche Dateien, Team-News, Abteilungsseiten, Aktivitäten. Drag-&-Drop via SortableJS. |
 | `tasks_board` | `tasks` | Persönliches und Team-Kanban-Board mit Drag-and-Drop. |
 | `forms_builder` | `forms` | Drag-Drop Formular-Builder für Umfragen und IT-Anfragen. |
@@ -268,6 +325,17 @@ Der Landing Editor speichert alle Einstellungen in `Plugin.settings`:
 
 Tastenkürzel im Builder: `Ctrl+S` speichert, Geräte-Toggle (Desktop / Tablet / Mobil), Undo/Redo.
 
+### Firmen-Sitebuilder — Datenformat
+
+Der Firmen-Sitebuilder speichert direkt im `Company`-Modell:
+
+| Feld | Beschreibung |
+|---|---|
+| `Company.landing_custom_html` | GrapesJS-Output HTML |
+| `Company.landing_custom_css` | GrapesJS-Output CSS |
+
+Zusätzlich können über die Einstellungsseite (`/<workspace_key>/settings/`) Titel, Untertitel, Logo, Hero-Bild/-Video und Primär-/Sekundärfarbe gepflegt werden.
+
 ---
 
 ## URL-Struktur
@@ -276,13 +344,20 @@ Tastenkürzel im Builder: `Ctrl+S` speichert, Geräte-Toggle (Desktop / Tablet /
 |---|---|---|
 | `/` | Startseite (Landing Page oder MySite Hub) | öffentlich / eingeloggt |
 | `/accounts/login/` | Anmeldung | öffentlich |
+| `/accounts/gruppen/` | Gruppen- & Benutzerverwaltung | Superuser / Administrator |
 | `/core/impressum/` | Impressum | öffentlich |
 | `/news/` | Unternehmens-News (Magazin) | eingeloggt |
 | `/news/<slug>/` | Artikel-Detailseite | eingeloggt |
 | `/sharing/` | Team-Sites & Freigaben | eingeloggt |
 | `/storage/` | Dateispeicher | eingeloggt |
+| `/departments/` | Abteilungsübersicht | eingeloggt |
+| `/departments/<slug>/` | Abteilungsdetail | eingeloggt |
 | `/core/apps/<slug>/` | Plugin-Seiten | eingeloggt |
-| `/landing-editor/save/` | AJAX-Speicherung (Page Builder) | Staff |
+| `/landing-editor/save/` | AJAX-Speicherung (globaler Page Builder) | Staff |
+| `/<workspace_key>/` | Firmen-Landingpage | öffentlich |
+| `/<workspace_key>/settings/` | Firmen-Landingpage Einstellungen | Superuser / Administrator |
+| `/<workspace_key>/builder/` | GrapesJS Sitebuilder für Firmen-Landingpage | Superuser / Administrator |
+| `/<workspace_key>/builder/save/` | AJAX-Speicherung (Firmen-Sitebuilder) | Superuser / Administrator |
 | `/api/` | REST API | JWT / Session |
 | `/api/schema/` | OpenAPI 3 Schema | Staff |
 | `/api/docs/` | Swagger UI | Staff |

@@ -186,7 +186,10 @@
     </div>
 </section>
 
-<!-- Features -->
+{% if company.landing_custom_html %}
+{{ company.landing_custom_html|safe }}
+{% else %}
+<!-- Features (Fallback – wird durch Sitebuilder ersetzt sobald gespeichert) -->
 <section class="lp-section">
     <div class="container">
         <div class="text-center mb-5">
@@ -216,14 +219,6 @@
                 </div>
             </div>
         </div>
-    </div>
-</section>
-
-{% if company.landing_custom_html %}
-<!-- Custom Content -->
-<section class="lp-section pt-0">
-    <div class="container">
-        {{ company.landing_custom_html|safe }}
     </div>
 </section>
 {% endif %}

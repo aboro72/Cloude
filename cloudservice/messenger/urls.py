@@ -11,4 +11,5 @@ urlpatterns = [
     path('channel/<slug:room_slug>/join/', views.room_join, name='room_join'),
     path('dm/<str:username>/', views.direct_message, name='direct_message'),
     path('messages/<int:room_id>/load/', views.messages_load, name='messages_load'),
+    path('unread/', views.messenger_unread_count, name='unread_count'),
 ]

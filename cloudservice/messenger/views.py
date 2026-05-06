@@ -60,6 +60,13 @@ def messenger_home(request, workspace_key):
         .exclude(pk__in=joined_ids)
     )
 
+    company_members = (
+        User.objects.filter(profile__company=company)
+        .exclude(pk=request.user.pk)
+        .select_related('profile')
+        .order_by('first_name', 'username')
+    )
+
     return render(request, 'messenger/messenger.html', {
         'company': company,
         'channels': channels,
@@ -67,6 +74,7 @@ def messenger_home(request, workspace_key):
         'open_channels': open_channels,
         'active_room': None,
         'messages_list': [],
+        'company_members': company_members,
     })
 
 
@@ -123,6 +131,13 @@ def room_view(request, workspace_key, room_slug):
 
     room_members = room.memberships.select_related('user').all()
 
+    company_members = (
+        User.objects.filter(profile__company=company)
+        .exclude(pk=request.user.pk)
+        .select_related('profile')
+        .order_by('first_name', 'username')
+    )
+
     return render(request, 'messenger/messenger.html', {
         'company': company,
         'channels': channels,
@@ -132,6 +147,7 @@ def room_view(request, workspace_key, room_slug):
         'messages_list': msgs,
         'membership': membership,
         'room_members': room_members,
+        'company_members': company_members,
     })
 
 
@@ -328,3 +344,32 @@ def room_join(request, workspace_key, room_slug):
 
     ChatMembership.objects.get_or_create(room=room, user=request.user, defaults={'role': 'member'})
     return redirect('messenger:room', workspace_key=workspace_key, room_slug=room_slug)
+
+
+@login_required
+def messenger_redirect(request):
+    """Leitet zum Messenger der eigenen Firma weiter, oder zeigt Fehlermeldung."""
+    profile = getattr(request.user, 'profile', None)
+    company = profile.company if profile else None
+    if not company:
+        # Prüfen ob der User Mitglied eines Chat-Raumes ist (andere Firma)
+        membership = ChatMembership.objects.filter(user=request.user).select_related('room__company').first()
+        if membership:
+            company = membership.room.company
+    if company:
+        return redirect('messenger:home', workspace_key=company.workspace_key)
+    messages.warning(request, 'Du bist keiner Firma zugewiesen und hast daher keinen Messenger-Zugang.')
+    return redirect('/')
+
+
+@login_required
+def messenger_unread_count(request, workspace_key):
+    """Gesamtzahl ungelesener Nachrichten über alle Räume des Users."""
+    memberships = ChatMembership.objects.filter(user=request.user).select_related('room')
+    total = 0
+    for membership in memberships:
+        total += membership.room.messages.filter(
+            created_at__gt=membership.last_read_at,
+            is_deleted=False,
+        ).exclude(author=request.user).count()
+    return JsonResponse({'count': total})

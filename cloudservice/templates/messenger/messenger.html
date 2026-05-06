@@ -3,244 +3,361 @@
 
 {% block title %}Messenger – {{ company.name }}{% endblock %}
 
+{% block alerts %}{% endblock %}
+{% block main_class %}p-0 m-0 overflow-hidden{% endblock %}
+
 {% block extra_head %}
 <style>
-    /* ── Messenger Layout ─────────────────────────────────────────────── */
-    :root {
-        --msg-sidebar: 260px;
-        --msg-header: 56px;
-        --msg-input: 80px;
-    }
+    /* ── Layout ──────────────────────────────────────────────────────────── */
     body { overflow: hidden; }
     .messenger-wrap {
+        position: fixed;
+        top: 60px; /* Fallback; JS setzt exakten Wert */
+        left: 0;
+        right: 0;
+        bottom: 0;
         display: flex;
-        height: calc(100vh - 56px); /* subtract main navbar */
         background: #f0f2f5;
     }
 
-    /* Sidebar */
+    /* ── Sidebar ─────────────────────────────────────────────────────────── */
     .msg-sidebar {
-        width: var(--msg-sidebar);
-        background: #1e1f22;
-        color: #b5bac1;
+        width: 280px;
+        background: #fff;
+        border-right: 1px solid #e8eaed;
         display: flex;
         flex-direction: column;
         flex-shrink: 0;
-        overflow: hidden;
     }
     .msg-sidebar-header {
-        padding: 1rem;
-        border-bottom: 1px solid rgba(255,255,255,0.06);
-        font-weight: 700;
-        font-size: 0.92rem;
-        color: #fff;
+        padding: 0 1rem;
+        height: 56px;
+        border-bottom: 1px solid #e8eaed;
         display: flex;
         align-items: center;
         justify-content: space-between;
-    }
-    .msg-sidebar-section {
-        padding: 0.5rem 0.5rem 0.25rem;
-        font-size: 0.7rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        color: #80848e;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-    }
-    .msg-sidebar-section a { color: #80848e; text-decoration: none; font-size: 1rem; line-height: 1; }
-    .msg-sidebar-section a:hover { color: #fff; }
-    .msg-sidebar-list { list-style: none; padding: 0; margin: 0; }
-    .msg-sidebar-list li a {
-        display: flex;
-        align-items: center;
-        gap: 0.45rem;
-        padding: 0.35rem 0.75rem;
-        border-radius: 4px;
-        color: #b5bac1;
-        text-decoration: none;
-        font-size: 0.88rem;
-        transition: background 0.1s, color 0.1s;
-        margin: 0 0.25rem;
-    }
-    .msg-sidebar-list li a:hover { background: rgba(255,255,255,0.08); color: #fff; }
-    .msg-sidebar-list li a.active { background: #404249; color: #fff; }
-    .msg-sidebar-list li .badge-unread {
-        margin-left: auto;
-        background: #da373c;
+        background: linear-gradient(135deg, var(--primary-color, #667eea), var(--secondary-color, #764ba2));
         color: #fff;
-        border-radius: 10px;
-        font-size: 0.68rem;
-        padding: 0.05rem 0.4rem;
         font-weight: 700;
+        font-size: 0.95rem;
     }
+    .msg-sidebar-header a { color: rgba(255,255,255,0.75); text-decoration: none; }
+    .msg-sidebar-header a:hover { color: #fff; }
+
+    .msg-sidebar-search {
+        padding: 0.6rem 0.75rem;
+        border-bottom: 1px solid #f0f2f5;
+    }
+    .msg-sidebar-search input {
+        width: 100%;
+        border: none;
+        background: #f0f2f5;
+        border-radius: 20px;
+        padding: 0.4rem 0.85rem;
+        font-size: 0.83rem;
+        outline: none;
+        color: #333;
+    }
+
     .msg-sidebar-scroll {
         flex: 1;
         overflow-y: auto;
         scrollbar-width: thin;
-        scrollbar-color: #404249 transparent;
+        scrollbar-color: #dde1e7 transparent;
+    }
+    .msg-sidebar-section {
+        padding: 0.85rem 1rem 0.3rem;
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: #9aa0a6;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .msg-sidebar-section a {
+        color: #9aa0a6;
+        text-decoration: none;
+        font-size: 1.1rem;
+        line-height: 1;
+        font-weight: 400;
+    }
+    .msg-sidebar-section a:hover { color: var(--primary-color, #667eea); }
+
+    .msg-sidebar-list { list-style: none; padding: 0 0.5rem; margin: 0; }
+    .msg-sidebar-list li a {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.55rem 0.75rem;
+        border-radius: 10px;
+        color: #444;
+        text-decoration: none;
+        font-size: 0.88rem;
+        transition: background 0.12s;
+        margin-bottom: 0.1rem;
+    }
+    .msg-sidebar-list li a:hover { background: #f5f6f8; }
+    .msg-sidebar-list li a.active {
+        background: color-mix(in srgb, var(--primary-color, #667eea) 12%, transparent);
+        color: var(--primary-color, #667eea);
+        font-weight: 600;
+    }
+    .msg-sidebar-list li a.active .ch-icon { color: var(--primary-color, #667eea); }
+
+    .ch-icon { font-size: 0.9rem; color: #9aa0a6; flex-shrink: 0; }
+    .ch-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .badge-unread {
+        background: #ea4335;
+        color: #fff;
+        border-radius: 10px;
+        font-size: 0.65rem;
+        padding: 0.1rem 0.42rem;
+        font-weight: 700;
+        flex-shrink: 0;
     }
 
-    /* Main area */
+    /* DM avatar in sidebar */
+    .dm-avatar {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--primary-color,#667eea), var(--secondary-color,#764ba2));
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.68rem;
+        font-weight: 700;
+        flex-shrink: 0;
+    }
+
+    /* ── Main area ───────────────────────────────────────────────────────── */
     .msg-main {
         flex: 1;
         display: flex;
         flex-direction: column;
         min-width: 0;
-        background: #fff;
+        background: #f0f2f5;
     }
+
     .msg-channel-header {
-        height: var(--msg-header);
-        border-bottom: 1px solid #e3e5e8;
+        height: 56px;
+        border-bottom: 1px solid #e8eaed;
         padding: 0 1.25rem;
         display: flex;
         align-items: center;
         gap: 0.75rem;
         background: #fff;
         flex-shrink: 0;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        z-index: 1;
     }
-    .msg-channel-header .channel-name {
-        font-weight: 700;
-        font-size: 1rem;
-    }
+    .msg-channel-header .channel-name { font-weight: 700; font-size: 0.97rem; }
     .msg-channel-header .channel-desc {
-        font-size: 0.82rem;
-        color: #80848e;
-        border-left: 1px solid #d1d3d6;
+        font-size: 0.78rem;
+        color: #9aa0a6;
+        border-left: 1px solid #e8eaed;
         padding-left: 0.75rem;
         margin-left: 0.25rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 260px;
     }
-    .msg-channel-header .ms-auto { display: flex; gap: 0.5rem; align-items: center; }
+    .msg-channel-header .ms-auto { display: flex; gap: 0.5rem; align-items: center; margin-left: auto; }
 
-    /* Messages area */
+    /* ── Messages ────────────────────────────────────────────────────────── */
     .msg-messages {
         flex: 1;
         overflow-y: auto;
-        padding: 1rem 1.25rem;
+        padding: 1rem 1.25rem 0.5rem;
         display: flex;
         flex-direction: column;
-        gap: 0;
+        gap: 0.15rem;
         scrollbar-width: thin;
-        scrollbar-color: #d1d3d6 transparent;
+        scrollbar-color: #cdd0d5 transparent;
     }
-    .msg-load-more {
-        text-align: center;
-        margin-bottom: 0.5rem;
-    }
-    .msg-group {
+    .msg-load-more { text-align: center; margin-bottom: 0.75rem; }
+
+    /* Message row */
+    .msg-row {
         display: flex;
-        gap: 0.75rem;
-        padding: 0.2rem 0;
+        align-items: flex-end;
+        gap: 0.5rem;
+        max-width: 72%;
         position: relative;
     }
-    .msg-group:hover { background: #f2f3f5; border-radius: 4px; }
-    .msg-group:hover .msg-actions { opacity: 1; }
+    .msg-row.own { flex-direction: row-reverse; align-self: flex-end; }
+    .msg-row.other { align-self: flex-start; }
+
+    /* Compact follow-up (same sender, <5 min gap) */
+    .msg-row.follow { margin-top: 0.05rem; }
+    .msg-row.follow .msg-bubble-wrap .msg-meta { display: none; }
+    .msg-row.follow .msg-avatar-wrap { visibility: hidden; }
+
+    /* Avatar */
+    .msg-avatar-wrap { width: 34px; flex-shrink: 0; }
     .msg-avatar {
-        width: 36px;
-        height: 36px;
+        width: 34px;
+        height: 34px;
         border-radius: 50%;
-        background: linear-gradient(135deg, #667eea, #764ba2);
+        background: linear-gradient(135deg, var(--primary-color,#667eea), var(--secondary-color,#764ba2));
         color: #fff;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 0.78rem;
+        font-size: 0.72rem;
         font-weight: 700;
-        flex-shrink: 0;
-        margin-top: 0.15rem;
     }
-    .msg-body { flex: 1; min-width: 0; }
-    .msg-meta { font-size: 0.8rem; margin-bottom: 0.2rem; }
-    .msg-meta .author { font-weight: 700; color: #060607; }
-    .msg-meta .time { color: #80848e; font-size: 0.72rem; margin-left: 0.4rem; }
-    .msg-content { font-size: 0.9rem; color: #2e3338; line-height: 1.55; word-break: break-word; }
-    .msg-content.deleted { color: #80848e; font-style: italic; }
-    .msg-system {
-        text-align: center;
-        font-size: 0.78rem;
-        color: #80848e;
-        padding: 0.5rem 0;
+    .msg-row.own .msg-avatar { background: linear-gradient(135deg, #34a853, #0f9d58); }
+
+    /* Bubble */
+    .msg-bubble-wrap { display: flex; flex-direction: column; min-width: 0; }
+    .msg-row.own .msg-bubble-wrap { align-items: flex-end; }
+    .msg-row.other .msg-bubble-wrap { align-items: flex-start; }
+
+    .msg-meta { font-size: 0.73rem; margin-bottom: 0.18rem; display: flex; align-items: baseline; gap: 0.4rem; }
+    .msg-meta .author { font-weight: 700; color: #333; }
+    .msg-meta .time { color: #9aa0a6; }
+    .msg-row.own .msg-meta { flex-direction: row-reverse; }
+
+    .msg-bubble {
+        background: #fff;
+        border-radius: 16px 16px 16px 4px;
+        padding: 0.5rem 0.85rem;
+        font-size: 0.9rem;
+        color: #1a1a1a;
+        line-height: 1.55;
+        word-break: break-word;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+        max-width: 100%;
+        position: relative;
     }
-    .msg-system::before, .msg-system::after {
-        content: '';
-        display: inline-block;
-        width: 60px;
-        height: 1px;
-        background: #e3e5e8;
-        vertical-align: middle;
-        margin: 0 0.5rem;
+    .msg-row.own .msg-bubble {
+        background: var(--primary-color, #667eea);
+        color: #fff;
+        border-radius: 16px 16px 4px 16px;
     }
+    .msg-bubble.deleted {
+        background: #f0f2f5 !important;
+        color: #9aa0a6 !important;
+        font-style: italic;
+        box-shadow: none;
+    }
+
+    /* Reply preview inside bubble */
     .msg-reply-preview {
-        background: #f2f3f5;
-        border-left: 3px solid #667eea;
-        padding: 0.25rem 0.5rem;
+        border-left: 3px solid rgba(255,255,255,0.5);
+        padding: 0.2rem 0.5rem;
         border-radius: 3px;
         font-size: 0.78rem;
-        color: #4e5058;
-        margin-bottom: 0.2rem;
+        opacity: 0.85;
+        margin-bottom: 0.3rem;
+        background: rgba(0,0,0,0.06);
+        border-radius: 4px;
     }
-    .msg-reactions { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.25rem; }
+    .msg-row.other .msg-reply-preview {
+        border-left-color: var(--primary-color, #667eea);
+        background: #f5f5f5;
+        color: #555;
+    }
+
+    /* Reactions */
+    .msg-reactions { display: flex; flex-wrap: wrap; gap: 0.2rem; margin-top: 0.25rem; }
     .msg-reaction-btn {
-        background: #f2f3f5;
-        border: 1px solid #e3e5e8;
-        border-radius: 10px;
-        padding: 0.1rem 0.45rem;
-        font-size: 0.8rem;
+        background: #fff;
+        border: 1px solid #e8eaed;
+        border-radius: 12px;
+        padding: 0.1rem 0.42rem;
+        font-size: 0.78rem;
         cursor: pointer;
         transition: background 0.1s;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.06);
     }
-    .msg-reaction-btn:hover { background: #e3e5e8; }
-    .msg-reaction-btn.mine { background: #e8eaf6; border-color: #9fa8da; }
+    .msg-reaction-btn:hover { background: #f0f2f5; }
+    .msg-reaction-btn.mine {
+        background: color-mix(in srgb, var(--primary-color,#667eea) 15%, transparent);
+        border-color: var(--primary-color, #667eea);
+    }
+
+    /* Hover actions */
     .msg-actions {
         position: absolute;
-        right: 0.5rem;
-        top: 0.2rem;
+        top: -18px;
+        right: 0;
         opacity: 0;
         background: #fff;
-        border: 1px solid #e3e5e8;
-        border-radius: 6px;
+        border: 1px solid #e8eaed;
+        border-radius: 18px;
         display: flex;
         gap: 0;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        transition: opacity 0.1s;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+        transition: opacity 0.12s;
+        z-index: 10;
+        pointer-events: none;
     }
+    .msg-row.own .msg-actions { right: auto; left: 0; }
+    .msg-row:hover .msg-actions { opacity: 1; pointer-events: all; }
     .msg-actions button {
         background: none;
         border: none;
-        padding: 0.3rem 0.5rem;
+        padding: 0.22rem 0.5rem;
         cursor: pointer;
-        color: #4e5058;
+        color: #555;
         font-size: 0.82rem;
-        border-radius: 5px;
+        border-radius: 18px;
+        transition: background 0.1s;
     }
-    .msg-actions button:hover { background: #f2f3f5; color: #060607; }
+    .msg-actions button:hover { background: #f0f2f5; }
+    .msg-actions .btn-delete { color: #ea4335 !important; }
 
-    /* Input area */
+    /* System messages */
+    .msg-system {
+        text-align: center;
+        font-size: 0.75rem;
+        color: #9aa0a6;
+        padding: 0.4rem 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin: 0.25rem 0;
+    }
+    .msg-system::before, .msg-system::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: #e8eaed;
+    }
+
+    /* ── Input ───────────────────────────────────────────────────────────── */
     .msg-input-wrap {
         padding: 0.75rem 1.25rem;
-        border-top: 1px solid #e3e5e8;
-        background: #fff;
+        background: #f0f2f5;
         flex-shrink: 0;
     }
     .msg-reply-bar {
-        background: #f2f3f5;
-        border-left: 3px solid #667eea;
+        background: #fff;
+        border-left: 3px solid var(--primary-color, #667eea);
         padding: 0.35rem 0.75rem;
-        border-radius: 3px;
+        border-radius: 4px;
         font-size: 0.8rem;
         margin-bottom: 0.5rem;
         display: none;
         align-items: center;
         justify-content: space-between;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.07);
     }
     .msg-input-box {
         display: flex;
         gap: 0.5rem;
         align-items: flex-end;
-        background: #f2f3f5;
-        border-radius: 8px;
-        padding: 0.5rem 0.75rem;
+        background: #fff;
+        border-radius: 24px;
+        padding: 0.5rem 0.6rem 0.5rem 1rem;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.08);
     }
     #msg-input {
         flex: 1;
@@ -249,29 +366,34 @@
         outline: none;
         resize: none;
         font-size: 0.92rem;
-        max-height: 150px;
+        max-height: 120px;
         line-height: 1.5;
         font-family: inherit;
+        color: #333;
     }
     .msg-send-btn {
-        background: #667eea;
+        background: var(--primary-color, #667eea);
         color: #fff;
         border: none;
-        border-radius: 6px;
-        padding: 0.4rem 0.8rem;
+        border-radius: 50%;
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         cursor: pointer;
-        transition: background 0.15s;
+        transition: opacity 0.15s, transform 0.1s;
         flex-shrink: 0;
     }
-    .msg-send-btn:hover { background: #5a6fd6; }
-    .msg-send-btn:disabled { background: #b5bac1; cursor: not-allowed; }
+    .msg-send-btn:hover { opacity: 0.9; transform: scale(1.05); }
+    .msg-send-btn:disabled { background: #cdd0d5; cursor: not-allowed; transform: none; }
 
     .typing-indicator {
-        font-size: 0.75rem;
-        color: #80848e;
-        height: 1.2rem;
-        padding-left: 0.25rem;
-        margin-top: 0.25rem;
+        font-size: 0.73rem;
+        color: #9aa0a6;
+        height: 1.1rem;
+        padding: 0 1.25rem 0.2rem;
+        font-style: italic;
     }
 
     /* Empty state */
@@ -282,28 +404,41 @@
         justify-content: center;
         flex-direction: column;
         gap: 0.75rem;
-        color: #80848e;
+        color: #9aa0a6;
         text-align: center;
     }
-    .msg-empty i { font-size: 3rem; opacity: 0.4; }
+    .msg-empty i { font-size: 3.5rem; opacity: 0.3; }
 
-    /* Video placeholder */
-    .video-placeholder {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.35rem;
-        font-size: 0.82rem;
-        color: #80848e;
-        border: 1px dashed #d1d3d6;
-        border-radius: 6px;
-        padding: 0.3rem 0.7rem;
-        cursor: not-allowed;
-        title: attr(title);
+    /* Emoji picker */
+    #emoji-picker {
+        position: fixed;
+        background: #fff;
+        border: 1px solid #e8eaed;
+        border-radius: 12px;
+        padding: 0.5rem 0.4rem;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        z-index: 9999;
+        font-size: 1.3rem;
+        display: none;
+        gap: 0.1rem;
+        flex-wrap: wrap;
+        width: 220px;
     }
+    #emoji-picker button {
+        border: none;
+        background: none;
+        cursor: pointer;
+        padding: 0.25rem;
+        border-radius: 6px;
+        transition: background 0.1s;
+        font-size: 1.2rem;
+    }
+    #emoji-picker button:hover { background: #f0f2f5; }
 
     @media (max-width: 640px) {
         .msg-sidebar { display: none; }
         .msg-channel-header .channel-desc { display: none; }
+        .msg-row { max-width: 90%; }
     }
 </style>
 {% endblock %}
@@ -315,9 +450,13 @@
     <aside class="msg-sidebar">
         <div class="msg-sidebar-header">
             <span><i class="bi bi-buildings me-1"></i>{{ company.name }}</span>
-            <a href="{% url 'company_home' workspace_key=company.workspace_key %}" title="Zur Firmen-Seite" class="text-muted" style="font-size:0.8rem;">
+            <a href="{% url 'company_home' workspace_key=company.workspace_key %}" title="Zur Firmen-Seite">
                 <i class="bi bi-box-arrow-up-right"></i>
             </a>
+        </div>
+
+        <div class="msg-sidebar-search">
+            <input type="text" placeholder="Suchen…" id="sidebar-search" oninput="filterSidebar(this.value)">
         </div>
 
         <div class="msg-sidebar-scroll">
@@ -326,13 +465,14 @@
                 <span>Kanäle</span>
                 <a href="{% url 'messenger:create_channel' workspace_key=company.workspace_key %}" title="Neuen Kanal erstellen">+</a>
             </div>
-            <ul class="msg-sidebar-list">
+            <ul class="msg-sidebar-list" id="channel-list">
                 {% for room, membership in channels %}
                 <li>
                     <a href="{% url 'messenger:room' workspace_key=company.workspace_key room_slug=room.slug %}"
-                       class="{% if active_room and active_room.pk == room.pk %}active{% endif %}">
-                        <i class="bi bi-hash"></i>
-                        <span class="text-truncate">{{ room.name }}</span>
+                       class="sidebar-item {% if active_room and active_room.pk == room.pk %}active{% endif %}"
+                       data-name="{{ room.name|lower }}">
+                        <i class="bi bi-hash ch-icon"></i>
+                        <span class="ch-label">{{ room.name }}</span>
                         {% with unread=room.unread_count %}
                             {% if unread > 0 %}<span class="badge-unread">{{ unread }}</span>{% endif %}
                         {% endwith %}
@@ -342,25 +482,28 @@
                 {% for room in open_channels %}
                 <li>
                     <a href="{% url 'messenger:room' workspace_key=company.workspace_key room_slug=room.slug %}"
-                       style="opacity:0.55;">
-                        <i class="bi bi-hash"></i>
-                        <span class="text-truncate">{{ room.name }}</span>
+                       class="sidebar-item" data-name="{{ room.name|lower }}" style="opacity:.6;">
+                        <i class="bi bi-hash ch-icon"></i>
+                        <span class="ch-label">{{ room.name }}</span>
                     </a>
                 </li>
                 {% endfor %}
             </ul>
 
             <!-- Direct Messages -->
-            <div class="msg-sidebar-section mt-2">
+            <div class="msg-sidebar-section mt-1">
                 <span>Direktnachrichten</span>
+                <a href="#" title="Neue DM starten" onclick="openDmModal(); return false;">+</a>
             </div>
-            <ul class="msg-sidebar-list">
+            <ul class="msg-sidebar-list" id="dm-list">
                 {% for room, membership in directs %}
                 <li>
                     <a href="{% url 'messenger:room' workspace_key=company.workspace_key room_slug=room.slug %}"
-                       class="{% if active_room and active_room.pk == room.pk %}active{% endif %}">
-                        <i class="bi bi-person-circle"></i>
-                        <span class="text-truncate">
+                       class="sidebar-item {% if active_room and active_room.pk == room.pk %}active{% endif %}">
+                        <div class="dm-avatar">
+                            {% for m in room.memberships.all %}{% if m.user != request.user %}{{ m.user.get_full_name|default:m.user.username|slice:":1"|upper }}{% endif %}{% endfor %}
+                        </div>
+                        <span class="ch-label">
                             {% for m in room.memberships.all %}
                                 {% if m.user != request.user %}{{ m.user.get_full_name|default:m.user.username }}{% endif %}
                             {% endfor %}
@@ -368,7 +511,7 @@
                     </a>
                 </li>
                 {% empty %}
-                <li style="padding:0.35rem 1rem;font-size:0.8rem;color:#80848e;">Noch keine DMs</li>
+                <li style="padding:0.5rem 1rem;font-size:0.8rem;color:#9aa0a6;">Noch keine Direktnachrichten</li>
                 {% endfor %}
             </ul>
         </div>
@@ -378,40 +521,34 @@
     <main class="msg-main">
         {% if active_room %}
 
-        <!-- Channel Header -->
+        <!-- Header -->
         <div class="msg-channel-header">
             {% if active_room.room_type == 'direct' %}
-                <i class="bi bi-person-circle text-secondary"></i>
+                <i class="bi bi-person-circle text-secondary fs-5"></i>
             {% else %}
-                <i class="bi bi-hash text-secondary"></i>
+                <i class="bi bi-hash text-secondary fs-5"></i>
             {% endif %}
             <span class="channel-name">{{ active_room.name }}</span>
             {% if active_room.description %}
             <span class="channel-desc">{{ active_room.description|truncatechars:60 }}</span>
             {% endif %}
             <div class="ms-auto">
-                <!-- Members badge -->
-                <span class="badge bg-light text-muted border" title="Mitglieder">
+                <span class="badge bg-light text-muted border small" title="Mitglieder">
                     <i class="bi bi-people"></i> {{ room_members.count }}
                 </span>
-                <!-- Invite (owner/admin only) -->
                 {% if membership.role in "owner,admin" %}
-                <button class="btn btn-sm btn-outline-secondary" onclick="openInviteModal()" title="Einladungslink erstellen">
+                <button class="btn btn-sm btn-outline-secondary" onclick="openInviteModal()" title="Einladungslink">
                     <i class="bi bi-person-plus"></i>
                 </button>
                 {% endif %}
-                <!-- Video placeholder -->
-                <span class="video-placeholder" title="Videokonferenz – demnächst verfügbar">
-                    <i class="bi bi-camera-video"></i> Video (bald)
-                </span>
             </div>
         </div>
 
         <!-- Messages -->
         <div class="msg-messages" id="msg-messages">
             <div class="msg-load-more">
-                <button class="btn btn-sm btn-outline-secondary" id="load-more-btn" onclick="loadMore()" style="font-size:0.78rem;">
-                    Ältere Nachrichten laden
+                <button class="btn btn-sm btn-outline-secondary rounded-pill" id="load-more-btn" onclick="loadMore()" style="font-size:0.75rem;">
+                    <i class="bi bi-arrow-up me-1"></i>Ältere Nachrichten
                 </button>
             </div>
 
@@ -419,22 +556,26 @@
                 {% if msg.message_type == 'system' %}
                 <div class="msg-system">{{ msg.content }}</div>
                 {% else %}
-                <div class="msg-group" id="msg-{{ msg.pk }}" data-msg-id="{{ msg.pk }}">
-                    <div class="msg-avatar">
-                        {{ msg.author.get_full_name|default:msg.author.username|slice:":2"|upper }}
+                {% with is_own=msg.author|stringformat:"s" %}
+                <div class="msg-row {% if msg.author == request.user %}own{% else %}other{% endif %}"
+                     id="msg-{{ msg.pk }}" data-msg-id="{{ msg.pk }}">
+                    <div class="msg-avatar-wrap">
+                        <div class="msg-avatar">{{ msg.author.get_full_name|default:msg.author.username|slice:":1"|upper }}</div>
                     </div>
-                    <div class="msg-body">
+                    <div class="msg-bubble-wrap">
                         <div class="msg-meta">
+                            {% if msg.author != request.user %}
                             <span class="author">{{ msg.author.get_full_name|default:msg.author.username }}</span>
-                            <span class="time">{{ msg.created_at|date:"d.m.Y H:i" }}</span>
+                            {% endif %}
+                            <span class="time">{{ msg.created_at|date:"H:i" }}</span>
                         </div>
-                        {% if msg.reply_to and not msg.reply_to.is_deleted %}
-                        <div class="msg-reply-preview">
-                            <strong>{{ msg.reply_to.author.get_full_name|default:msg.reply_to.author.username }}</strong>:
-                            {{ msg.reply_to.content|truncatechars:80 }}
-                        </div>
-                        {% endif %}
-                        <div class="msg-content {% if msg.is_deleted %}deleted{% endif %}">
+                        <div class="msg-bubble {% if msg.is_deleted %}deleted{% endif %}">
+                            {% if msg.reply_to and not msg.reply_to.is_deleted %}
+                            <div class="msg-reply-preview">
+                                <strong>{{ msg.reply_to.author.get_full_name|default:msg.reply_to.author.username }}</strong>:
+                                {{ msg.reply_to.content|truncatechars:60 }}
+                            </div>
+                            {% endif %}
                             {% if msg.is_deleted %}
                                 <em>Diese Nachricht wurde gelöscht.</em>
                             {% else %}
@@ -456,26 +597,21 @@
                     </div>
                     {% if not msg.is_deleted %}
                     <div class="msg-actions">
-                        <button onclick="startReply({{ msg.pk }}, '{{ msg.content|truncatechars:50|escapejs }}')" title="Antworten">
-                            <i class="bi bi-reply"></i>
-                        </button>
-                        <button onclick="showEmojiPicker({{ msg.pk }})" title="Reaktion">
-                            <i class="bi bi-emoji-smile"></i>
-                        </button>
+                        <button onclick="startReply({{ msg.pk }}, '{{ msg.content|truncatechars:50|escapejs }}')" title="Antworten"><i class="bi bi-reply"></i></button>
+                        <button onclick="showEmojiPicker({{ msg.pk }})" title="Reaktion"><i class="bi bi-emoji-smile"></i></button>
                         {% if msg.author == request.user or request.user.is_superuser %}
-                        <button onclick="deleteMessage({{ msg.pk }})" title="Löschen" style="color:#da373c;">
-                            <i class="bi bi-trash"></i>
-                        </button>
+                        <button class="btn-delete" onclick="deleteMessage({{ msg.pk }})" title="Löschen"><i class="bi bi-trash"></i></button>
                         {% endif %}
                     </div>
                     {% endif %}
                 </div>
+                {% endwith %}
                 {% endif %}
             {% endfor %}
         </div>
 
         <!-- Typing indicator -->
-        <div class="typing-indicator px-4" id="typing-indicator"></div>
+        <div class="typing-indicator" id="typing-indicator"></div>
 
         <!-- Input -->
         <div class="msg-input-wrap">
@@ -484,34 +620,45 @@
                 <button class="btn btn-sm btn-link text-muted p-0" onclick="cancelReply()"><i class="bi bi-x-lg"></i></button>
             </div>
             <div class="msg-input-box">
-                <textarea id="msg-input" rows="1" placeholder="Nachricht an #{{ active_room.name }} …"
+                <button class="btn p-0 text-muted me-1" onclick="showEmojiPickerForInput()" title="Emoji" style="font-size:1.1rem;">
+                    <i class="bi bi-emoji-smile"></i>
+                </button>
+                <textarea id="msg-input" rows="1" placeholder="Nachricht schreiben…"
                           onkeydown="handleInputKeydown(event)"
                           oninput="autoResize(this); sendTyping()"></textarea>
                 <button class="msg-send-btn" onclick="sendMessage()" id="send-btn">
-                    <i class="bi bi-send"></i>
+                    <i class="bi bi-send-fill" style="font-size:.85rem;"></i>
                 </button>
             </div>
         </div>
 
         {% else %}
-        <!-- No active room -->
         <div class="msg-empty">
-            <i class="bi bi-chat-dots"></i>
-            <p class="mb-1 fw-semibold">Kanal auswählen</p>
-            <p style="font-size:0.85rem;">Wähle links einen Kanal oder starte eine Direktnachricht.</p>
-            <a href="{% url 'messenger:create_channel' workspace_key=company.workspace_key %}" class="btn btn-primary btn-sm mt-2">
-                <i class="bi bi-plus-lg me-1"></i> Neuen Kanal erstellen
+            <i class="bi bi-chat-square-dots"></i>
+            <p class="fw-semibold mb-1">Willkommen im Messenger</p>
+            <p style="font-size:0.85rem;max-width:300px;">Wähle links einen Kanal oder starte eine neue Konversation.</p>
+            <a href="{% url 'messenger:create_channel' workspace_key=company.workspace_key %}" class="btn btn-primary btn-sm mt-1 rounded-pill px-4">
+                <i class="bi bi-plus-lg me-1"></i>Neuen Kanal erstellen
             </a>
         </div>
         {% endif %}
     </main>
 </div>
 
-<!-- Emoji Quick-Picker (inline, no lib) -->
-<div id="emoji-picker" style="display:none;position:fixed;background:#fff;border:1px solid #e3e5e8;border-radius:8px;padding:0.5rem;box-shadow:0 4px 16px rgba(0,0,0,0.15);z-index:9999;font-size:1.2rem;">
-    {% for e in "👍,👎,❤️,😂,😮,🎉,🙏,🔥"|split:"," %}
-    <button onclick="emojiPick('{{ e }}')" style="border:none;background:none;cursor:pointer;padding:0.2rem;">{{ e }}</button>
-    {% endfor %}
+<!-- Emoji Quick-Picker -->
+<div id="emoji-picker" style="display:none;">
+    <button onclick="emojiPick('👍')">👍</button>
+    <button onclick="emojiPick('👎')">👎</button>
+    <button onclick="emojiPick('❤️')">❤️</button>
+    <button onclick="emojiPick('😂')">😂</button>
+    <button onclick="emojiPick('😮')">😮</button>
+    <button onclick="emojiPick('🎉')">🎉</button>
+    <button onclick="emojiPick('🙏')">🙏</button>
+    <button onclick="emojiPick('🔥')">🔥</button>
+    <button onclick="emojiPick('😊')">😊</button>
+    <button onclick="emojiPick('👀')">👀</button>
+    <button onclick="emojiPick('✅')">✅</button>
+    <button onclick="emojiPick('🚀')">🚀</button>
 </div>
 
 <!-- Invite Modal -->
@@ -519,7 +666,7 @@
     <div class="modal-dialog modal-sm">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Einladungslink</h5>
+                <h5 class="modal-title"><i class="bi bi-person-plus me-2"></i>Einladungslink</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
@@ -537,7 +684,7 @@
                         <input type="number" class="form-control form-control-sm" id="invite-days" value="7" min="0">
                     </div>
                 </div>
-                <button class="btn btn-primary btn-sm w-100" onclick="createInvite()">Link erstellen</button>
+                <button class="btn btn-primary btn-sm w-100 rounded-pill" onclick="createInvite()">Link erstellen</button>
                 <div id="invite-result" class="mt-2" style="display:none;">
                     <div class="input-group input-group-sm">
                         <input type="text" class="form-control" id="invite-url-field" readonly>
@@ -554,6 +701,7 @@
 const ROOM_ID = {{ active_room.pk }};
 const WORKSPACE_KEY = '{{ company.workspace_key }}';
 const CURRENT_USER_ID = {{ request.user.pk }};
+const CURRENT_USER_NAME = '{{ request.user.get_full_name|default:request.user.username|escapejs }}';
 const CSRF_TOKEN = '{{ csrf_token }}';
 
 let ws = null;
@@ -561,17 +709,13 @@ let replyToId = null;
 let typingTimer = null;
 let oldestMsgId = {% if messages_list %}{{ messages_list.0.pk }}{% else %}null{% endif %};
 let emojiTargetMsgId = null;
+let emojiForInput = false;
 
-// ── WebSocket ────────────────────────────────────────────────────────────
+// ── WebSocket ─────────────────────────────────────────────────────────────
 function connectWS() {
     const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
     ws = new WebSocket(`${proto}://${window.location.host}/ws/messenger/${ROOM_ID}/`);
-
-    ws.onopen = () => {
-        console.log('Chat WS connected');
-        ws.send(JSON.stringify({type: 'mark_read'}));
-    };
-
+    ws.onopen = () => { ws.send(JSON.stringify({type: 'mark_read'})); };
     ws.onmessage = (e) => {
         const data = JSON.parse(e.data);
         if (data.type === 'chat_message') appendMessage(data.message);
@@ -579,33 +723,23 @@ function connectWS() {
         else if (data.type === 'message_deleted') markDeleted(data.message_id);
         else if (data.type === 'reaction') updateReactions(data.message_id, data.reactions);
     };
-
     ws.onclose = () => setTimeout(connectWS, 3000);
     ws.onerror = (e) => console.error('WS error', e);
 }
 
-// ── Send ─────────────────────────────────────────────────────────────────
+// ── Send ──────────────────────────────────────────────────────────────────
 function sendMessage() {
     const input = document.getElementById('msg-input');
     const content = input.value.trim();
     if (!content || !ws || ws.readyState !== 1) return;
-    ws.send(JSON.stringify({
-        type: 'chat_message',
-        content: content,
-        reply_to_id: replyToId || null,
-    }));
+    ws.send(JSON.stringify({ type: 'chat_message', content, reply_to_id: replyToId || null }));
     input.value = '';
     autoResize(input);
     cancelReply();
 }
-
 function handleInputKeydown(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
 }
-
 function sendTyping() {
     if (!ws || ws.readyState !== 1) return;
     clearTimeout(typingTimer);
@@ -613,7 +747,7 @@ function sendTyping() {
     typingTimer = setTimeout(() => {}, 2000);
 }
 
-// ── Render ───────────────────────────────────────────────────────────────
+// ── Render ────────────────────────────────────────────────────────────────
 function appendMessage(msg) {
     const container = document.getElementById('msg-messages');
     if (msg.message_type === 'system') {
@@ -622,37 +756,39 @@ function appendMessage(msg) {
         div.textContent = msg.content;
         container.appendChild(div);
     } else {
-        const initials = msg.author.slice(0, 2).toUpperCase();
-        const time = new Date(msg.created_at).toLocaleString('de-DE', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-        const canDelete = msg.author_id === CURRENT_USER_ID;
+        const isOwn = msg.author_id === CURRENT_USER_ID;
+        const initial = (isOwn ? CURRENT_USER_NAME : msg.author).slice(0, 1).toUpperCase();
+        const time = new Date(msg.created_at).toLocaleString('de-DE', {hour:'2-digit', minute:'2-digit'});
         const div = document.createElement('div');
-        div.className = 'msg-group';
+        div.className = `msg-row ${isOwn ? 'own' : 'other'}`;
         div.id = `msg-${msg.id}`;
         div.dataset.msgId = msg.id;
         div.innerHTML = `
-            <div class="msg-avatar">${initials}</div>
-            <div class="msg-body">
-                <div class="msg-meta"><span class="author">${escHtml(msg.author)}</span><span class="time">${time}</span></div>
-                <div class="msg-content">${escHtml(msg.content).replace(/\n/g,'<br>')}</div>
+            <div class="msg-avatar-wrap"><div class="msg-avatar">${initial}</div></div>
+            <div class="msg-bubble-wrap">
+                <div class="msg-meta">
+                    ${!isOwn ? `<span class="author">${escHtml(msg.author)}</span>` : ''}
+                    <span class="time">${time}</span>
+                </div>
+                <div class="msg-bubble">${escHtml(msg.content).replace(/\n/g,'<br>')}</div>
                 <div class="msg-reactions" id="reactions-${msg.id}"></div>
             </div>
             <div class="msg-actions">
                 <button onclick="startReply(${msg.id},'${escHtml(msg.content.slice(0,50)).replace(/'/g,"\\'")}')"><i class="bi bi-reply"></i></button>
                 <button onclick="showEmojiPicker(${msg.id})"><i class="bi bi-emoji-smile"></i></button>
-                ${canDelete ? `<button onclick="deleteMessage(${msg.id})" style="color:#da373c;"><i class="bi bi-trash"></i></button>` : ''}
+                ${isOwn ? `<button class="btn-delete" onclick="deleteMessage(${msg.id})"><i class="bi bi-trash"></i></button>` : ''}
             </div>`;
         container.appendChild(div);
     }
     container.scrollTop = container.scrollHeight;
-    // mark read
     if (ws && ws.readyState === 1) ws.send(JSON.stringify({type: 'mark_read'}));
 }
 
 function markDeleted(msgId) {
     const el = document.getElementById(`msg-${msgId}`);
     if (!el) return;
-    const body = el.querySelector('.msg-content');
-    if (body) { body.className = 'msg-content deleted'; body.innerHTML = '<em>Diese Nachricht wurde gelöscht.</em>'; }
+    const bubble = el.querySelector('.msg-bubble');
+    if (bubble) { bubble.className = 'msg-bubble deleted'; bubble.innerHTML = '<em>Diese Nachricht wurde gelöscht.</em>'; }
     const actions = el.querySelector('.msg-actions');
     if (actions) actions.remove();
 }
@@ -671,7 +807,7 @@ function updateReactions(msgId, reactions) {
     }
 }
 
-// ── Typing indicator ─────────────────────────────────────────────────────
+// ── Typing ────────────────────────────────────────────────────────────────
 let typingUsers = {};
 function showTyping(author) {
     typingUsers[author] = Date.now();
@@ -680,21 +816,18 @@ function showTyping(author) {
 }
 function renderTyping() {
     const now = Date.now();
-    for (const [a, t] of Object.entries(typingUsers)) {
-        if (now - t > 3000) delete typingUsers[a];
-    }
+    for (const [a, t] of Object.entries(typingUsers)) { if (now - t > 3000) delete typingUsers[a]; }
     const el = document.getElementById('typing-indicator');
     if (!el) return;
     const names = Object.keys(typingUsers);
     el.textContent = names.length ? `${names.join(', ')} schreibt…` : '';
 }
 
-// ── Reply ────────────────────────────────────────────────────────────────
+// ── Reply ─────────────────────────────────────────────────────────────────
 function startReply(msgId, preview) {
     replyToId = msgId;
-    const bar = document.getElementById('reply-bar');
-    bar.style.display = 'flex';
-    document.getElementById('reply-preview-text').textContent = `Antwort auf: ${preview}`;
+    document.getElementById('reply-bar').style.display = 'flex';
+    document.getElementById('reply-preview-text').textContent = `↩ ${preview}`;
     document.getElementById('msg-input').focus();
 }
 function cancelReply() {
@@ -702,36 +835,54 @@ function cancelReply() {
     document.getElementById('reply-bar').style.display = 'none';
 }
 
-// ── Delete ───────────────────────────────────────────────────────────────
+// ── Delete ────────────────────────────────────────────────────────────────
 function deleteMessage(msgId) {
     if (!confirm('Nachricht löschen?')) return;
     if (ws && ws.readyState === 1) ws.send(JSON.stringify({type: 'delete_message', message_id: msgId}));
 }
 
-// ── Reactions ────────────────────────────────────────────────────────────
+// ── Reactions ─────────────────────────────────────────────────────────────
 function sendReaction(msgId, emoji) {
     if (ws && ws.readyState === 1) ws.send(JSON.stringify({type: 'react', message_id: msgId, emoji}));
 }
-
 function showEmojiPicker(msgId) {
     emojiTargetMsgId = msgId;
+    emojiForInput = false;
     const picker = document.getElementById('emoji-picker');
     const el = document.getElementById(`msg-${msgId}`);
     if (!el) return;
     const rect = el.getBoundingClientRect();
-    picker.style.top = (rect.top - 50) + 'px';
-    picker.style.left = (rect.right - 240) + 'px';
-    picker.style.display = 'block';
+    picker.style.top = (rect.top - 80) + 'px';
+    picker.style.left = Math.min(rect.left, window.innerWidth - 230) + 'px';
+    picker.style.display = 'flex';
+    setTimeout(() => document.addEventListener('click', closePicker, {once: true}), 10);
+}
+function showEmojiPickerForInput() {
+    emojiForInput = true;
+    emojiTargetMsgId = null;
+    const picker = document.getElementById('emoji-picker');
+    const box = document.querySelector('.msg-input-wrap');
+    const rect = box.getBoundingClientRect();
+    picker.style.top = (rect.top - 90) + 'px';
+    picker.style.left = rect.left + 'px';
+    picker.style.display = 'flex';
     setTimeout(() => document.addEventListener('click', closePicker, {once: true}), 10);
 }
 function emojiPick(emoji) {
-    if (emojiTargetMsgId) sendReaction(emojiTargetMsgId, emoji);
+    if (emojiForInput) {
+        const inp = document.getElementById('msg-input');
+        inp.value += emoji;
+        inp.focus();
+    } else if (emojiTargetMsgId) {
+        sendReaction(emojiTargetMsgId, emoji);
+    }
     document.getElementById('emoji-picker').style.display = 'none';
     emojiTargetMsgId = null;
+    emojiForInput = false;
 }
 function closePicker() { document.getElementById('emoji-picker').style.display = 'none'; }
 
-// ── Load more ────────────────────────────────────────────────────────────
+// ── Load more ─────────────────────────────────────────────────────────────
 async function loadMore() {
     if (!oldestMsgId) return;
     const resp = await fetch(`/{{ company.workspace_key }}/messenger/messages/${ROOM_ID}/load/?before=${oldestMsgId}`);
@@ -740,54 +891,56 @@ async function loadMore() {
     const btn = document.getElementById('load-more-btn');
     if (!data.messages.length) { btn.disabled = true; btn.textContent = 'Keine weiteren Nachrichten'; return; }
     oldestMsgId = data.messages[0].id;
+    const anchor = btn.closest('.msg-load-more');
     const fragment = document.createDocumentFragment();
     for (const msg of data.messages) {
         if (msg.message_type === 'system') {
             const d = document.createElement('div'); d.className = 'msg-system'; d.textContent = msg.content;
             fragment.appendChild(d);
         } else {
-            const initials = msg.author.slice(0,2).toUpperCase();
-            const time = new Date(msg.created_at).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+            const isOwn = msg.author_id === CURRENT_USER_ID;
+            const initial = (isOwn ? CURRENT_USER_NAME : msg.author).slice(0,1).toUpperCase();
+            const time = new Date(msg.created_at).toLocaleString('de-DE',{hour:'2-digit',minute:'2-digit'});
             const d = document.createElement('div');
-            d.className = 'msg-group'; d.id = `msg-${msg.id}`; d.dataset.msgId = msg.id;
+            d.className = `msg-row ${isOwn ? 'own' : 'other'}`;
+            d.id = `msg-${msg.id}`; d.dataset.msgId = msg.id;
             d.innerHTML = `
-                <div class="msg-avatar">${initials}</div>
-                <div class="msg-body">
-                    <div class="msg-meta"><span class="author">${escHtml(msg.author)}</span><span class="time">${time}</span></div>
+                <div class="msg-avatar-wrap"><div class="msg-avatar">${initial}</div></div>
+                <div class="msg-bubble-wrap">
+                    <div class="msg-meta">
+                        ${!isOwn ? `<span class="author">${escHtml(msg.author)}</span>` : ''}
+                        <span class="time">${time}</span>
+                    </div>
                     ${msg.reply_preview ? `<div class="msg-reply-preview">${escHtml(msg.reply_preview)}</div>` : ''}
-                    <div class="msg-content ${msg.is_deleted?'deleted':''}">${msg.is_deleted ? '<em>Gelöscht.</em>' : escHtml(msg.content).replace(/\n/g,'<br>')}</div>
+                    <div class="msg-bubble ${msg.is_deleted?'deleted':''}">${msg.is_deleted?'<em>Gelöscht.</em>':escHtml(msg.content).replace(/\n/g,'<br>')}</div>
                     <div class="msg-reactions" id="reactions-${msg.id}"></div>
                 </div>`;
             fragment.appendChild(d);
             if (msg.reactions) updateReactions(msg.id, msg.reactions);
         }
     }
-    // Insert after load-more button
-    const anchor = btn.closest('.msg-load-more');
     anchor.after(fragment);
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────
-function autoResize(el) {
-    el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 150) + 'px';
-}
-function escHtml(s) {
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+// ── Sidebar search ────────────────────────────────────────────────────────
+function filterSidebar(q) {
+    q = q.toLowerCase();
+    document.querySelectorAll('.sidebar-item').forEach(a => {
+        a.closest('li').style.display = (a.dataset.name || '').includes(q) ? '' : 'none';
+    });
 }
 
-// ── Invite ───────────────────────────────────────────────────────────────
-function openInviteModal() {
-    new bootstrap.Modal(document.getElementById('inviteModal')).show();
-}
+// ── Invite ────────────────────────────────────────────────────────────────
+function openInviteModal() { new bootstrap.Modal(document.getElementById('inviteModal')).show(); }
 async function createInvite() {
-    const email = document.getElementById('invite-email').value;
-    const maxUses = document.getElementById('invite-max-uses').value;
-    const days = document.getElementById('invite-days').value;
     const resp = await fetch(`/{{ company.workspace_key }}/messenger/channel/{{ active_room.slug }}/invite/`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
-        body: JSON.stringify({email, max_uses: parseInt(maxUses), days: parseInt(days)}),
+        body: JSON.stringify({
+            email: document.getElementById('invite-email').value,
+            max_uses: parseInt(document.getElementById('invite-max-uses').value),
+            days: parseInt(document.getElementById('invite-days').value),
+        }),
     });
     const data = await resp.json();
     if (data.invite_url) {
@@ -795,12 +948,19 @@ async function createInvite() {
         document.getElementById('invite-result').style.display = 'block';
     }
 }
-function copyInvite() {
-    navigator.clipboard.writeText(document.getElementById('invite-url-field').value);
-}
+function copyInvite() { navigator.clipboard.writeText(document.getElementById('invite-url-field').value); }
 
-// ── Init ─────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────
+function autoResize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px'; }
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+// ── Init ──────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+    // Navbar-Höhe messen und Messenger-Wrap exakt darunter positionieren
+    const nav = document.querySelector('nav.navbar');
+    if (nav) {
+        document.querySelector('.messenger-wrap').style.top = nav.offsetHeight + 'px';
+    }
     connectWS();
     const msgs = document.getElementById('msg-messages');
     if (msgs) msgs.scrollTop = msgs.scrollHeight;

@@ -525,6 +525,7 @@ class Notification(models.Model):
         ('news', _('New article published')),
         ('mention', _('@mention')),
         ('team_news', _('Team-Site news')),
+        ('message', _('New chat message')),
     ]
 
     user = models.ForeignKey(
