@@ -5,10 +5,11 @@ Real-time updates for file operations and messenger chat.
 
 from django.urls import path
 from core.consumers import NotificationConsumer, FileUploadConsumer
-from messenger.consumers import ChatConsumer
+from messenger.consumers import ChatConsumer, PresenceConsumer
 
 websocket_urlpatterns = [
     path('ws/notifications/', NotificationConsumer.as_asgi(), name='ws_notifications'),
     path('ws/file-upload/', FileUploadConsumer.as_asgi(), name='ws_file_upload'),
+    path('ws/messenger/presence/<slug:workspace_key>/', PresenceConsumer.as_asgi(), name='ws_messenger_presence'),
     path('ws/messenger/<int:room_id>/', ChatConsumer.as_asgi(), name='ws_chat'),
 ]

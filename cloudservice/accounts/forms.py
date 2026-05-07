@@ -67,8 +67,7 @@ class RegisterForm(forms.ModelForm):
                 workspace_type=self.cleaned_data['workspace_type'],
                 workspace_key=self.cleaned_data['workspace_key'],
             )
-            profile.role = 'admin'
-            profile.save(update_fields=['company', 'role'])
+            profile.save(update_fields=['company'])
         return user
 
 

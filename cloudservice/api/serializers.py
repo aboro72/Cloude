@@ -411,6 +411,49 @@ class NewsArticleSerializer(serializers.ModelSerializer):
         return None
 
 
+# ── Meetings ──────────────────────────────────────────────────────────────────
+
+class MeetingInviteeSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField(source='id')
+    username = serializers.CharField()
+    full_name = serializers.SerializerMethodField()
+
+    def get_full_name(self, obj):
+        return obj.get_full_name() or obj.username
+
+
+class MeetingSerializer(serializers.ModelSerializer):
+    organizer_name = serializers.SerializerMethodField()
+    invitees = MeetingInviteeSerializer(many=True, read_only=True)
+    invitee_ids = serializers.ListField(
+        child=serializers.IntegerField(), write_only=True, required=False
+    )
+    duration_display = serializers.CharField(read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+
+    class Meta:
+        from jitsi.models import Meeting
+        model = Meeting
+        fields = [
+            'id', 'title', 'description',
+            'organizer', 'organizer_name',
+            'invitees', 'invitee_ids',
+            'scheduled_start', 'scheduled_end',
+            'status', 'status_display',
+            'room_name', 'started_at', 'ended_at', 'duration_display',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = [
+            'id', 'organizer', 'organizer_name',
+            'room_name', 'started_at', 'ended_at',
+            'duration_display', 'status_display',
+            'created_at', 'updated_at',
+        ]
+
+    def get_organizer_name(self, obj):
+        return obj.organizer.get_full_name() or obj.organizer.username
+
+
 # ── Messenger ─────────────────────────────────────────────────────────────────
 
 class ChatMembershipSerializer(serializers.ModelSerializer):

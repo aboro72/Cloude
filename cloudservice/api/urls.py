@@ -24,6 +24,8 @@ router.register(r'tasks', views.TaskViewSet, basename='task')
 # News
 router.register(r'news/categories', views.NewsCategoryViewSet, basename='news_category')
 router.register(r'news/articles', views.NewsArticleViewSet, basename='news_article')
+# Meetings
+router.register(r'meetings', views.MeetingViewSet, basename='meeting')
 # Messenger — Räume (list/create/retrieve/update/destroy + custom actions)
 router.register(r'messenger/rooms', views.ChatRoomViewSet, basename='chat_room')
 

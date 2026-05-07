@@ -4,9 +4,100 @@ Each room has a dedicated channel group: messenger_room_<room_id>
 """
 
 import json
+from collections import defaultdict
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.utils import timezone
+
+
+_workspace_presence = defaultdict(lambda: defaultdict(set))
+
+
+class PresenceConsumer(AsyncWebsocketConsumer):
+    """Workspace-scoped online/offline presence for messenger sidebars."""
+
+    async def connect(self):
+        self.workspace_key = self.scope['url_route']['kwargs']['workspace_key']
+        self.group_name = f'messenger_presence_{self.workspace_key}'
+        self.user = self.scope.get('user')
+
+        if not self.user or not self.user.is_authenticated:
+            await self.close()
+            return
+
+        if not await self.user_can_access_workspace(self.user, self.workspace_key):
+            await self.close()
+            return
+
+        await self.channel_layer.group_add(self.group_name, self.channel_name)
+        await self.accept()
+
+        user_channels = _workspace_presence[self.workspace_key][self.user.pk]
+        was_offline = not user_channels
+        user_channels.add(self.channel_name)
+
+        await self.send(text_data=json.dumps({
+            'type': 'presence_state',
+            'online_user_ids': list(_workspace_presence[self.workspace_key].keys()),
+        }))
+
+        if was_offline:
+            await self.channel_layer.group_send(self.group_name, {
+                'type': 'presence.update',
+                'user_id': self.user.pk,
+                'status': 'online',
+            })
+
+    async def disconnect(self, code):
+        if not hasattr(self, 'workspace_key') or not hasattr(self, 'user'):
+            return
+
+        user_channels = _workspace_presence[self.workspace_key].get(self.user.pk)
+        if user_channels:
+            user_channels.discard(self.channel_name)
+            if not user_channels:
+                del _workspace_presence[self.workspace_key][self.user.pk]
+                await self.channel_layer.group_send(self.group_name, {
+                    'type': 'presence.update',
+                    'user_id': self.user.pk,
+                    'status': 'offline',
+                })
+        if not _workspace_presence[self.workspace_key]:
+            _workspace_presence.pop(self.workspace_key, None)
+
+        await self.channel_layer.group_discard(self.group_name, self.channel_name)
+
+    async def receive(self, text_data=None, bytes_data=None):
+        if not text_data:
+            return
+        try:
+            data = json.loads(text_data)
+        except json.JSONDecodeError:
+            return
+        if data.get('type') == 'ping':
+            await self.send(text_data=json.dumps({'type': 'pong'}))
+
+    async def presence_update(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'presence_update',
+            'user_id': event['user_id'],
+            'status': event['status'],
+        }))
+
+    @database_sync_to_async
+    def user_can_access_workspace(self, user, workspace_key):
+        from accounts.models import Company
+        from messenger.models import ChatMembership
+        try:
+            company = Company.objects.get(workspace_key=workspace_key)
+        except Company.DoesNotExist:
+            return False
+        profile = getattr(user, 'profile', None)
+        return (
+            user.is_superuser
+            or (profile and profile.company_id == company.pk)
+            or ChatMembership.objects.filter(room__company=company, user=user).exists()
+        )
 
 
 class ChatConsumer(AsyncWebsocketConsumer):

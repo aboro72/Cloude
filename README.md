@@ -1,107 +1,48 @@
-# CloudService
+# Cloude – Django Cloud Storage
 
-Eine selbst gehostete Intranet-Plattform als SharePoint-Alternative. Plugin-basiert, schlank und auf Django 5.x aufgebaut.
+Ein moderner Cloud-Speicherdienst auf Basis von Django 6, Gunicorn, Daphne und Celery.
 
 **Entwickelt von Andreas Borowczak | [Aboro IT](https://aboro-it.de)**
 
 ---
 
-## Inhaltsverzeichnis
+## Changelog / Projektbereinigung
 
-- [Überblick](#überblick)
-- [Tech Stack](#tech-stack)
-- [Schnellstart](#schnellstart)
-- [Projektstruktur](#projektstruktur)
-- [Kernmodule](#kernmodule)
-- [Rollen & Berechtigungen](#rollen--berechtigungen)
-- [Plugin-System](#plugin-system)
-- [Installierte Plugins](#installierte-plugins)
-- [URL-Struktur](#url-struktur)
-- [Konfiguration (.env)](#konfiguration-env)
-- [Datenbank](#datenbank)
-- [WebSocket / Echtzeit](#websocket--echtzeit)
-- [REST API](#rest-api)
-- [Mehrsprachigkeit](#mehrsprachigkeit)
-- [Sicherheit](#sicherheit)
-- [Server-Deployment (Linux)](#server-deployment-linux)
-- [Auto-Update (GitHub → Server)](#auto-update-github--server)
-- [Entwicklung](#entwicklung)
-- [Troubleshooting](#troubleshooting)
+### Entfernte Bestandteile
 
----
-
-## Überblick
-
-CloudService ist eine Django-basierte Intranet-Plattform, die SharePoint-typische Funktionen vereint: Dateispeicherung, Team-Sites, Unternehmens-News, Echtzeit-Messenger, persönliche Dashboards und einen visuellen Page-Builder — ohne die Komplexität und Kosten kommerzieller Lösungen.
-
-**Kernprinzipien:**
-- Selbst gehostet, vollständige Datenkontrolle
-- Plugin-basiert — Funktionen lassen sich ein- und ausschalten
-- Schlankes Design mit Bootstrap 5.3 und Bootstrap Icons
-- Deutsche Benutzeroberfläche, mehrsprachig vorbereitet (DE / EN / FR)
-
----
-
-## Tech Stack
-
-| Bereich | Technologie |
+| Entfernt | Grund |
 |---|---|
-| Backend | Django 5.x, Python 3.10+ |
-| Datenbank | SQLite (Dev), MySQL, PostgreSQL (Prod) |
-| Optional NoSQL | MongoDB 4.x (deaktivierbar per .env) |
-| WebSocket | Django Channels + Daphne (ASGI) |
-| Cache / Broker | Redis (Prod), InMemory (Dev) |
-| Task Queue | Celery + django-celery-beat |
-| Frontend | Bootstrap 5.3, Bootstrap Icons 1.11 |
-| Page Builder | GrapesJS 0.21.13 (CDN) |
-| Drag & Drop | SortableJS 1.15.0 (CDN) |
-| Office-Vorschau | Collabora Online (WOPI) |
-| REST API | Django REST Framework + JWT |
-| API-Schema | drf-spectacular (OpenAPI 3) |
-| Admin | Jazzmin (erweitertes Django Admin) |
-| Permissions | django-guardian (Object-Level) |
-| Logging | structlog + python-json-logger + Sentry (optional) |
-| Static Files | WhiteNoise (Produktion) |
-| i18n | django-modeltranslation |
+| `Dockerfile` | Docker wird nicht mehr unterstützt |
+| `docker-compose.yml` | Docker wird nicht mehr unterstützt |
+| `unified-install/` | Docker-basiertes Setup-Wizard entfernt |
+| `README_MIGRATION.md` | Veraltete Migrationsdokumentation |
+| `MIGRATION_GUIDE_HELPDESK.md` | Nicht projektrelevant |
+| `cloudservice/storage/*.bak.*` | Automatisch erstellte Backup-Dateien |
+
+### Hinzugefügte Bestandteile
+
+| Datei | Beschreibung |
+|---|---|
+| `auto-update.sh` | Automatisches Update-Skript (GitHub → Server) |
+| `auto-update.service` | Systemd Service für das Update-Skript |
+| `auto-update.timer` | Systemd Timer (alle 5 Minuten) |
+| `auto-update.sudoers` | Optionale Sudoers-Regel für manuelle Ausführung |
 
 ---
 
-## Schnellstart
+## Features
 
-```bash
-# Repository klonen
-git clone https://github.com/aboro72/Cloude.git
-cd Cloude
-
-# Virtuelle Umgebung
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-
-# Abhängigkeiten installieren
-pip install -r requirements.txt
-
-# .env anlegen
-cp .env.example cloudservice/.env
-# .env anpassen (zumindest SECRET_KEY setzen)
-
-# Datenbankmigrationen
-cd cloudservice
-python manage.py migrate
-
-# Superuser anlegen
-python manage.py createsuperuser
-
-# Demo-Benutzer erstellen (optional)
-python manage.py create_demo_users
-
-# Abteilungsgruppen einrichten (optional)
-python manage.py setup_groups
-
-# Entwicklungsserver starten
-python manage.py runserver
-```
-
-Die Anwendung ist dann unter `http://localhost:8000` erreichbar.
+- **Dateiverwaltung** – Upload, Download, Verschieben, Umbenennen, Versionen
+- **Ordnerstruktur** – Hierarchische Ordner mit Breadcrumb-Navigation
+- **Dateivorschau** – Bilder, Videos, Audio, PDFs direkt im Browser
+- **Papierkorb** – Soft-Delete mit Wiederherstellung
+- **Freigaben** – Öffentliche Links mit Passwortschutz und Ablaufdatum
+- **Messenger** – Echtzeit-Chat mit Kanälen, Direktnachrichten, Reaktionen und Einladungslinks
+- **Video-Call** – P2P-Videoanrufe direkt im DM-Fenster (Jitsi Meet, austauschbar)
+- **Plugin-System** – Erweiterbar durch Hook-basierte Plugins
+- **WebSocket** – Echtzeit-Benachrichtigungen über Daphne/Channels
+- **REST-API** – Vollständige API mit JWT-Authentifizierung
+- **Auto-Update** – Automatische Aktualisierung vom GitHub Master-Branch
 
 ---
 
@@ -109,401 +50,53 @@ Die Anwendung ist dann unter `http://localhost:8000` erreichbar.
 
 ```
 Cloude/
-├── cloudservice/               # Django-Projektwurzel (manage.py)
-│   ├── config/                 # settings.py, urls.py, asgi.py, wsgi.py
-│   ├── core/                   # Dateispeicherung, Ordner, Benachrichtigungen, Aktivitätslog
-│   ├── accounts/               # Benutzerprofile, Firmen, Sitzungen, 2FA, Audit-Log
-│   ├── storage/                # Speicher-Views und -Logik
-│   ├── sharing/                # Dateifreigabe, Team-Sites, öffentliche Links
-│   ├── news/                   # Unternehmens-News (Magazin-Layout)
-│   ├── departments/            # Abteilungen und Mitgliedschaften
-│   ├── messenger/              # Echtzeit-Chat, Kanäle, Direktnachrichten
-│   ├── api/                    # REST API (DRF + JWT)
-│   ├── plugins/                # Plugin-Engine (Hooks, Loader, UI-Registry)
-│   ├── templates/              # Globale Templates
-│   ├── static/                 # Globale statische Dateien
-│   └── locale/                 # Übersetzungsdateien (DE/EN/FR)
-├── plugins/
-│   └── installed/              # Installierte Plugins (jedes = eigene Django-App)
+├── cloudservice/          # Django-Projekt
+│   ├── accounts/          # Benutzerverwaltung & Profile
+│   ├── api/               # REST-API (DRF)
+│   ├── config/            # Django-Konfiguration (settings, urls, wsgi, asgi)
+│   ├── core/              # Dashboard, WebSocket-Consumer, Celery-Tasks
+│   ├── messenger/         # Echtzeit-Messenger (Kanäle, DMs, Video-Calls)
+│   ├── plugins/           # Plugin-System (Loader, Hooks, Admin)
+│   ├── sharing/           # Dateifreigaben & öffentliche Links
+│   ├── storage/           # Dateispeicher-Verwaltung
+│   ├── templates/         # HTML-Templates
+│   ├── static/            # CSS, JS, Bilder (Quellen)
+│   └── manage.py
+├── django-platform-auth/  # Eigenes Authentifizierungs-Modul
+├── plugins/               # Installierte & paketierte Plugins
+│   └── installed/
 │       ├── clock_preview/
 │       ├── collabora_online/
-│       ├── forms_builder/
-│       ├── landing_editor/
 │       ├── mysite_hub/
-│       ├── people_directory/
 │       ├── rss_feed/
-│       ├── tasks_board/
 │       └── weather/
-├── media/                      # Benutzer-Uploads (Avatare, Dateien, etc.)
-├── logs/                       # Rotating Log-Dateien
-├── requirements.txt
-├── .env.example
-├── gunicorn.service            # Systemd Service (WSGI)
-├── daphne.service              # Systemd Service (ASGI/WebSocket)
-├── auto-update.sh              # Automatisches Update-Skript
-├── auto-update.service         # Systemd Service für Auto-Update
-├── auto-update.timer           # Systemd Timer (alle 5 Minuten)
-├── nginx.conf                  # Nginx-Konfiguration
-└── db.sqlite3                  # SQLite-Datenbank (Dev)
+├── requirements.txt       # Python-Abhängigkeiten
+├── .env.example           # Umgebungsvariablen-Vorlage
+├── gunicorn.service       # Systemd Service (WSGI)
+├── daphne.service         # Systemd Service (ASGI/WebSocket)
+├── demo-password-reset.service  # Systemd Service (Demo-Reset)
+├── demo-password-reset.timer    # Systemd Timer (alle 30 Min.)
+├── auto-update.service    # Systemd Service (GitHub-Update)
+├── auto-update.timer      # Systemd Timer (alle 5 Min.)
+├── auto-update.sh         # Update-Skript
+├── nginx.conf             # Nginx-Konfiguration
+└── nginx-proxy.conf       # Nginx Proxy-Konfiguration
 ```
 
 ---
 
-## Kernmodule
+## Systemanforderungen
 
-### Dateispeicherung (`core`)
-- `StorageFolder` — verschachtelte Ordnerstruktur pro Benutzer
-- `StorageFile` — Dateien mit SHA256-Hash, MIME-Typ, Versionszähler, Download-Zähler
-- `FileVersion` — vollständige Versionsverwaltung mit Wiederherstellung
-- Papierkorb-Funktion (Soft Delete mit `is_trashed`, `trashed_at`, `original_folder`)
-- Automatische SHA256-Hashberechnung und MIME-Erkennung beim Speichern
-- Firmenbezogener Speicherpfad: `companies/<workspace_key>/users/<username>/files/`
-- `ActivityLog` — vollständiger Audit-Trail aller Dateioperationen (Upload, Download, Umbenennen, Verschieben, Freigabe)
-- `Notification` — Benutzernachrichten (Freigabe, News, Kommentare, @Mentions, Team-News, Speicherlimit)
-- Management-Command: `cleanup_trash` (Papierkorb automatisch leeren)
-
-### Benutzerverwaltung (`accounts`)
-- `Company` — Firmen-Workspaces mit Branding (Logo, Hero-Bild/-Video, Primär-/Sekundärfarbe, Custom HTML/CSS)
-- `UserProfile` — erweitertes Profil mit:
-  - Speicherkontingent (Standard: 5 GB) mit Nutzungsberechnung, Warnschwelle und Vollprüfung
-  - Farbpaletten (Default, Forest, Sunset, Berry, Slate, Custom)
-  - Design-Varianten (Gradient, Minimal, Contrast)
-  - Hell-/Dunkel-/Auto-Theme
-  - MySite-Hero (Gradient / Bild / Video)
-  - Mitarbeiterverzeichnis-Felder (Jobtitel, Abteilung, Standort, Vorgesetzter)
-  - `is_company_admin` — True bei Rolle admin/moderator oder Django-Gruppe mit „admin/moderator/administrat" im Namen
-  - `is_department_manager` — True wenn User Abteilungsleiter (`head`) oder Manager-Mitglied irgendeiner Abteilung ist
-  - `managed_departments` — QuerySet aller Abteilungen, die der User leitet oder verwaltet
-- `UserSession` — Sitzungsverfolgung mit IP, User-Agent, Gerät und Ablaufzeit
-- `TwoFactorAuth` — TOTP / SMS / E-Mail (vorbereitet)
-- `AuditLog` — Login, Logout, Passwortänderungen, 2FA, Berechtigungsänderungen
-- `PasswordReset` — sichere Reset-Tokens (UUID) mit Ablaufdatum
-- Management-Commands: `create_demo_users`, `reset_demo_password`
-
-### Team-Sites & Freigabe (`sharing`)
-- `GroupShare` — Team-Sites mit Hintergrundbild/-video, Abteilungsbezug, Team-Leitern, Objekt-Level-Permissions
-- `UserShare` — Direkte Benutzer-zu-Benutzer-Freigabe mit granularen Berechtigungen (view / download / edit / delete / share / admin)
-- `PublicLink` — Öffentliche Links mit optionalem Passwortschutz (PBKDF2), Ablaufdatum und Download-Limit, View-/Download-Zähler
-- `TeamSiteNews` — News-Beiträge pro Team-Site mit Tags, View-Zähler, Pin-Funktion, Kommentaren und Reaktionen
-- `ShareLog` — Protokoll aller Freigabeaktivitäten
-- Objekt-Level-Permissions via `django-guardian`
-
-### Unternehmens-News (`news`)
-- `NewsCategory` — Kategorien mit Farbe und Bootstrap Icon
-- `NewsArticle` — Artikel mit Cover-Bild, Tags, Featured-/Pinned-/Published-Flag, geplanter Veröffentlichung, View-Zähler
-- Magazin-Layout unter `/news/`
-- `Comment` — threaded Kommentare via GenericFK (für News und Team-Site-News nutzbar)
-- `Reaction` — Like / Heart-Reaktionen via GenericFK
-- AJAX-Reaktionen und Kommentare ohne Seitenreload
-
-### Abteilungen (`departments`)
-- `Department` — Abteilungen mit Bootstrap Icon, Farbe, Abteilungsleiter
-- `DepartmentMembership` — Mitgliedschaft mit Rollen (Mitglied / Manager / Abteilungsleiter)
-- Verknüpfung mit Team-Sites (`GroupShare.department`)
-- Custom Permissions: `create_department`, `manage_any_department`
-- Management-Command: `setup_groups`
-
-### Messenger (`messenger`)
-- `ChatRoom` — Kanäle, Direktnachrichten und Gruppen-Chats; firmenübergreifend via Guest Companies
-- `ChatMembership` — Mitgliedschaft mit Rollen (Owner / Admin / Member), Mute-Funktion, Ungelesen-Zähler
-- `ChatMessage` — Text, Dateianhänge aus dem Speicher, Antworten (Reply-to), Emoji-Reaktionen (JSON), Soft Delete
-- `ChatInvite` — Einladungslinks mit Ablaufdatum und Nutzungslimit (firmenübergreifend)
-- WebSocket-Echtzeit-Übertragung via Django Channels
-- Video-Conferencing-Felder vorbereitet (Jitsi / Daily / Whereby)
+- Ubuntu/Debian Linux
+- Python 3.11+
+- PostgreSQL 14+
+- Redis 7+
+- Nginx
+- git
 
 ---
 
-## Rollen & Berechtigungen
-
-### Rollenmodell
-
-| Rolle | Beschreibung | Zugang |
-|---|---|---|
-| **Superuser** | Volle Django-Superuser-Rechte | Alle Bereiche inkl. Django Admin, Gruppen, Plugin-Einstellungen |
-| **Administrator** (Gruppe) | Firmenadministrator — Gruppe mit „admin", „moderator" oder „administrat" im Namen | Benutzerverwaltung, Gruppen & Berechtigungen, Firmen-Sitebuilder, Landingpage |
-| **Abteilungsleiter / Manager** | `DepartmentMembership.role = head/manager` oder `Department.head = user` | Eigene Abteilungsseiten, Mitgliederverwaltung |
-| **Moderator** | Rolle im `UserProfile` | Firmen-Adminbereich (wie Administrator) |
-| **Mitglied** | Standardrolle | Eigener Speicher, News, Messenger, Team-Sites |
-
-### Navigations-Dropdown je Rolle
-
-Das Benutzer-Dropdown in der Navigationsleiste passt sich automatisch an die Rolle an:
-
-```
-Profil / Einstellungen
-──────────────────────────────────────  ← sichtbar für is_company_admin
- [Firmenname]
- → Firmen-Startseite
- → Landingpage bearbeiten
-──────────────────────────────────────  ← sichtbar für is_department_manager
- Meine Abteilungen
- → [Abteilungsname 1]
- → [Abteilungsname 2]
- → Alle Abteilungen
-──────────────────────────────────────  ← sichtbar für is_superuser
- → Gruppen & Berechtigungen
- → Admin Settings
- → Django Admin
-──────────────────────────────────────
-Logout
-```
-
-### Gruppen- und Benutzerverwaltung
-
-Erreichbar unter `/accounts/gruppen/`. Zugriff haben:
-- Superuser
-- Mitglieder der Gruppe „Administratoren" (oder jede Gruppe mit „admin" / „administrat" im Namen)
-
-Über die Oberfläche können Benutzer Gruppen zugewiesen oder daraus entfernt werden.
-
-### Firmen-Sitebuilder (GrapesJS)
-
-Der visuelle Sitebuilder ist für Firmen-Landingpages unter `/<workspace_key>/builder/` erreichbar. Zugriff:
-- Superuser
-- `is_company_admin` der jeweiligen Firma
-
-Gespeichert wird in `Company.landing_custom_html` und `Company.landing_custom_css`. Tastenkürzel: `Ctrl+S` speichert, Geräte-Toggle (Desktop / Tablet / Mobil), Undo/Redo.
-
----
-
-## Plugin-System
-
-Plugins sind eigenständige Django-Apps unter `plugins/installed/<name>/`. Jedes Plugin hat eine `plugin.json` und eine Standard-Django-`AppConfig`.
-
-### Hooks
-
-| Hook | Zweck |
-|---|---|
-| `UI_MENU_ITEM` | Navigationseintrag in der Seitenleiste |
-| `UI_APP_PAGE` | Eigene Seite unter `/core/apps/<slug>/` |
-| `file_preview_provider` | Eigener Dateivorschau-Handler |
-
-Hooks werden in `AppConfig.ready()` registriert. Der Plugin-Template-Loader (`plugins.template_loader.PluginTemplateLoader`) findet Plugin-Templates automatisch.
-
-### Plugin-Einstellungen
-- Plugins werden über `Plugin.settings` (JSONField in der Datenbank) konfiguriert
-- `Plugin.position` steuert die Anzeigereihenfolge in der Navigation
-- Management-Commands: `package_plugins`, `test_plugin_hotload`
-
----
-
-## Installierte Plugins
-
-| Plugin | Slug | Beschreibung |
-|---|---|---|
-| `landing_editor` | `landing-editor` | Visueller Page-Builder (GrapesJS) für globale Landing-Page, Impressum und MySite-Widget-Reihenfolge. 30+ Bootstrap-5-Blöcke. Nur für Staff. Für Firmen-Landingpages: separater Sitebuilder unter `/<workspace_key>/builder/` (Zugriff: Administratoren). |
-| `mysite_hub` | `mysite` | Persönliches Dashboard (SharePoint MySite-Stil). Widgets: News, Kürzliche Dateien, Team-News, Abteilungsseiten, Aktivitäten. Drag-&-Drop via SortableJS. |
-| `tasks_board` | `tasks` | Persönliches und Team-Kanban-Board mit Drag-and-Drop. |
-| `forms_builder` | `forms` | Drag-Drop Formular-Builder für Umfragen und IT-Anfragen. |
-| `people_directory` | `people` | Mitarbeiterverzeichnis mit Suche, Abteilungsfilter und Organigramm. |
-| `collabora_online` | `collabora-online` | Office-Dokumente direkt im Browser bearbeiten und anzeigen (Collabora Online via WOPI). Unterstützt .docx, .xlsx, .pptx. |
-| `rss_feed` | — | RSS-Feed-Widget für das Dashboard. |
-| `weather` | — | Wetter-Widget für das Dashboard. |
-| `clock_preview` | — | Uhr-Widget für das Dashboard. |
-
-### Landing Editor — Datenformat
-
-Der Landing Editor speichert alle Einstellungen in `Plugin.settings`:
-
-```json
-{
-  "pages": {
-    "landing":   { "html": "...", "css": "..." },
-    "impressum": { "html": "...", "css": "..." }
-  },
-  "mysite_widgets": [
-    { "id": "news",      "label": "Neuigkeiten",       "icon": "bi-newspaper",    "visible": true },
-    { "id": "files",     "label": "Kürzliche Dateien", "icon": "bi-folder2-open", "visible": true },
-    { "id": "team_news", "label": "Team News",          "icon": "bi-people-fill",  "visible": true },
-    { "id": "teams",     "label": "Abteilungsseiten",   "icon": "bi-building",     "visible": true },
-    { "id": "activity",  "label": "Aktivitäten",        "icon": "bi-activity",     "visible": false }
-  ],
-  "color_primary": "#667eea",
-  "color_secondary": "#764ba2"
-}
-```
-
-Tastenkürzel im Builder: `Ctrl+S` speichert, Geräte-Toggle (Desktop / Tablet / Mobil), Undo/Redo.
-
-### Firmen-Sitebuilder — Datenformat
-
-Der Firmen-Sitebuilder speichert direkt im `Company`-Modell:
-
-| Feld | Beschreibung |
-|---|---|
-| `Company.landing_custom_html` | GrapesJS-Output HTML |
-| `Company.landing_custom_css` | GrapesJS-Output CSS |
-
-Zusätzlich können über die Einstellungsseite (`/<workspace_key>/settings/`) Titel, Untertitel, Logo, Hero-Bild/-Video und Primär-/Sekundärfarbe gepflegt werden.
-
----
-
-## URL-Struktur
-
-| URL | Beschreibung | Zugriffsrecht |
-|---|---|---|
-| `/` | Startseite (Landing Page oder MySite Hub) | öffentlich / eingeloggt |
-| `/accounts/login/` | Anmeldung | öffentlich |
-| `/accounts/gruppen/` | Gruppen- & Benutzerverwaltung | Superuser / Administrator |
-| `/core/impressum/` | Impressum | öffentlich |
-| `/news/` | Unternehmens-News (Magazin) | eingeloggt |
-| `/news/<slug>/` | Artikel-Detailseite | eingeloggt |
-| `/sharing/` | Team-Sites & Freigaben | eingeloggt |
-| `/storage/` | Dateispeicher | eingeloggt |
-| `/departments/` | Abteilungsübersicht | eingeloggt |
-| `/departments/<slug>/` | Abteilungsdetail | eingeloggt |
-| `/core/apps/<slug>/` | Plugin-Seiten | eingeloggt |
-| `/landing-editor/save/` | AJAX-Speicherung (globaler Page Builder) | Staff |
-| `/<workspace_key>/` | Firmen-Landingpage | öffentlich |
-| `/<workspace_key>/settings/` | Firmen-Landingpage Einstellungen | Superuser / Administrator |
-| `/<workspace_key>/builder/` | GrapesJS Sitebuilder für Firmen-Landingpage | Superuser / Administrator |
-| `/<workspace_key>/builder/save/` | AJAX-Speicherung (Firmen-Sitebuilder) | Superuser / Administrator |
-| `/api/` | REST API | JWT / Session |
-| `/api/schema/` | OpenAPI 3 Schema | Staff |
-| `/api/docs/` | Swagger UI | Staff |
-| `/admin/` | Django Admin (Jazzmin) | Staff |
-
----
-
-## Konfiguration (.env)
-
-Alle Einstellungen werden via `python-decouple` aus `cloudservice/.env` geladen.
-
-```ini
-# Pflicht in Produktion
-SECRET_KEY=dein-geheimer-schluessel
-DEBUG=False
-ALLOWED_HOSTS=meine-domain.de,www.meine-domain.de
-
-# Datenbank (sqlite / mysql / postgresql)
-DB_ENGINE=postgresql
-DB_NAME=cloudservice
-DB_USER=csuser
-DB_PASSWORD=geheim
-DB_HOST=localhost
-DB_PORT=5432
-
-# Redis
-REDIS_URL=redis://127.0.0.1:6379/0
-CELERY_BROKER_URL=redis://127.0.0.1:6379/1
-CELERY_RESULT_BACKEND=redis://127.0.0.1:6379/2
-
-# Collabora Online (WOPI)
-COLLABORA_BASE_URL=https://office.beispiel.com
-CLOUDSERVICE_EXTERNAL_URL=https://cloudservice.beispiel.com
-COLLABORA_ACCESS_TOKEN_TTL=3600
-
-# MongoDB (optional, Standard: deaktiviert)
-MONGODB_ENABLED=False
-MONGODB_HOST=localhost
-MONGODB_PORT=27017
-MONGODB_DB=appdb
-
-# CORS
-CORS_ALLOWED_ORIGINS=https://meine-domain.de
-
-# Sentry (optional)
-SENTRY_DSN=
-
-# HTTPS (Produktion)
-SECURE_SSL_REDIRECT=True
-SESSION_COOKIE_SECURE=True
-CSRF_COOKIE_SECURE=True
-```
-
----
-
-## Datenbank
-
-CloudService unterstützt drei Datenbank-Backends:
-
-| Backend | Empfehlung |
-|---|---|
-| **SQLite** | Entwicklung und kleine Installationen |
-| **MySQL** | Mittlere Produktionsumgebungen |
-| **PostgreSQL** | Empfohlen für Produktion |
-
-```bash
-cd cloudservice
-python manage.py migrate
-```
-
-**MongoDB** ist optional und wird für analytische oder Log-Daten eingesetzt. Wenn `MONGODB_ENABLED=False` gesetzt ist (Standard), läuft die App vollständig ohne MongoDB.
-
----
-
-## WebSocket / Echtzeit
-
-Der Messenger nutzt Django Channels mit ASGI (Daphne).
-
-- **Entwicklung:** InMemoryChannelLayer (kein Redis nötig)
-- **Produktion:** RedisChannelLayer
-
-ASGI-Anwendung starten (Produktion):
-
-```bash
-daphne -b 0.0.0.0 -p 8000 config.asgi:application
-```
-
----
-
-## REST API
-
-Die REST API basiert auf Django REST Framework mit JWT-Authentifizierung.
-
-- **Basis-URL:** `/api/`
-- **Schema (OpenAPI 3):** `/api/schema/`
-- **Swagger UI:** `/api/docs/`
-- **Authentifizierung:** Bearer Token (JWT) oder Session
-
-Token anfordern:
-
-```bash
-curl -X POST /api/token/ \
-  -H "Content-Type: application/json" \
-  -d '{"username": "user", "password": "passwort"}'
-```
-
-Rate-Limits: anonyme Anfragen 100/Stunde, authentifiziert 1000/Stunde.
-Token-Gültigkeit: Access Token 1 Stunde, Refresh Token 7 Tage.
-
----
-
-## Mehrsprachigkeit
-
-| Sprache | Code |
-|---|---|
-| Deutsch (Standard) | `de` |
-| Englisch | `en` |
-| Französisch | `fr` |
-
-Zeitzone: `Europe/Berlin`. Übersetzungen unter `cloudservice/locale/`.
-
-```bash
-python manage.py makemessages -l en -l fr
-python manage.py compilemessages
-```
-
----
-
-## Sicherheit
-
-- Objekt-Level-Berechtigungen via `django-guardian`
-- CSRF-Schutz aktiviert (SameSite=Lax)
-- Password-Validierung (Mindestlänge, Häufigkeit, Ähnlichkeit)
-- SHA256-Datei-Hashing zur Integritätsprüfung
-- Öffentliche Links: optionaler Passwortschutz (PBKDF2-Hash)
-- Passwort-Reset-Tokens mit Ablaufdatum (UUID)
-- Zwei-Faktor-Authentifizierung vorbereitet (TOTP / SMS / E-Mail)
-- Audit-Log für alle sicherheitsrelevanten Aktionen
-- Sentry-Integration für Fehler-Monitoring (optional)
-- WhiteNoise für sichere Auslieferung statischer Dateien in Produktion
-- Reverse-Proxy-kompatibel (`SECURE_PROXY_SSL_HEADER`, `USE_X_FORWARDED_HOST`)
-- Custom Permissions: `create_groupshare`, `manage_any_groupshare`, `create_department`, `manage_any_department`
-
----
-
-## Server-Deployment (Linux)
+## Installation (Linux-Server)
 
 ### 1. Benutzer und Repository
 
@@ -526,6 +119,19 @@ cp .env.example cloudservice/.env
 nano cloudservice/.env
 ```
 
+Wichtige Variablen:
+
+```env
+DEBUG=False
+SECRET_KEY=<langer-geheimer-schluessel>
+ALLOWED_HOSTS=deine-domain.de
+DB_NAME=cloudservice
+DB_USER=postgres
+DB_PASSWORD=<passwort>
+DB_HOST=localhost
+REDIS_URL=redis://localhost:6379/0
+```
+
 ### 3. Datenbank & statische Dateien
 
 ```bash
@@ -533,18 +139,20 @@ cd cloudservice
 python manage.py migrate
 python manage.py collectstatic --noinput
 python manage.py createsuperuser
-python manage.py setup_groups
 ```
 
 ### 4. Systemd Services einrichten
 
 ```bash
 # Als root:
-sudo cp /home/storage/Cloude/gunicorn.service /etc/systemd/system/
-sudo cp /home/storage/Cloude/daphne.service   /etc/systemd/system/
+sudo cp /home/storage/Cloude/gunicorn.service       /etc/systemd/system/
+sudo cp /home/storage/Cloude/daphne.service         /etc/systemd/system/
+sudo cp /home/storage/Cloude/demo-password-reset.service /etc/systemd/system/
+sudo cp /home/storage/Cloude/demo-password-reset.timer   /etc/systemd/system/
 
 sudo systemctl daemon-reload
 sudo systemctl enable --now gunicorn daphne
+sudo systemctl enable --now demo-password-reset.timer
 ```
 
 ### 5. Nginx konfigurieren
@@ -559,19 +167,19 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ## Auto-Update (GitHub → Server)
 
-Das Auto-Update-System prüft alle **5 Minuten**, ob neue Commits im `master`-Branch vorliegen, und aktualisiert den Server automatisch.
+Das Auto-Update-System prüft alle **5 Minuten** ob es neue Commits im `master`-Branch gibt und aktualisiert den Server automatisch.
 
 ### Was passiert bei einem Update
 
-1. `git fetch origin master` — neuen Stand prüfen
-2. Vergleich `HEAD` vs. `origin/master` — kein Pull wenn nichts Neues
-3. `git pull` — Änderungen einspielen
-4. `pip install -r requirements.txt` — neue Abhängigkeiten installieren
-5. `manage.py migrate` — Datenbankmigrationen ausführen
-6. `manage.py collectstatic` — statische Dateien aktualisieren
+1. `git fetch origin master` – neuen Stand prüfen (ohne zu mergen)
+2. Vergleich `HEAD` vs. `origin/master` – kein Pull wenn nichts Neues
+3. `git pull` – Änderungen einspielen
+4. `pip install -r requirements.txt` – neue Abhängigkeiten installieren
+5. `manage.py migrate` – Datenbankmigrationen ausführen
+6. `manage.py collectstatic` – statische Dateien aktualisieren
 7. Dienste neu starten (gunicorn, daphne, celery, celery-beat)
 
-### Installation
+### Installation des Auto-Updates
 
 ```bash
 # Als root:
@@ -588,7 +196,7 @@ systemctl daemon-reload
 systemctl enable --now auto-update.timer
 ```
 
-### Status & Logs
+### Status & Logs prüfen
 
 ```bash
 systemctl status auto-update.timer
@@ -596,45 +204,200 @@ journalctl -u cloude-autoupdate -f
 tail -f /var/log/cloude-autoupdate.log
 ```
 
+### Intervall anpassen
+
+In `auto-update.timer` die Zeile `OnUnitActiveSec=5min` ändern (z.B. `15min`, `1h`).
+
 ---
 
-## Entwicklung
+## Messenger
 
-### Nützliche Management-Commands
+Der Messenger ist workspace-basiert und an das Firmenprofil (`Company`) geknüpft. Jede Firma hat einen eigenen Namespace über den `workspace_key`.
 
-```bash
-# Demo-Benutzer anlegen
-python manage.py create_demo_users
+### Funktionen
 
-# Demo-Passwort zurücksetzen
-python manage.py reset_demo_password
+| Feature | Beschreibung |
+|---|---|
+| Kanäle | Öffentliche und private Gruppenräume |
+| Direktnachrichten | 1:1-Chat zwischen Workspace-Mitgliedern |
+| Reaktionen | Emoji-Reaktionen auf Nachrichten |
+| Antworten | Thread-ähnliche Antworten auf einzelne Nachrichten |
+| Einladungslinks | Temporäre Links mit Nutzungslimit und Ablaufdatum |
+| Präsenz | Online/Offline-Status via WebSocket |
+| Video-Call | Integrierter Videoanruf direkt im DM-Fenster |
 
-# Abteilungsgruppen und Berechtigungen einrichten
-python manage.py setup_groups
+### URL-Schema
 
-# Papierkorb leeren (für Cron/Celery)
-python manage.py cleanup_trash
-
-# Plugin als Paket exportieren
-python manage.py package_plugins
-
-# Plugin-Hotload testen
-python manage.py test_plugin_hotload
+```
+/<workspace_key>/messenger/                        # Übersicht
+/<workspace_key>/messenger/channel/<slug>/         # Kanal-/Gruppenraum
+/<workspace_key>/messenger/dm/<username>/          # Direktnachricht öffnen/erstellen
+/<workspace_key>/messenger/channel/create/        # Neuen Kanal anlegen
+/messenger/invite/<token>/                         # Einladungslink einlösen
 ```
 
-### Celery (Task-Queue)
+### Video-Call (Jitsi) in DM-Räumen
 
-```bash
-# Worker starten
-celery -A config worker -l info
+Video-Calls sind in DM-Räumen über den "Video-Call"-Button im Header verfügbar. Die Integration nutzt aktuell `meet.jit.si` als öffentlichen Server.
 
-# Beat-Scheduler starten (geplante Tasks)
-celery -A config beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+**Auf eigene Jitsi-Instanz umziehen:**
+
+In `templates/messenger/messenger.html` eine Zeile ändern:
+
+```javascript
+// vorher:
+jitsiApi = new JitsiMeetExternalAPI('meet.jit.si', { ... });
+
+// nachher:
+jitsiApi = new JitsiMeetExternalAPI('jitsi.deine-domain.de', { ... });
 ```
 
-### Logs
+Selbst gehostete Jitsi-Instanz aufsetzen (Docker):
 
-Log-Dateien werden unter `logs/cloudservice.log` gespeichert (rotierend, max. 10 MB, 10 Backups).
+```bash
+git clone https://github.com/jitsi/docker-jitsi-meet
+cd docker-jitsi-meet
+cp env.example .env
+# .env anpassen (PUBLIC_URL, Passwörter etc.)
+docker compose up -d
+```
+
+---
+
+## Meetings (Jitsi)
+
+Geplante und spontane Video-Meetings, workspace-gebunden an das `Company`-Modell.
+Konfiguration über `.env`: `JITSI_URL`, `JITSI_APP_ID`, `JITSI_APP_SECRET`.
+
+### Features
+
+| Feature | Beschreibung |
+|---|---|
+| Meeting planen | Titel, Beschreibung, Start/Ende, Eingeladene auswählen |
+| Raum erst beim Start | Jitsi-Raumname wird erst generiert wenn "Starten" geklickt wird |
+| Meeting-Seite | Eingebetteter Jitsi-Call, kein Tab-Wechsel nötig |
+| Nach Meeting → MySite | Nach Verlassen oder Auflegen automatischer Redirect zur MySite |
+| MySite-Widget | Laufende & geplante Meetings direkt auf der MySite sichtbar |
+| API | Vollständige REST-API für externe Clients (siehe unten) |
+
+### URL-Schema
+
+```
+/meetings/                        # Übersicht: laufend / geplant / vergangen
+/meetings/schedule/               # POST: Meeting anlegen
+/meetings/<id>/start/             # POST: Meeting starten (Raum wird erstellt)
+/meetings/<id>/join/              # GET: laufendem Meeting beitreten → Room-Seite
+/meetings/<id>/room/              # Meeting-Room mit eingebettetem Jitsi
+/meetings/<id>/end/               # POST: Meeting beenden
+/meetings/<id>/cancel/            # POST: Meeting absagen
+```
+
+### Meeting-Lebenszyklus
+
+```
+planned → (start) → running → (end) → ended
+planned → (cancel) → cancelled
+```
+
+Der Jitsi-Raumname (`room_name`) bleibt leer bis `start()` aufgerufen wird.
+Erst dann wird ein deterministischer Slug aus Titel + UUID-Suffix generiert.
+
+### MySite-Widget
+
+Das Widget `"Meine Meetings"` erscheint auf der MySite automatisch,
+sobald mindestens ein laufendes oder geplantes Meeting für den Nutzer existiert.
+Eingebaut in `plugins/installed/mysite_hub/providers.py` (`_build_upcoming_meetings`).
+
+---
+
+## REST-API
+
+Basis-URL: `/api/`  
+Authentifizierung: JWT (`/api/auth/token/`)  
+Dokumentation: `/api/docs/` (Swagger) · `/api/redoc/`
+
+### Endpunkte-Übersicht
+
+| Ressource | Pfad | Methoden |
+|---|---|---|
+| Dateien | `/api/files/` | GET, POST, PATCH, DELETE |
+| Ordner | `/api/folders/` | GET, POST, PATCH, DELETE |
+| Freigaben | `/api/shares/` | GET, POST, PATCH, DELETE |
+| Public Links | `/api/public-links/` | GET, POST, PATCH, DELETE |
+| Suche | `/api/search/?q=` | GET |
+| Storage-Quota | `/api/storage/quota/` | GET |
+| Benachrichtigungen | `/api/notifications/` | GET |
+| Abteilungen | `/api/departments/` | GET |
+| Team Sites | `/api/team-sites/` | GET |
+| Kanban-Boards | `/api/boards/` | GET |
+| Tasks | `/api/tasks/` | GET |
+| News-Kategorien | `/api/news/categories/` | GET |
+| News-Artikel | `/api/news/articles/` | GET |
+| **Meetings** | `/api/meetings/` | GET, POST, PATCH, DELETE |
+| Messenger-Räume | `/api/messenger/rooms/` | GET, POST |
+| Nachrichten | `/api/messenger/rooms/{id}/messages/` | GET, POST, PATCH, DELETE |
+| Direktnachricht | `/api/messenger/direct/` | POST |
+| Chat-Einladungen | `/api/messenger/invites/{token}/` | GET |
+
+### Meeting-API im Detail
+
+```
+GET    /api/meetings/                    # eigene Meetings (Organisator oder Eingeladener)
+GET    /api/meetings/?status=planned     # nach Status filtern (planned/running/ended/cancelled)
+POST   /api/meetings/                    # Meeting planen
+GET    /api/meetings/{id}/               # Meeting-Details
+PATCH  /api/meetings/{id}/               # Titel/Beschreibung/Zeiten ändern
+DELETE /api/meetings/{id}/               # Meeting löschen
+POST   /api/meetings/{id}/start/         # Meeting starten
+POST   /api/meetings/{id}/end/           # Meeting beenden
+POST   /api/meetings/{id}/cancel/        # Meeting absagen
+GET    /api/meetings/{id}/join_url/      # Jitsi-JWT + Join-URL abrufen (nur running)
+```
+
+**Beispiel — Meeting planen:**
+
+```json
+POST /api/meetings/
+{
+  "title": "Wöchentliches Standup",
+  "description": "15-Minuten-Update",
+  "scheduled_start": "2026-05-10T09:00:00",
+  "scheduled_end":   "2026-05-10T09:15:00",
+  "invitee_ids": [3, 7, 12]
+}
+```
+
+**Beispiel — Join-URL abrufen:**
+
+```json
+GET /api/meetings/42/join_url/
+→ {
+    "token": "eyJ...",
+    "url": "https://meet.aborosoft.com/standup-a1b2c3?jwt=eyJ...",
+    "room_name": "standup-a1b2c3"
+  }
+```
+
+---
+
+## Plugin-System
+
+Plugins liegen unter `plugins/installed/`. Jedes Plugin enthält eine `plugin.json` mit Metadaten.
+
+### Plugin aktivieren
+
+1. Plugin-Verzeichnis nach `plugins/installed/<name>/` legen
+2. Im Admin-Panel unter **Plugins** aktivieren
+
+### Eigene Plugins entwickeln
+
+Siehe `cloudservice/plugins/example_clock_preview/` als Referenz-Implementierung.
+
+Verfügbare Hooks:
+- `UI_DASHBOARD_WIDGET` – Dashboard-Widgets
+- `UI_NAVBAR_ITEM` – Navigationseinträge
+- `STORAGE_FILE_UPLOAD` – Upload-Verarbeitung
+- `STORAGE_FILE_DOWNLOAD` – Download-Verarbeitung
 
 ---
 

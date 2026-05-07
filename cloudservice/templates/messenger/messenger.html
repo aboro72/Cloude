@@ -6,7 +6,7 @@
 {% block alerts %}{% endblock %}
 {% block main_class %}p-0 m-0 overflow-hidden{% endblock %}
 
-{% block extra_head %}
+{% block extra_css %}
 <style>
     /* ── Layout ──────────────────────────────────────────────────────────── */
     body { overflow: hidden; }
@@ -133,6 +133,35 @@
         font-weight: 700;
         flex-shrink: 0;
     }
+    .dm-label {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.05rem;
+    }
+    .dm-name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        line-height: 1.15;
+    }
+    .dm-status-text {
+        color: #9aa0a6;
+        font-size: 0.68rem;
+        line-height: 1;
+    }
+    .dm-presence {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: #cdd0d5;
+        box-shadow: 0 0 0 2px #fff;
+        flex-shrink: 0;
+    }
+    .dm-item.online .dm-presence { background: #34a853; }
+    .dm-item.online .dm-status-text { color: #34a853; }
+    .dm-item.offline .dm-presence { background: #cdd0d5; }
 
     /* ── Main area ───────────────────────────────────────────────────────── */
     .msg-main {
@@ -435,10 +464,58 @@
     }
     #emoji-picker button:hover { background: #f0f2f5; }
 
+    /* ── Video overlay ───────────────────────────────────────────────────── */
+    .video-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.85);
+        z-index: 2000;
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+    .video-overlay.active { display: flex; }
+    .video-overlay-header {
+        width: 90%;
+        max-width: 960px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.6rem 0;
+        color: #fff;
+        font-size: 0.9rem;
+        font-weight: 600;
+    }
+    #jitsi-container {
+        width: 90%;
+        max-width: 960px;
+        height: 75vh;
+        border-radius: 12px;
+        overflow: hidden;
+        background: #111;
+    }
+    .btn-video {
+        background: none;
+        border: 1px solid rgba(0,0,0,0.12);
+        border-radius: 8px;
+        padding: 0.28rem 0.65rem;
+        cursor: pointer;
+        color: #555;
+        font-size: 0.82rem;
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+        transition: background 0.12s, color 0.12s;
+    }
+    .btn-video:hover { background: #f0f2f5; color: #333; }
+    .btn-video.active { background: #34a853; color: #fff; border-color: #34a853; }
+
     @media (max-width: 640px) {
         .msg-sidebar { display: none; }
         .msg-channel-header .channel-desc { display: none; }
         .msg-row { max-width: 90%; }
+        #jitsi-container { height: 60vh; }
     }
 </style>
 {% endblock %}
@@ -493,25 +570,25 @@
             <!-- Direct Messages -->
             <div class="msg-sidebar-section mt-1">
                 <span>Direktnachrichten</span>
-                <a href="#" title="Neue DM starten" onclick="openDmModal(); return false;">+</a>
             </div>
             <ul class="msg-sidebar-list" id="dm-list">
-                {% for room, membership in directs %}
+                {% for person in direct_people %}
                 <li>
-                    <a href="{% url 'messenger:room' workspace_key=company.workspace_key room_slug=room.slug %}"
-                       class="sidebar-item {% if active_room and active_room.pk == room.pk %}active{% endif %}">
-                        <div class="dm-avatar">
-                            {% for m in room.memberships.all %}{% if m.user != request.user %}{{ m.user.get_full_name|default:m.user.username|slice:":1"|upper }}{% endif %}{% endfor %}
-                        </div>
-                        <span class="ch-label">
-                            {% for m in room.memberships.all %}
-                                {% if m.user != request.user %}{{ m.user.get_full_name|default:m.user.username }}{% endif %}
-                            {% endfor %}
+                    <a href="{% url 'messenger:direct_message' workspace_key=company.workspace_key username=person.user.username %}"
+                       class="sidebar-item dm-item offline {% if active_room and person.room and active_room.pk == person.room.pk %}active{% endif %}"
+                       data-name="{{ person.display_name|lower }} {{ person.user.username|lower }}"
+                       data-user-id="{{ person.user.pk }}">
+                        <div class="dm-avatar">{{ person.initial }}</div>
+                        <span class="dm-label">
+                            <span class="dm-name">{{ person.display_name }}</span>
+                            <span class="dm-status-text">Offline</span>
                         </span>
+                        <span class="dm-presence" title="Offline"></span>
+                        {% if person.unread_count > 0 %}<span class="badge-unread">{{ person.unread_count }}</span>{% endif %}
                     </a>
                 </li>
                 {% empty %}
-                <li style="padding:0.5rem 1rem;font-size:0.8rem;color:#9aa0a6;">Noch keine Direktnachrichten</li>
+                <li style="padding:0.5rem 1rem;font-size:0.8rem;color:#9aa0a6;">Keine erreichbaren Kontakte</li>
                 {% endfor %}
             </ul>
         </div>
@@ -536,6 +613,11 @@
                 <span class="badge bg-light text-muted border small" title="Mitglieder">
                     <i class="bi bi-people"></i> {{ room_members.count }}
                 </span>
+                {% if active_room.room_type == 'direct' %}
+                <button class="btn-video" id="video-call-btn" onclick="toggleVideoCall()" title="Video-Call starten">
+                    <i class="bi bi-camera-video"></i> Video-Call
+                </button>
+                {% endif %}
                 {% if membership.role in "owner,admin" %}
                 <button class="btn btn-sm btn-outline-secondary" onclick="openInviteModal()" title="Einladungslink">
                     <i class="bi bi-person-plus"></i>
@@ -645,6 +727,17 @@
     </main>
 </div>
 
+<!-- Video Call Overlay -->
+<div class="video-overlay" id="video-overlay">
+    <div class="video-overlay-header">
+        <span><i class="bi bi-camera-video me-2"></i>Video-Call – {{ active_room.name|default:"" }}</span>
+        <button class="btn btn-sm btn-outline-light" onclick="stopVideoCall()">
+            <i class="bi bi-x-lg me-1"></i>Beenden
+        </button>
+    </div>
+    <div id="jitsi-container"></div>
+</div>
+
 <!-- Emoji Quick-Picker -->
 <div id="emoji-picker" style="display:none;">
     <button onclick="emojiPick('👍')">👍</button>
@@ -696,7 +789,74 @@
     </div>
 </div>
 
+<script>
+const MESSENGER_WORKSPACE_KEY = '{{ company.workspace_key|escapejs }}';
+let presenceWs = null;
+let presenceReconnectTimer = null;
+
+function adjustMessengerLayout() {
+    const nav = document.querySelector('nav.navbar');
+    const wrap = document.querySelector('.messenger-wrap');
+    if (nav && wrap) {
+        wrap.style.top = nav.offsetHeight + 'px';
+    }
+}
+
+function filterSidebar(q) {
+    q = q.toLowerCase();
+    document.querySelectorAll('.sidebar-item').forEach(a => {
+        a.closest('li').style.display = (a.dataset.name || '').includes(q) ? '' : 'none';
+    });
+}
+
+function setUserPresence(userId, isOnline) {
+    document.querySelectorAll(`.dm-item[data-user-id="${userId}"]`).forEach(item => {
+        item.classList.toggle('online', isOnline);
+        item.classList.toggle('offline', !isOnline);
+        const text = item.querySelector('.dm-status-text');
+        const dot = item.querySelector('.dm-presence');
+        if (text) text.textContent = isOnline ? 'Online' : 'Offline';
+        if (dot) dot.title = isOnline ? 'Online' : 'Offline';
+    });
+}
+
+function applyPresenceState(onlineUserIds) {
+    document.querySelectorAll('.dm-item[data-user-id]').forEach(item => {
+        setUserPresence(item.dataset.userId, false);
+    });
+    onlineUserIds.map(String).forEach(userId => setUserPresence(userId, true));
+}
+
+function connectPresence() {
+    if (presenceReconnectTimer) {
+        clearTimeout(presenceReconnectTimer);
+        presenceReconnectTimer = null;
+    }
+    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    presenceWs = new WebSocket(`${proto}://${window.location.host}/ws/messenger/presence/${MESSENGER_WORKSPACE_KEY}/`);
+    presenceWs.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.type === 'presence_state') {
+            applyPresenceState(data.online_user_ids || []);
+        } else if (data.type === 'presence_update') {
+            setUserPresence(data.user_id, data.status === 'online');
+        }
+    };
+    presenceWs.onclose = () => {
+        presenceReconnectTimer = setTimeout(connectPresence, 3000);
+    };
+    presenceWs.onerror = () => {
+        if (presenceWs) presenceWs.close();
+    };
+}
+
+document.addEventListener('DOMContentLoaded', adjustMessengerLayout);
+document.addEventListener('DOMContentLoaded', connectPresence);
+window.addEventListener('resize', adjustMessengerLayout);
+</script>
+
 {% if active_room %}
+<script src="https://meet.jit.si/external_api.js"></script>
 <script>
 const ROOM_ID = {{ active_room.pk }};
 const WORKSPACE_KEY = '{{ company.workspace_key }}';
@@ -922,14 +1082,6 @@ async function loadMore() {
     anchor.after(fragment);
 }
 
-// ── Sidebar search ────────────────────────────────────────────────────────
-function filterSidebar(q) {
-    q = q.toLowerCase();
-    document.querySelectorAll('.sidebar-item').forEach(a => {
-        a.closest('li').style.display = (a.dataset.name || '').includes(q) ? '' : 'none';
-    });
-}
-
 // ── Invite ────────────────────────────────────────────────────────────────
 function openInviteModal() { new bootstrap.Modal(document.getElementById('inviteModal')).show(); }
 async function createInvite() {
@@ -956,14 +1108,75 @@ function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'
 
 // ── Init ──────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-    // Navbar-Höhe messen und Messenger-Wrap exakt darunter positionieren
-    const nav = document.querySelector('nav.navbar');
-    if (nav) {
-        document.querySelector('.messenger-wrap').style.top = nav.offsetHeight + 'px';
-    }
     connectWS();
     const msgs = document.getElementById('msg-messages');
     if (msgs) msgs.scrollTop = msgs.scrollHeight;
+});
+
+// ── Jitsi Video-Call ──────────────────────────────────────────────────────
+let jitsiApi = null;
+
+function toggleVideoCall() {
+    if (jitsiApi) {
+        stopVideoCall();
+    } else {
+        startVideoCall();
+    }
+}
+
+function startVideoCall() {
+    const overlay = document.getElementById('video-overlay');
+    const btn = document.getElementById('video-call-btn');
+    overlay.classList.add('active');
+    if (btn) btn.classList.add('active');
+
+    const roomName = 'mlpit-{{ active_room.slug|escapejs }}';
+    jitsiApi = new JitsiMeetExternalAPI('meet.jit.si', {
+        roomName: roomName,
+        width: '100%',
+        height: '100%',
+        parentNode: document.getElementById('jitsi-container'),
+        userInfo: {
+            displayName: CURRENT_USER_NAME,
+        },
+        configOverwrite: {
+            startWithAudioMuted: false,
+            startWithVideoMuted: false,
+            disableDeepLinking: true,
+        },
+        interfaceConfigOverwrite: {
+            SHOW_JITSI_WATERMARK: false,
+            SHOW_BRAND_WATERMARK: false,
+            TOOLBAR_BUTTONS: ['microphone', 'camera', 'desktop', 'fullscreen', 'hangup', 'chat', 'settings'],
+        },
+    });
+
+    jitsiApi.addEventListener('readyToClose', stopVideoCall);
+
+    // Systemnachricht in den Chat senden
+    if (ws && ws.readyState === 1) {
+        ws.send(JSON.stringify({
+            type: 'chat_message',
+            content: `[Video-Call gestartet] Tritt bei: https://meet.jit.si/${roomName}`,
+        }));
+    }
+}
+
+function stopVideoCall() {
+    if (jitsiApi) {
+        jitsiApi.dispose();
+        jitsiApi = null;
+    }
+    const overlay = document.getElementById('video-overlay');
+    const btn = document.getElementById('video-call-btn');
+    overlay.classList.remove('active');
+    if (btn) btn.classList.remove('active');
+    document.getElementById('jitsi-container').innerHTML = '';
+}
+
+// Overlay schließen mit Escape
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && jitsiApi) stopVideoCall();
 });
 </script>
 {% endif %}

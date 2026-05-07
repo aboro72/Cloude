@@ -72,6 +72,7 @@ LOCAL_APPS = [
     'forms_builder.apps.FormsBuilderConfig',
     'departments.apps.DepartmentsConfig',
     'messenger.apps.MessengerConfig',
+    'jitsi.apps.JitsiConfig',
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -84,7 +85,6 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'accounts.middleware.ForcePasswordChangeMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     # 'structlog.contextvars.clear_contextvars',  # Optional: uncomment if using structlog
@@ -515,3 +515,8 @@ JAZZMIN = {
     "default_icon_parents": "fas fa-chevron-right",
     "default_icon_children": "fas fa-arrow-right",
 }
+
+# Jitsi Meet Integration
+JITSI_APP_ID = config("JITSI_APP_ID", default="cloudshare")
+JITSI_APP_SECRET = config("JITSI_APP_SECRET", default="")
+JITSI_URL = config("JITSI_URL", default="https://meet.aborosoft.com")

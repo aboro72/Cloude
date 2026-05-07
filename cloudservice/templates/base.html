@@ -290,7 +290,7 @@
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container">
-            <a class="navbar-brand" href="/">☁️ CloudService</a>
+            <a class="navbar-brand" href="/">☁️ CloudShare v2.4 </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
@@ -375,6 +375,9 @@
                         {% endif %}
                         <li class="nav-item">
                             <a class="nav-link" href="{% url 'messenger_global' %}"><i class="bi bi-chat-dots me-1"></i>Messenger</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'jitsi:meetings' %}"><i class="bi bi-camera-video me-1"></i>Meetings</a>
                         </li>
                         {% for plugin_item in plugin_menu_items %}
                         <li class="nav-item">

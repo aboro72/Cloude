@@ -34,6 +34,7 @@ urlpatterns = [
     path('tasks/', include('tasks_board.urls', namespace='tasks_board')),
     path('forms/', include('forms_builder.urls', namespace='forms_builder')),
     path('departments/', include('departments.urls', namespace='departments')),
+    path('meetings/', include('jitsi.urls', namespace='jitsi')),
     # Global messenger invite (cross-company)
     path('messenger/invite/<uuid:token>/', messenger_views.invite_accept, name='messenger_invite'),
     # Global messenger redirect — leitet zur Firma des Users weiter

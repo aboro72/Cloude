@@ -32,6 +32,7 @@ from api.serializers import (
     NewsCategorySerializer, NewsArticleSerializer,
     ChatRoomSerializer, ChatRoomDetailSerializer,
     ChatMessageSerializer, ChatMembershipSerializer, ChatInviteSerializer,
+    MeetingSerializer,
 )
 from api.permissions import IsFileOwnerOrShared, IsPublicLinkValid, IsChatRoomMember, IsChatMessageAuthor
 import logging
@@ -1129,3 +1130,150 @@ class NewsArticleViewSet(viewsets.ReadOnlyModelViewSet):
         if not self.request.user.has_perm('news.change_newsarticle'):
             qs = qs.filter(is_published=True)
         return qs
+
+
+# ── Meetings ──────────────────────────────────────────────────────────────────
+
+class MeetingViewSet(viewsets.ModelViewSet):
+    """
+    Meetings im Firmen-Workspace.
+
+    - GET    /meetings/                  → eigene Meetings (Organisator oder Eingeladener)
+    - POST   /meetings/                  → Meeting planen
+    - GET    /meetings/{id}/             → Meeting-Details
+    - PATCH  /meetings/{id}/             → Titel/Beschreibung/Zeiten ändern (nur Organisator)
+    - DELETE /meetings/{id}/             → Meeting löschen (nur Organisator/Admin)
+    - POST   /meetings/{id}/start/       → Meeting starten (Raum wird erstellt)
+    - POST   /meetings/{id}/end/         → Meeting beenden
+    - POST   /meetings/{id}/cancel/      → Meeting absagen
+    - GET    /meetings/{id}/join_url/    → Jitsi-JWT-Token + Join-URL abrufen
+    - GET    /meetings/?status=planned   → nach Status filtern
+    """
+    serializer_class = MeetingSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['title', 'description']
+    ordering_fields = ['scheduled_start', 'created_at', 'status']
+    ordering = ['-created_at']
+
+    def _get_company(self):
+        profile = getattr(self.request.user, 'profile', None)
+        if profile and profile.company:
+            return profile.company
+        if self.request.user.is_superuser:
+            from accounts.models import Company
+            return Company.objects.first()
+        return None
+
+    def get_queryset(self):
+        from jitsi.models import Meeting
+        company = self._get_company()
+        if not company:
+            return Meeting.objects.none()
+
+        qs = Meeting.objects.filter(company=company).filter(
+            Q(organizer=self.request.user) | Q(invitees=self.request.user)
+        ).distinct().prefetch_related('invitees').select_related('organizer')
+
+        status_filter = self.request.query_params.get('status')
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+
+        return qs
+
+    def perform_create(self, serializer):
+        from jitsi.models import Meeting
+        company = self._get_company()
+        if not company:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError('Kein Firmen-Workspace gefunden.')
+
+        invitee_ids = self.request.data.get('invitee_ids', [])
+        meeting = serializer.save(
+            company=company,
+            organizer=self.request.user,
+            status=Meeting.STATUS_PLANNED,
+        )
+        if invitee_ids:
+            from django.contrib.auth.models import User
+            valid = User.objects.filter(
+                pk__in=invitee_ids, is_active=True, profile__company=company
+            )
+            meeting.invitees.set(valid)
+
+    def perform_update(self, serializer):
+        instance = self.get_object()
+        if instance.organizer != self.request.user and not self.request.user.is_superuser:
+            raise PermissionDenied('Nur der Organisator kann das Meeting bearbeiten.')
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if instance.organizer != self.request.user and not self.request.user.is_superuser:
+            raise PermissionDenied('Nur der Organisator kann das Meeting löschen.')
+        instance.delete()
+
+    @action(detail=True, methods=['post'])
+    def start(self, request, pk=None):
+        """Meeting starten — generiert den Jitsi-Raumnamen."""
+        meeting = self.get_object()
+        if not meeting.can_be_started_by(request.user):
+            return Response(
+                {'detail': 'Meeting kann nicht gestartet werden.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        meeting.start()
+        return Response(MeetingSerializer(meeting).data)
+
+    @action(detail=True, methods=['post'])
+    def end(self, request, pk=None):
+        """Meeting beenden."""
+        meeting = self.get_object()
+        if not meeting.can_be_ended_by(request.user):
+            return Response(
+                {'detail': 'Meeting kann nicht beendet werden.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        meeting.end()
+        return Response(MeetingSerializer(meeting).data)
+
+    @action(detail=True, methods=['post'])
+    def cancel(self, request, pk=None):
+        """Meeting absagen."""
+        meeting = self.get_object()
+        if not meeting.can_be_cancelled_by(request.user):
+            return Response(
+                {'detail': 'Meeting kann nicht abgesagt werden.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        meeting.cancel()
+        return Response(MeetingSerializer(meeting).data)
+
+    @action(detail=True, methods=['get'], url_path='join_url')
+    def join_url(self, request, pk=None):
+        """Jitsi-JWT-Token und Join-URL für ein laufendes Meeting abrufen."""
+        from jitsi.models import Meeting
+        from jitsi.views import _build_token, JITSI_URL
+
+        meeting = self.get_object()
+        if meeting.status != Meeting.STATUS_RUNNING:
+            return Response(
+                {'detail': 'Meeting läuft gerade nicht.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        is_participant = (
+            meeting.organizer == request.user
+            or meeting.invitees.filter(pk=request.user.pk).exists()
+            or request.user.is_superuser
+        )
+        if not is_participant:
+            return Response(
+                {'detail': 'Nicht eingeladen.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        token = _build_token(request.user, meeting.room_name)
+        return Response({
+            'token': token,
+            'url': f"{JITSI_URL}/{meeting.room_name}?jwt={token}",
+            'room_name': meeting.room_name,
+        })

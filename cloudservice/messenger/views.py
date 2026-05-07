@@ -8,6 +8,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.contrib import messages
 from django.http import JsonResponse
+from django.db.models import Q
 from django.utils import timezone
 from django.utils.text import slugify
 from django.views.decorators.http import require_POST
@@ -31,10 +32,79 @@ def _get_company_or_403(request, workspace_key):
     return company, True
 
 
+def _reachable_direct_users_queryset(company, user):
+    """Users this user may open a direct-message thread with in this workspace."""
+    profile = getattr(user, 'profile', None)
+    if user.is_superuser or (profile and profile.company_id == company.pk):
+        channel_user_ids = (
+            ChatMembership.objects
+            .filter(room__company=company, room__is_archived=False)
+            .exclude(user=user)
+            .values_list('user_id', flat=True)
+        )
+    else:
+        channel_user_ids = (
+            ChatMembership.objects
+            .filter(room__company=company, room__is_archived=False)
+            .filter(room__memberships__user=user)
+            .exclude(user=user)
+            .values_list('user_id', flat=True)
+        )
+
+    return (
+        User.objects
+        .filter(is_active=True)
+        .filter(Q(profile__company=company) | Q(pk__in=channel_user_ids))
+        .exclude(pk=user.pk)
+        .select_related('profile')
+        .distinct()
+        .order_by('first_name', 'last_name', 'username')
+    )
+
+def _direct_sidebar_people(company, user):
+    """Build sidebar entries for all reachable DM users, including existing threads."""
+    users = list(_reachable_direct_users_queryset(company, user))
+    direct_rooms = (
+        ChatRoom.objects
+        .filter(company=company, room_type='direct', is_archived=False, memberships__user=user)
+        .prefetch_related('memberships__user')
+    )
+    room_by_user_id = {}
+    for room in direct_rooms:
+        for membership in room.memberships.all():
+            if membership.user_id != user.pk:
+                room_by_user_id[membership.user_id] = room
+                break
+
+    people = []
+    for person in users:
+        display_name = person.get_full_name() or person.username
+        direct_room = room_by_user_id.get(person.pk)
+        people.append({
+            'user': person,
+            'display_name': display_name,
+            'initial': display_name[:1].upper(),
+            'room': direct_room,
+            'unread_count': direct_room.unread_count(user) if direct_room else 0,
+        })
+    return people
+
+
+def _can_direct_message(company, actor, other):
+    if actor == other:
+        return False
+    if actor.is_superuser:
+        return True
+    return _reachable_direct_users_queryset(company, actor).filter(pk=other.pk).exists()
+
+
 @login_required
 def messenger_home(request, workspace_key):
     """Messenger overview: channels + DMs for this company workspace."""
-    company = get_object_or_404(Company, workspace_key=workspace_key)
+    company, is_member = _get_company_or_403(request, workspace_key)
+    if not is_member:
+        messages.error(request, 'Kein Zugriff auf diesen Messenger.')
+        return redirect('home')
 
     # All rooms this user is a member of that belong to this company
     memberships = (
@@ -60,13 +130,6 @@ def messenger_home(request, workspace_key):
         .exclude(pk__in=joined_ids)
     )
 
-    company_members = (
-        User.objects.filter(profile__company=company)
-        .exclude(pk=request.user.pk)
-        .select_related('profile')
-        .order_by('first_name', 'username')
-    )
-
     return render(request, 'messenger/messenger.html', {
         'company': company,
         'channels': channels,
@@ -74,7 +137,7 @@ def messenger_home(request, workspace_key):
         'open_channels': open_channels,
         'active_room': None,
         'messages_list': [],
-        'company_members': company_members,
+        'direct_people': _direct_sidebar_people(company, request.user),
     })
 
 
@@ -131,13 +194,6 @@ def room_view(request, workspace_key, room_slug):
 
     room_members = room.memberships.select_related('user').all()
 
-    company_members = (
-        User.objects.filter(profile__company=company)
-        .exclude(pk=request.user.pk)
-        .select_related('profile')
-        .order_by('first_name', 'username')
-    )
-
     return render(request, 'messenger/messenger.html', {
         'company': company,
         'channels': channels,
@@ -147,7 +203,7 @@ def room_view(request, workspace_key, room_slug):
         'messages_list': msgs,
         'membership': membership,
         'room_members': room_members,
-        'company_members': company_members,
+        'direct_people': _direct_sidebar_people(company, request.user),
     })
 
 
@@ -201,10 +257,17 @@ def create_channel(request, workspace_key):
 @login_required
 def direct_message(request, workspace_key, username):
     """Open or create a direct-message thread with another user."""
-    company = get_object_or_404(Company, workspace_key=workspace_key)
+    company, is_member = _get_company_or_403(request, workspace_key)
+    if not is_member:
+        messages.error(request, 'Kein Zugriff auf diesen Messenger.')
+        return redirect('home')
+
     other = get_object_or_404(User, username=username)
 
     if other == request.user:
+        return redirect('messenger:home', workspace_key=workspace_key)
+    if not _can_direct_message(company, request.user, other):
+        messages.error(request, 'Diese Person ist in diesem Workspace nicht per Direktnachricht erreichbar.')
         return redirect('messenger:home', workspace_key=workspace_key)
 
     # Find existing DM room between these two users in this company
@@ -219,7 +282,13 @@ def direct_message(request, workspace_key, username):
         return redirect('messenger:room', workspace_key=workspace_key, room_slug=existing.slug)
 
     # Create new DM room
-    slug = f'dm-{min(request.user.pk, other.pk)}-{max(request.user.pk, other.pk)}'
+    base_slug = f'dm-{min(request.user.pk, other.pk)}-{max(request.user.pk, other.pk)}'
+    slug = base_slug
+    counter = 1
+    while ChatRoom.objects.filter(company=company, slug=slug).exists():
+        slug = f'{base_slug}-{counter}'
+        counter += 1
+
     room = ChatRoom.objects.create(
         company=company,
         name=f'{request.user.username} & {other.username}',
