@@ -20,7 +20,7 @@ from django.views.decorators.cache import never_cache
 from django.views import View
 from django.http import JsonResponse
 from accounts.models import UserProfile
-from accounts.forms import AppearanceSettingsForm
+from accounts.forms import AppearanceSettingsForm, RegisterForm
 from core.navigation import get_authenticated_home_url
 import logging
 
@@ -66,13 +66,15 @@ class RegisterView(CreateView):
     """User registration"""
     template_name = 'accounts/register.html'
     model = User
-    fields = ['username', 'email', 'first_name', 'last_name', 'password']
-    success_url = reverse_lazy('accounts:login')
+    form_class = RegisterForm
 
-    def form_valid(self, form):
-        user = form.save(commit=False)
-        user.set_password(form.cleaned_data['password'])
-        return super().form_valid(form)
+    def get_success_url(self):
+        try:
+            workspace_key = self.object.profile.company.workspace_key
+            from django.urls import reverse
+            return reverse('company_home', kwargs={'workspace_key': workspace_key})
+        except Exception:
+            return reverse_lazy('accounts:login')
 
 
 class ProfileView(LoginRequiredMixin, TemplateView):
@@ -116,6 +118,14 @@ class PasswordChangeView(DjangoPasswordChangeView):
     """Change password"""
     template_name = 'accounts/password_change.html'
     success_url = reverse_lazy('accounts:profile')
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        profile = getattr(self.request.user, 'profile', None)
+        if profile and profile.must_change_password:
+            profile.must_change_password = False
+            profile.save(update_fields=['must_change_password'])
+        return response
 
 
 class SettingsView(LoginRequiredMixin, TemplateView):
@@ -194,9 +204,10 @@ class GroupManagementView(LoginRequiredMixin, View):
     template_name = 'accounts/group_management.html'
 
     def _require_staff(self, request):
-        if not request.user.is_superuser:
+        profile = getattr(request.user, 'profile', None)
+        if not request.user.is_superuser and not (profile and profile.is_company_admin):
             return render(request, '403.html', {
-                'error_message': 'Nur Superuser dürfen Gruppen und Berechtigungen verwalten.',
+                'error_message': 'Nur Administratoren dürfen Gruppen und Berechtigungen verwalten.',
             }, status=403)
         return None
 

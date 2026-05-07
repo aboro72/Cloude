@@ -30,8 +30,11 @@ from api.serializers import (
     GroupShareSerializer,
     TaskBoardSerializer, TaskSerializer,
     NewsCategorySerializer, NewsArticleSerializer,
+    ChatRoomSerializer, ChatRoomDetailSerializer,
+    ChatMessageSerializer, ChatMembershipSerializer, ChatInviteSerializer,
+    MeetingSerializer,
 )
-from api.permissions import IsFileOwnerOrShared, IsPublicLinkValid
+from api.permissions import IsFileOwnerOrShared, IsPublicLinkValid, IsChatRoomMember, IsChatMessageAuthor
 import logging
 
 logger = logging.getLogger(__name__)
@@ -632,10 +635,12 @@ class PluginSettingsView(APIView):
 
         # Prepare fields with current values
         fields = []
-        for key, field_def in plugin.settings_schema.items():
+        settings_schema = plugin.settings_schema or {}
+        current_settings = plugin.settings or {}
+        for key, field_def in settings_schema.items():
             field = {
                 'key': key,
-                'value': plugin.settings.get(key, field_def.get('default', '')),
+                'value': current_settings.get(key, field_def.get('default', '')),
                 **field_def
             }
             fields.append(field)
@@ -656,7 +661,8 @@ class PluginSettingsView(APIView):
         try:
             # Get settings from form
             new_settings = {}
-            for key, field_def in plugin.settings_schema.items():
+            settings_schema = plugin.settings_schema or {}
+            for key, field_def in settings_schema.items():
                 value = request.POST.get(key, '')
 
                 # Type conversion based on schema
@@ -809,6 +815,292 @@ class TaskViewSet(viewsets.ReadOnlyModelViewSet):
 
 # ── News ──────────────────────────────────────────────────────────────────────
 
+# ── Messenger ─────────────────────────────────────────────────────────────────
+
+class ChatRoomViewSet(viewsets.ModelViewSet):
+    """
+    CRUD für Chat-Räume (Kanäle, Gruppen, Direktnachrichten).
+
+    - GET  /messenger/rooms/           → eigene Räume (Mitglied oder Ersteller)
+    - POST /messenger/rooms/           → neuen Kanal/Gruppe anlegen
+    - GET  /messenger/rooms/{id}/      → Raumdetail inkl. Mitgliederliste
+    - POST /messenger/rooms/{id}/join/ → öffentlichem Raum beitreten
+    - POST /messenger/rooms/{id}/leave/→ Raum verlassen
+    - POST /messenger/rooms/{id}/mark_read/ → alle Nachrichten als gelesen markieren
+    """
+    permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['name', 'description']
+    ordering_fields = ['name', 'created_at']
+    ordering = ['name']
+
+    def get_serializer_class(self):
+        if self.action == 'retrieve':
+            return ChatRoomDetailSerializer
+        return ChatRoomSerializer
+
+    def get_queryset(self):
+        from messenger.models import ChatRoom
+        user = self.request.user
+        return (
+            ChatRoom.objects
+            .filter(members=user, is_archived=False)
+            .distinct()
+            .select_related('created_by')
+            .prefetch_related('memberships__user')
+        )
+
+    def perform_create(self, serializer):
+        from messenger.models import ChatRoom, ChatMembership
+        room = serializer.save(
+            company=self.request.user.profile.company,
+            created_by=self.request.user,
+        )
+        ChatMembership.objects.create(room=room, user=self.request.user, role='owner')
+
+    @action(detail=True, methods=['post'])
+    def join(self, request, pk=None):
+        """Öffentlichem Raum beitreten."""
+        from messenger.models import ChatRoom, ChatMembership
+        room = get_object_or_404(ChatRoom, pk=pk, is_archived=False)
+        if room.is_private:
+            return Response({'detail': 'Dieser Raum ist privat.'}, status=status.HTTP_403_FORBIDDEN)
+        membership, created = ChatMembership.objects.get_or_create(
+            room=room, user=request.user, defaults={'role': 'member'}
+        )
+        return Response(
+            {'detail': 'Beigetreten.' if created else 'Bereits Mitglied.'},
+            status=status.HTTP_200_OK,
+        )
+
+    @action(detail=True, methods=['post'])
+    def leave(self, request, pk=None):
+        """Raum verlassen."""
+        from messenger.models import ChatMembership
+        room = self.get_object()
+        deleted, _ = ChatMembership.objects.filter(room=room, user=request.user).delete()
+        if not deleted:
+            return Response({'detail': 'Kein Mitglied.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'detail': 'Raum verlassen.'})
+
+    @action(detail=True, methods=['post'])
+    def mark_read(self, request, pk=None):
+        """Letzten Lesezeitpunkt auf jetzt setzen."""
+        from messenger.models import ChatMembership
+        room = self.get_object()
+        updated = ChatMembership.objects.filter(room=room, user=request.user).update(
+            last_read_at=timezone.now()
+        )
+        if not updated:
+            return Response({'detail': 'Kein Mitglied.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'detail': 'Als gelesen markiert.'})
+
+    @action(detail=True, methods=['get'])
+    def members(self, request, pk=None):
+        """Mitgliederliste eines Raums."""
+        room = self.get_object()
+        memberships = room.memberships.select_related('user').order_by('role', 'user__username')
+        return Response(ChatMembershipSerializer(memberships, many=True).data)
+
+
+class ChatMessageViewSet(viewsets.ModelViewSet):
+    """
+    Nachrichten innerhalb eines Chat-Raums.
+
+    URL-Parameter: room_pk (verschachtelt unter /messenger/rooms/{room_pk}/messages/)
+
+    - GET    → Nachrichten-Liste (paginiert, älteste zuerst)
+    - POST   → Neue Nachricht senden
+    - PATCH  → Eigene Nachricht bearbeiten
+    - DELETE → Eigene Nachricht soft-löschen
+    - POST /messages/{id}/react/ → Emoji-Reaktion togglen
+    """
+    permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['content']
+    ordering = ['created_at']
+
+    def _get_room(self):
+        from messenger.models import ChatRoom, ChatMembership
+        room_pk = self.kwargs.get('room_pk')
+        room = get_object_or_404(ChatRoom, pk=room_pk, is_archived=False)
+        if not ChatMembership.objects.filter(room=room, user=self.request.user).exists():
+            raise PermissionDenied('Du bist kein Mitglied dieses Raums.')
+        return room
+
+    def get_queryset(self):
+        from messenger.models import ChatMessage
+        room = self._get_room()
+        return (
+            ChatMessage.objects
+            .filter(room=room)
+            .select_related('author', 'reply_to__author', 'storage_file')
+            .order_by('created_at')
+        )
+
+    def get_serializer_class(self):
+        return ChatMessageSerializer
+
+    def perform_create(self, serializer):
+        room = self._get_room()
+        serializer.save(author=self.request.user, room=room)
+
+    def perform_update(self, serializer):
+        instance = self.get_object()
+        if instance.author != self.request.user:
+            raise PermissionDenied('Nur der Autor kann seine Nachricht bearbeiten.')
+        serializer.save(is_edited=True, edited_at=timezone.now())
+
+    def perform_destroy(self, instance):
+        if instance.author != self.request.user:
+            raise PermissionDenied('Nur der Autor kann seine Nachricht löschen.')
+        instance.soft_delete()
+
+    @action(detail=True, methods=['post'])
+    def react(self, request, room_pk=None, pk=None):
+        """
+        Emoji-Reaktion togglen.
+        Body: {"emoji": "👍"}
+        """
+        message = self.get_object()
+        emoji = request.data.get('emoji', '').strip()
+        if not emoji:
+            return Response({'detail': 'emoji fehlt.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        reactions = message.reactions or {}
+        user_id = str(request.user.id)
+        users = reactions.get(emoji, [])
+
+        if user_id in users:
+            users.remove(user_id)
+            if not users:
+                reactions.pop(emoji, None)
+            else:
+                reactions[emoji] = users
+        else:
+            users.append(user_id)
+            reactions[emoji] = users
+
+        message.reactions = reactions
+        message.save(update_fields=['reactions'])
+        return Response({'reactions': message.reactions})
+
+
+class DirectMessageView(APIView):
+    """
+    Direktnachricht-Kanal mit einem anderen Nutzer starten oder abrufen.
+
+    POST /messenger/direct/
+    Body: {"user_id": 42}
+    Gibt den bestehenden oder neu erstellten DM-Raum zurück.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        from messenger.models import ChatRoom, ChatMembership
+        from django.contrib.auth.models import User
+
+        target_id = request.data.get('user_id')
+        if not target_id:
+            return Response({'detail': 'user_id fehlt.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        target = get_object_or_404(User, pk=target_id)
+        if target == request.user:
+            return Response({'detail': 'Kein DM mit sich selbst.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        company = request.user.profile.company
+
+        # Vorhandenen DM-Raum suchen (beide Nutzer Mitglied, room_type=direct)
+        existing = (
+            ChatRoom.objects
+            .filter(room_type='direct', company=company, members=request.user)
+            .filter(members=target)
+        ).first()
+
+        if existing:
+            return Response(ChatRoomDetailSerializer(existing, context={'request': request}).data)
+
+        # Neuen DM-Raum erstellen
+        dm_name = f'dm-{min(request.user.id, target.id)}-{max(request.user.id, target.id)}'
+        room = ChatRoom.objects.create(
+            company=company,
+            room_type='direct',
+            name=dm_name,
+            is_private=True,
+            created_by=request.user,
+        )
+        ChatMembership.objects.bulk_create([
+            ChatMembership(room=room, user=request.user, role='member'),
+            ChatMembership(room=room, user=target, role='member'),
+        ])
+        return Response(
+            ChatRoomDetailSerializer(room, context={'request': request}).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class ChatInviteViewSet(viewsets.GenericViewSet):
+    """
+    Einladungslinks für Chat-Räume.
+
+    - POST /messenger/rooms/{room_pk}/invites/       → Invite erstellen (Owner/Admin)
+    - GET  /messenger/invites/{token}/               → Invite-Infos abrufen
+    - POST /messenger/invites/{token}/accept/        → Invite annehmen, Raum beitreten
+    """
+    permission_classes = [IsAuthenticated]
+    serializer_class = ChatInviteSerializer
+
+    def _get_room_as_manager(self, room_pk):
+        from messenger.models import ChatRoom, ChatMembership
+        room = get_object_or_404(ChatRoom, pk=room_pk)
+        membership = ChatMembership.objects.filter(room=room, user=self.request.user).first()
+        if not membership or membership.role not in ('owner', 'admin'):
+            raise PermissionDenied('Nur Owner/Admin können Einladungen erstellen.')
+        return room
+
+    def create(self, request, room_pk=None):
+        """Neuen Invite-Link anlegen."""
+        from messenger.models import ChatInvite
+        room = self._get_room_as_manager(room_pk)
+        invite = ChatInvite.objects.create(
+            room=room,
+            invited_by=request.user,
+            invited_email=request.data.get('invited_email', ''),
+            max_uses=request.data.get('max_uses', 1),
+            expires_at=request.data.get('expires_at'),
+        )
+        return Response(ChatInviteSerializer(invite).data, status=status.HTTP_201_CREATED)
+
+    def retrieve(self, request, pk=None):
+        """Invite-Details per Token abrufen."""
+        from messenger.models import ChatInvite
+        invite = get_object_or_404(ChatInvite, token=pk)
+        return Response(ChatInviteSerializer(invite).data)
+
+    @action(detail=True, methods=['post'], url_path='accept')
+    def accept(self, request, pk=None):
+        """Invite annehmen und dem Raum beitreten."""
+        from messenger.models import ChatInvite, ChatMembership
+        invite = get_object_or_404(ChatInvite, token=pk)
+        if not invite.is_valid():
+            return Response({'detail': 'Einladung ungültig oder abgelaufen.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        membership, created = ChatMembership.objects.get_or_create(
+            room=invite.room, user=request.user, defaults={'role': 'member'}
+        )
+        invite.use_count += 1
+        invite.save(update_fields=['use_count'])
+
+        return Response(
+            ChatRoomDetailSerializer(invite.room, context={'request': request}).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+# ── News ──────────────────────────────────────────────────────────────────────
+
 class NewsCategoryViewSet(viewsets.ReadOnlyModelViewSet):
     """List and retrieve News Categories."""
     serializer_class = NewsCategorySerializer
@@ -838,3 +1130,150 @@ class NewsArticleViewSet(viewsets.ReadOnlyModelViewSet):
         if not self.request.user.has_perm('news.change_newsarticle'):
             qs = qs.filter(is_published=True)
         return qs
+
+
+# ── Meetings ──────────────────────────────────────────────────────────────────
+
+class MeetingViewSet(viewsets.ModelViewSet):
+    """
+    Meetings im Firmen-Workspace.
+
+    - GET    /meetings/                  → eigene Meetings (Organisator oder Eingeladener)
+    - POST   /meetings/                  → Meeting planen
+    - GET    /meetings/{id}/             → Meeting-Details
+    - PATCH  /meetings/{id}/             → Titel/Beschreibung/Zeiten ändern (nur Organisator)
+    - DELETE /meetings/{id}/             → Meeting löschen (nur Organisator/Admin)
+    - POST   /meetings/{id}/start/       → Meeting starten (Raum wird erstellt)
+    - POST   /meetings/{id}/end/         → Meeting beenden
+    - POST   /meetings/{id}/cancel/      → Meeting absagen
+    - GET    /meetings/{id}/join_url/    → Jitsi-JWT-Token + Join-URL abrufen
+    - GET    /meetings/?status=planned   → nach Status filtern
+    """
+    serializer_class = MeetingSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['title', 'description']
+    ordering_fields = ['scheduled_start', 'created_at', 'status']
+    ordering = ['-created_at']
+
+    def _get_company(self):
+        profile = getattr(self.request.user, 'profile', None)
+        if profile and profile.company:
+            return profile.company
+        if self.request.user.is_superuser:
+            from accounts.models import Company
+            return Company.objects.first()
+        return None
+
+    def get_queryset(self):
+        from jitsi.models import Meeting
+        company = self._get_company()
+        if not company:
+            return Meeting.objects.none()
+
+        qs = Meeting.objects.filter(company=company).filter(
+            Q(organizer=self.request.user) | Q(invitees=self.request.user)
+        ).distinct().prefetch_related('invitees').select_related('organizer')
+
+        status_filter = self.request.query_params.get('status')
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+
+        return qs
+
+    def perform_create(self, serializer):
+        from jitsi.models import Meeting
+        company = self._get_company()
+        if not company:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError('Kein Firmen-Workspace gefunden.')
+
+        invitee_ids = self.request.data.get('invitee_ids', [])
+        meeting = serializer.save(
+            company=company,
+            organizer=self.request.user,
+            status=Meeting.STATUS_PLANNED,
+        )
+        if invitee_ids:
+            from django.contrib.auth.models import User
+            valid = User.objects.filter(
+                pk__in=invitee_ids, is_active=True, profile__company=company
+            )
+            meeting.invitees.set(valid)
+
+    def perform_update(self, serializer):
+        instance = self.get_object()
+        if instance.organizer != self.request.user and not self.request.user.is_superuser:
+            raise PermissionDenied('Nur der Organisator kann das Meeting bearbeiten.')
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if instance.organizer != self.request.user and not self.request.user.is_superuser:
+            raise PermissionDenied('Nur der Organisator kann das Meeting löschen.')
+        instance.delete()
+
+    @action(detail=True, methods=['post'])
+    def start(self, request, pk=None):
+        """Meeting starten — generiert den Jitsi-Raumnamen."""
+        meeting = self.get_object()
+        if not meeting.can_be_started_by(request.user):
+            return Response(
+                {'detail': 'Meeting kann nicht gestartet werden.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        meeting.start()
+        return Response(MeetingSerializer(meeting).data)
+
+    @action(detail=True, methods=['post'])
+    def end(self, request, pk=None):
+        """Meeting beenden."""
+        meeting = self.get_object()
+        if not meeting.can_be_ended_by(request.user):
+            return Response(
+                {'detail': 'Meeting kann nicht beendet werden.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        meeting.end()
+        return Response(MeetingSerializer(meeting).data)
+
+    @action(detail=True, methods=['post'])
+    def cancel(self, request, pk=None):
+        """Meeting absagen."""
+        meeting = self.get_object()
+        if not meeting.can_be_cancelled_by(request.user):
+            return Response(
+                {'detail': 'Meeting kann nicht abgesagt werden.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        meeting.cancel()
+        return Response(MeetingSerializer(meeting).data)
+
+    @action(detail=True, methods=['get'], url_path='join_url')
+    def join_url(self, request, pk=None):
+        """Jitsi-JWT-Token und Join-URL für ein laufendes Meeting abrufen."""
+        from jitsi.models import Meeting
+        from jitsi.views import _build_token, JITSI_URL
+
+        meeting = self.get_object()
+        if meeting.status != Meeting.STATUS_RUNNING:
+            return Response(
+                {'detail': 'Meeting läuft gerade nicht.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        is_participant = (
+            meeting.organizer == request.user
+            or meeting.invitees.filter(pk=request.user.pk).exists()
+            or request.user.is_superuser
+        )
+        if not is_participant:
+            return Response(
+                {'detail': 'Nicht eingeladen.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        token = _build_token(request.user, meeting.room_name)
+        return Response({
+            'token': token,
+            'url': f"{JITSI_URL}/{meeting.room_name}?jwt={token}",
+            'room_name': meeting.room_name,
+        })

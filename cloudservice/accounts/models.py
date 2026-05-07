@@ -10,7 +10,148 @@ from django.core.validators import MinValueValidator, MaxValueValidator, RegexVa
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 from django.db.models import Sum, F
+from django.utils.text import slugify
 import uuid
+
+
+class Company(models.Model):
+    """Represents a registered company workspace."""
+
+    WORKSPACE_TYPE_CHOICES = [
+        ('directory', _('Directory')),
+        ('subdomain', _('Subdomain')),
+    ]
+
+    HERO_STYLE_CHOICES = [
+        ('gradient', _('Gradient')),
+        ('image', _('Image')),
+        ('video', _('Video')),
+    ]
+
+    HEX_COLOR_VALIDATOR = RegexValidator(
+        regex=r'^#[0-9A-Fa-f]{6}$',
+        message=_('Use a valid hex color like #667EEA.'),
+    )
+
+    name = models.CharField(
+        max_length=180,
+        unique=True,
+        verbose_name=_('Company name'),
+    )
+    slug = models.SlugField(
+        max_length=180,
+        unique=True,
+        verbose_name=_('Company slug'),
+    )
+    workspace_type = models.CharField(
+        max_length=20,
+        choices=WORKSPACE_TYPE_CHOICES,
+        default='directory',
+        verbose_name=_('Workspace type'),
+    )
+    workspace_key = models.SlugField(
+        max_length=63,
+        unique=True,
+        verbose_name=_('Workspace key'),
+        help_text=_('Used for the company directory or subdomain.'),
+    )
+    included_free_employees = models.PositiveSmallIntegerField(
+        default=5,
+        verbose_name=_('Included free employees'),
+    )
+
+    # Landing page customization
+    landing_title = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name=_('Landing page title'),
+        help_text=_('Leave blank to use company name.'),
+    )
+    landing_subtitle = models.CharField(
+        max_length=400,
+        blank=True,
+        verbose_name=_('Landing page subtitle'),
+    )
+    landing_logo = models.ImageField(
+        upload_to='companies/logos/',
+        null=True,
+        blank=True,
+        verbose_name=_('Company logo'),
+    )
+    landing_hero_style = models.CharField(
+        max_length=20,
+        choices=HERO_STYLE_CHOICES,
+        default='gradient',
+        verbose_name=_('Hero style'),
+    )
+    landing_hero_image = models.ImageField(
+        upload_to='companies/hero/',
+        null=True,
+        blank=True,
+        verbose_name=_('Hero background image'),
+    )
+    landing_hero_video = models.FileField(
+        upload_to='companies/hero/',
+        null=True,
+        blank=True,
+        verbose_name=_('Hero background video'),
+    )
+    landing_primary_color = models.CharField(
+        max_length=7,
+        default='#667eea',
+        validators=[HEX_COLOR_VALIDATOR],
+        verbose_name=_('Primary brand color'),
+    )
+    landing_secondary_color = models.CharField(
+        max_length=7,
+        default='#764ba2',
+        validators=[HEX_COLOR_VALIDATOR],
+        verbose_name=_('Secondary brand color'),
+    )
+    landing_custom_html = models.TextField(
+        blank=True,
+        verbose_name=_('Custom HTML block'),
+        help_text=_('Additional HTML shown on the landing page.'),
+    )
+    landing_custom_css = models.TextField(
+        blank=True,
+        verbose_name=_('Custom CSS'),
+        help_text=_('Custom CSS applied on the landing page.'),
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name=_('Created at'),
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name=_('Updated at'),
+    )
+
+    class Meta:
+        verbose_name = _('Company')
+        verbose_name_plural = _('Companies')
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def workspace_label(self):
+        if self.workspace_type == 'subdomain':
+            return f'{self.workspace_key}.*'
+        return f'/{self.workspace_key}/'
+
+    @property
+    def effective_landing_title(self):
+        return self.landing_title or self.name
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name)
+        if not self.workspace_key:
+            self.workspace_key = self.slug
+        super().save(*args, **kwargs)
 
 
 class UserProfile(models.Model):
@@ -57,6 +198,14 @@ class UserProfile(models.Model):
         on_delete=models.CASCADE,
         related_name='profile',
         verbose_name=_('User')
+    )
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='members',
+        verbose_name=_('Company'),
     )
     role = models.CharField(
         max_length=20,
@@ -189,6 +338,10 @@ class UserProfile(models.Model):
         default=True,
         verbose_name=_('Is active')
     )
+    must_change_password = models.BooleanField(
+        default=False,
+        verbose_name=_('Must change password on next login')
+    )
 
     # Metadata
     created_at = models.DateTimeField(
@@ -259,6 +412,40 @@ class UserProfile(models.Model):
     def is_moderator(self):
         """Check if user is moderator"""
         return self.role in ['admin', 'moderator']
+
+    @property
+    def is_company_admin(self):
+        """True wenn Firmen-Admin: per Rolle ODER per Django-Gruppe mit 'admin'/'moderator' im Namen."""
+        if self.role in ('admin', 'moderator'):
+            return True
+        return self.user.groups.filter(
+            name__iregex=r'(admin|moderator|administrat)'
+        ).exists()
+
+    @property
+    def is_department_manager(self):
+        """True wenn der User Leiter oder Manager irgendeiner Abteilung ist."""
+        from departments.models import Department, DepartmentMembership
+        if Department.objects.filter(head=self.user).exists():
+            return True
+        return DepartmentMembership.objects.filter(
+            user=self.user, role__in=['manager', 'head']
+        ).exists()
+
+    @property
+    def managed_departments(self):
+        """Alle Abteilungen, die der User leitet oder managed."""
+        from departments.models import Department, DepartmentMembership
+        managed_ids = set(
+            Department.objects.filter(head=self.user).values_list('id', flat=True)
+        )
+        managed_ids |= set(
+            DepartmentMembership.objects.filter(
+                user=self.user, role__in=['manager', 'head']
+            ).values_list('department_id', flat=True)
+        )
+        from departments.models import Department as Dept
+        return Dept.objects.filter(id__in=managed_ids)
 
     @classmethod
     def get_color_preset_map(cls):

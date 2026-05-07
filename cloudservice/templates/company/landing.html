@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ company.effective_landing_title }} – CloudShare</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    {% if company.landing_custom_css %}<style>{{ company.landing_custom_css|safe }}</style>{% endif %}
+    <style>
+        :root {
+            --primary: {{ company.landing_primary_color|default:"#667eea" }};
+            --secondary: {{ company.landing_secondary_color|default:"#764ba2" }};
+            --grad: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            --dark: #0f172a;
+            --text: #1e293b;
+            --muted: #64748b;
+            --surface: #f8fafc;
+            --card: #ffffff;
+            --border: #e2e8f0;
+        }
+        *, *::before, *::after { box-sizing: border-box; }
+        html, body { min-height: 100%; margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: var(--text); background: var(--surface); }
+
+        .lp-nav {
+            position: sticky; top: 0; z-index: 100;
+            background: rgba(255,255,255,0.88);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            padding: 0.75rem 0;
+        }
+        .lp-nav .brand {
+            font-size: 1.35rem; font-weight: 800;
+            background: var(--grad);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+            text-decoration: none;
+        }
+
+        .lp-hero {
+            position: relative; overflow: hidden;
+            background: var(--dark);
+            padding: 7rem 0 5rem;
+            color: #fff;
+        }
+        {% if company.landing_hero_style == 'image' and company.landing_hero_image %}
+        .lp-hero {
+            background-image: url('{{ company.landing_hero_image.url }}');
+            background-size: cover; background-position: center;
+        }
+        .lp-hero::before { content: ''; position: absolute; inset: 0; background: rgba(0,0,0,0.55); }
+        {% elif company.landing_hero_style == 'gradient' %}
+        .lp-hero::before {
+            content: ''; position: absolute; inset: 0;
+            background:
+                radial-gradient(ellipse at 20% 50%, color-mix(in srgb, var(--primary) 35%, transparent) 0%, transparent 55%),
+                radial-gradient(ellipse at 80% 20%, color-mix(in srgb, var(--secondary) 30%, transparent) 0%, transparent 50%);
+        }
+        {% endif %}
+
+        .hero-badge {
+            display: inline-flex; align-items: center; gap: 0.4rem;
+            background: rgba(102,126,234,0.18);
+            border: 1px solid rgba(102,126,234,0.35);
+            color: #a5b4fc; border-radius: 100px;
+            padding: 0.35rem 1rem; font-size: 0.82rem; font-weight: 600;
+            letter-spacing: 0.03em; margin-bottom: 1.5rem;
+        }
+        .hero-title { font-size: clamp(2rem, 5vw, 3.25rem); font-weight: 900; line-height: 1.15; margin-bottom: 1.25rem; }
+        .hero-title .grad {
+            background: var(--grad);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+        .hero-sub { font-size: 1.08rem; color: #94a3b8; max-width: 540px; line-height: 1.7; margin-bottom: 2rem; }
+        .btn-hero-primary {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            background: var(--grad); color: #fff; border: none;
+            padding: 0.75rem 1.75rem; border-radius: 100px;
+            font-weight: 700; font-size: 0.95rem; text-decoration: none;
+            transition: opacity .2s, transform .2s;
+        }
+        .btn-hero-primary:hover { opacity: .88; transform: translateY(-1px); color: #fff; }
+        .btn-hero-ghost {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            background: transparent; color: #e2e8f0;
+            border: 1.5px solid rgba(255,255,255,0.25);
+            padding: 0.75rem 1.75rem; border-radius: 100px;
+            font-weight: 600; font-size: 0.95rem; text-decoration: none;
+            transition: border-color .2s, background .2s;
+        }
+        .btn-hero-ghost:hover { border-color: rgba(255,255,255,0.6); background: rgba(255,255,255,0.07); color: #fff; }
+
+        .company-logo { max-height: 64px; max-width: 200px; object-fit: contain; }
+
+        .lp-section { padding: 5rem 0; }
+        .section-eyebrow {
+            font-size: 0.78rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+            background: var(--grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+            margin-bottom: 0.6rem;
+        }
+        .section-title { font-size: clamp(1.5rem, 3vw, 2.25rem); font-weight: 800; }
+        .section-sub { color: var(--muted); font-size: 1.05rem; max-width: 580px; line-height: 1.7; }
+
+        .feature-card {
+            background: var(--card); border-radius: 16px;
+            border: 1px solid var(--border);
+            padding: 1.75rem; height: 100%;
+            transition: box-shadow .2s, transform .2s;
+        }
+        .feature-card:hover { box-shadow: 0 8px 32px rgba(102,126,234,0.15); transform: translateY(-3px); }
+        .feature-icon {
+            width: 48px; height: 48px; border-radius: 12px;
+            background: var(--grad); color: #fff;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.35rem; margin-bottom: 1rem;
+        }
+        .feature-card h4 { font-size: 1.05rem; font-weight: 700; margin-bottom: 0.5rem; }
+        .feature-card p { color: var(--muted); font-size: 0.9rem; line-height: 1.65; margin: 0; }
+
+        .lp-footer {
+            background: var(--dark); color: #64748b;
+            padding: 2rem 0; font-size: 0.85rem; text-align: center;
+        }
+        .lp-footer a { color: #94a3b8; text-decoration: none; }
+        .lp-footer a:hover { color: #e2e8f0; }
+    </style>
+</head>
+<body>
+
+{% if company.landing_hero_style == 'video' and company.landing_hero_video %}
+<video autoplay muted loop playsinline style="display:none" id="hero-bg-video"></video>
+<style>
+    .lp-hero { position: relative; }
+    #hero-bg-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
+    .lp-hero > * { position: relative; z-index: 1; }
+    .lp-hero::after { content: ''; position: absolute; inset: 0; background: rgba(0,0,0,0.5); z-index: 0; pointer-events: none; }
+</style>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var v = document.getElementById('hero-bg-video');
+        v.src = '{{ company.landing_hero_video.url }}';
+        v.style.display = 'block';
+    });
+</script>
+{% endif %}
+
+<!-- Navbar -->
+<nav class="lp-nav">
+    <div class="container d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center gap-3">
+            {% if company.landing_logo %}
+                <img src="{{ company.landing_logo.url }}" alt="{{ company.name }}" class="company-logo">
+            {% else %}
+                <a href="#" class="brand">{{ company.name }}</a>
+            {% endif %}
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'accounts:login' %}" class="btn btn-sm btn-outline-secondary">Anmelden</a>
+        </div>
+    </div>
+</nav>
+
+<!-- Hero -->
+<section class="lp-hero">
+    <div class="container position-relative">
+        <div class="row align-items-center">
+            <div class="col-lg-7">
+                <div class="hero-badge">
+                    <i class="bi bi-buildings"></i>
+                    {{ company.name }} Workspace
+                </div>
+                <h1 class="hero-title">
+                    <span class="grad">{{ company.effective_landing_title }}</span>
+                </h1>
+                {% if company.landing_subtitle %}
+                <p class="hero-sub">{{ company.landing_subtitle }}</p>
+                {% else %}
+                <p class="hero-sub">Ihr privater Cloud-Arbeitsbereich – sicher, schnell und einfach zu bedienen.</p>
+                {% endif %}
+                <div class="d-flex gap-3 flex-wrap">
+                    <a href="{% url 'accounts:login' %}" class="btn-hero-primary">
+                        <i class="bi bi-box-arrow-in-right"></i> Anmelden
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Features -->
+<section class="lp-section">
+    <div class="container">
+        <div class="text-center mb-5">
+            <div class="section-eyebrow">Funktionen</div>
+            <h2 class="section-title">Alles was Ihr Team braucht</h2>
+        </div>
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="bi bi-cloud-upload"></i></div>
+                    <h4>Sicherer Speicher</h4>
+                    <p>Alle Dateien Ihres Teams an einem Ort – sicher und immer verfügbar.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="bi bi-people"></i></div>
+                    <h4>Teamarbeit</h4>
+                    <p>Gemeinsame Ordner, Freigaben und Zusammenarbeit in Echtzeit.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="bi bi-shield-check"></i></div>
+                    <h4>Datensicherheit</h4>
+                    <p>Jeder Nutzer hat seinen eigenen gesicherten Bereich mit individuellen Rechten.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+{% if company.landing_custom_html %}
+<!-- Custom Content -->
+<section class="lp-section pt-0">
+    <div class="container">
+        {{ company.landing_custom_html|safe }}
+    </div>
+</section>
+{% endif %}
+
+<!-- Footer -->
+<footer class="lp-footer">
+    <div class="container">
+        <p class="mb-1">&copy; {{ company.name }} – Powered by CloudShare</p>
+        <p class="mb-0">
+            <a href="{% url 'accounts:login' %}">Anmelden</a>
+        </p>
+    </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

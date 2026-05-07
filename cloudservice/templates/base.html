@@ -290,7 +290,7 @@
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container">
-            <a class="navbar-brand" href="/">☁️ CloudService</a>
+            <a class="navbar-brand" href="/">☁️ CloudShare v2.4 </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
@@ -319,6 +319,18 @@
                 {% endif %}
                 <ul class="navbar-nav ms-auto align-items-center">
                     {% if user.is_authenticated %}
+                    <!-- Messenger-Icon -->
+                    {% if user.profile.company %}
+                    <li class="nav-item me-1">
+                        <a class="nav-link position-relative"
+                           href="/{{ user.profile.company.workspace_key }}/messenger/"
+                           title="Messenger">
+                            <i class="bi bi-chat-dots fs-5"></i>
+                            <span id="msg-badge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+                                  style="font-size:.6rem;display:none;">0</span>
+                        </a>
+                    </li>
+                    {% endif %}
                     <!-- Bell-Icon -->
                     <li class="nav-item dropdown me-1">
                         <a class="nav-link position-relative" href="#" id="notifDropdown" role="button"
@@ -361,6 +373,12 @@
                             <a class="nav-link" href="{% url 'news:news_list' %}"><i class="bi bi-newspaper me-1"></i>News</a>
                         </li>
                         {% endif %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'messenger_global' %}"><i class="bi bi-chat-dots me-1"></i>Messenger</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'jitsi:meetings' %}"><i class="bi bi-camera-video me-1"></i>Meetings</a>
+                        </li>
                         {% for plugin_item in plugin_menu_items %}
                         <li class="nav-item">
                             <a class="nav-link" href="{{ plugin_item.url }}">
@@ -369,12 +387,35 @@
                         </li>
                         {% endfor %}
                         <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
-                                👤 {{ user.username }}
+                            <a class="nav-link dropdown-toggle d-flex align-items-center gap-2" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
+                                {% if user.profile.avatar %}
+                                    <img src="{{ user.profile.avatar.url }}" class="rounded-circle" width="28" height="28" style="object-fit:cover;">
+                                {% else %}
+                                    <div class="rounded-circle d-inline-flex align-items-center justify-content-center text-white fw-bold flex-shrink-0"
+                                         style="width:28px;height:28px;font-size:.75rem;background:linear-gradient(135deg,#667eea,#764ba2);">
+                                        {{ user.username|slice:":1"|upper }}
+                                    </div>
+                                {% endif %}
+                                <span>{{ user.get_full_name|default:user.username }}</span>
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end">
                                 <li><a class="dropdown-item" href="/accounts/profile/">Profil</a></li>
                                 <li><a class="dropdown-item" href="/accounts/settings/">Einstellungen</a></li>
+                                {% if user.profile.company and user.profile.is_company_admin %}
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><span class="dropdown-header"><i class="bi bi-building me-1"></i>{{ user.profile.company.name }}</span></li>
+                                    <li><a class="dropdown-item" href="{% url 'company_home' workspace_key=user.profile.company.workspace_key %}"><i class="bi bi-house me-2"></i>Firmen-Startseite</a></li>
+                                    <li><a class="dropdown-item" href="{% url 'company_members' workspace_key=user.profile.company.workspace_key %}"><i class="bi bi-people me-2"></i>Mitglieder verwalten</a></li>
+                                    <li><a class="dropdown-item" href="{% url 'company_landing_settings' workspace_key=user.profile.company.workspace_key %}"><i class="bi bi-brush me-2"></i>Landingpage bearbeiten</a></li>
+                                {% endif %}
+                                {% if user.profile.is_department_manager %}
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><span class="dropdown-header"><i class="bi bi-people me-1"></i>Meine Abteilungen</span></li>
+                                    {% for dept in user.profile.managed_departments %}
+                                        <li><a class="dropdown-item" href="{% url 'departments:detail' slug=dept.slug %}"><i class="bi bi-diagram-3 me-2"></i>{{ dept.name }}</a></li>
+                                    {% endfor %}
+                                    <li><a class="dropdown-item text-muted" href="{% url 'departments:list' %}"><i class="bi bi-list-ul me-2"></i>Alle Abteilungen</a></li>
+                                {% endif %}
                                 {% if user.is_superuser %}
                                     <li><hr class="dropdown-divider"></li>
                                     <li><a class="dropdown-item" href="{% url 'accounts:group_management' %}"><i class="bi bi-shield-lock me-2"></i>Gruppen & Berechtigungen</a></li>
@@ -404,6 +445,7 @@
     </nav>
 
     <!-- Alerts -->
+    {% block alerts %}
     <div class="container-main">
         {% if messages %}
             {% for message in messages %}
@@ -414,9 +456,10 @@
             {% endfor %}
         {% endif %}
     </div>
+    {% endblock %}
 
     <!-- Main Content -->
-    <main class="container-main">
+    <main class="{% block main_class %}container-main{% endblock %}">
         {% block content %}{% endblock %}
     </main>
 
@@ -463,6 +506,7 @@
             news: 'bi-newspaper',
             mention: 'bi-at',
             team_news: 'bi-people',
+            message: 'bi-chat-dots',
         };
 
         function loadBadge() {
@@ -510,9 +554,28 @@
         // Dropdown beim Öffnen befüllen
         document.getElementById('notifDropdown').addEventListener('show.bs.dropdown', loadDropdown);
 
-        // Badge alle 60s aktualisieren
+        // Benachrichtigungs-Badge alle 60s aktualisieren
         loadBadge();
         setInterval(loadBadge, 60000);
+
+        // Messenger-Badge
+        {% if user.profile.company %}
+        const msgBadge = document.getElementById('msg-badge');
+        function loadMsgBadge() {
+            fetch('/{{ user.profile.company.workspace_key }}/messenger/unread/')
+                .then(r => r.json())
+                .then(d => {
+                    if (d.count > 0) {
+                        msgBadge.textContent = d.count > 99 ? '99+' : d.count;
+                        msgBadge.style.display = '';
+                    } else {
+                        msgBadge.style.display = 'none';
+                    }
+                }).catch(() => {});
+        }
+        loadMsgBadge();
+        setInterval(loadMsgBadge, 30000);
+        {% endif %}
 
         // Alle als gelesen
         if (markAll) {

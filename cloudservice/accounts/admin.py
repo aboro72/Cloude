@@ -3,7 +3,37 @@ import re
 from django import forms
 from django.contrib import admin
 
-from accounts.models import AuditLog, PasswordReset, TwoFactorAuth, UserProfile, UserSession
+from accounts.models import AuditLog, Company, PasswordReset, TwoFactorAuth, UserProfile, UserSession
+
+
+@admin.register(Company)
+class CompanyAdmin(admin.ModelAdmin):
+    list_display = ('name', 'workspace_type', 'workspace_key', 'workspace_label', 'included_free_employees', 'created_at')
+    list_filter = ('workspace_type', 'landing_hero_style')
+    search_fields = ('name', 'slug', 'workspace_key')
+    fieldsets = (
+        ('Firma', {
+            'fields': ('name', 'slug', 'workspace_type', 'workspace_key', 'included_free_employees'),
+        }),
+        ('Landing-Page Texte', {
+            'fields': ('landing_title', 'landing_subtitle'),
+        }),
+        ('Landing-Page Design', {
+            'fields': (
+                'landing_logo', 'landing_hero_style',
+                'landing_hero_image', 'landing_hero_video',
+                'landing_primary_color', 'landing_secondary_color',
+            ),
+        }),
+        ('Landing-Page Code', {
+            'classes': ('collapse',),
+            'fields': ('landing_custom_html', 'landing_custom_css'),
+        }),
+    )
+
+    @admin.display(description='URL-Pfad')
+    def workspace_label(self, obj):
+        return obj.workspace_label
 
 
 class UserProfileAdminForm(forms.ModelForm):
@@ -82,6 +112,7 @@ class UserProfileAdmin(admin.ModelAdmin):
     form = UserProfileAdminForm
     list_display = (
         'user',
+        'company',
         'role',
         'storage_quota_gb',
         'storage_used_gb',
@@ -89,10 +120,10 @@ class UserProfileAdmin(admin.ModelAdmin):
         'is_active',
     )
     list_filter = ('role', 'is_active', 'is_email_verified', 'is_two_factor_enabled')
-    search_fields = ('user__username', 'user__email')
+    search_fields = ('user__username', 'user__email', 'company__name')
     readonly_fields = ('created_at', 'updated_at', 'last_login_at', 'storage_used_gb', 'storage_quota_bytes')
     fieldsets = (
-        ('Benutzer', {'fields': ('user', 'role', 'is_active')}),
+        ('Benutzer', {'fields': ('user', 'company', 'role', 'is_active')}),
         ('Speicher', {'fields': ('storage_quota_display', 'storage_quota_bytes', 'storage_used_gb')}),
         (
             'Profil',

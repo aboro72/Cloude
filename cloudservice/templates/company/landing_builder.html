@@ -1,0 +1,413 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Sitebuilder – {{ company.name }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/grapesjs@0.21.13/dist/css/grapes.min.css">
+<style>
+body { overflow: hidden !important; }
+.container-main { margin: 0 !important; padding: 0 !important; }
+.navbar { display: none !important; }
+footer { display: none !important; }
+
+#clb-topbar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
+    height: 52px;
+    background: #1e293b;
+    border-bottom: 1px solid #334155;
+    display: flex; align-items: center; gap: 0; padding: 0 12px;
+    color: #e2e8f0;
+}
+.clb-brand {
+    font-weight: 800; font-size: 0.92rem;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text; margin-right: 12px; white-space: nowrap;
+}
+.clb-company {
+    font-size: 0.82rem; color: #94a3b8; margin-right: 16px;
+}
+.clb-sep { width: 1px; background: #334155; height: 28px; margin: 0 8px; }
+.clb-icon-btn {
+    background: transparent; border: 1px solid #334155; color: #94a3b8;
+    padding: 4px 10px; border-radius: 6px; font-size: 0.78rem;
+    cursor: pointer; transition: all .15s; display: flex; align-items: center; gap: 4px;
+    text-decoration: none;
+}
+.clb-icon-btn:hover { color: #e2e8f0; border-color: #64748b; }
+.clb-spacer { flex: 1; }
+#clb-status {
+    font-size: 0.75rem; padding: 3px 10px; border-radius: 20px; transition: all .3s;
+}
+#clb-status.saved  { background: rgba(34,197,94,.15); color: #86efac; }
+#clb-status.saving { background: rgba(251,191,36,.15); color: #fde68a; }
+#clb-status.error  { background: rgba(239,68,68,.15); color: #fca5a5; }
+.clb-save-btn {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border: none; color: #fff; padding: 6px 18px;
+    border-radius: 6px; font-weight: 700; font-size: 0.82rem;
+    cursor: pointer; transition: opacity .2s;
+}
+.clb-save-btn:hover { opacity: .88; }
+
+#clb-editor {
+    position: fixed; top: 52px; left: 0; right: 0; bottom: 0;
+    display: flex;
+}
+#clb-left {
+    width: 220px; background: #1e293b;
+    border-right: 1px solid #334155;
+    display: flex; flex-direction: column; overflow: hidden;
+}
+#clb-left-tabs { display: flex; border-bottom: 1px solid #334155; }
+.clb-tab {
+    flex: 1; padding: 8px 4px; text-align: center;
+    font-size: 0.7rem; font-weight: 600; color: #64748b;
+    cursor: pointer; border: none; background: transparent;
+    transition: all .15s; text-transform: uppercase; letter-spacing: .06em;
+}
+.clb-tab.active { color: #a5b4fc; border-bottom: 2px solid #667eea; }
+#clb-blocks-panel, #clb-layers-panel { flex: 1; overflow-y: auto; }
+#clb-layers-panel { display: none; }
+
+#clb-canvas { flex: 1; background: #0f172a; overflow: hidden; }
+#gjs { width: 100%; height: 100%; }
+.gjs-editor { height: 100%; }
+.gjs-cv-canvas { top: 0; width: 100%; height: 100%; }
+.gjs-toolbar { z-index: 100; }
+.gjs-block { background: #1e293b; border-color: #334155; color: #e2e8f0; border-radius: 8px; }
+.gjs-block:hover { background: #263448; border-color: #667eea; }
+.gjs-block-category .gjs-title { background: #1e293b; color: #94a3b8; border-color: #334155; font-size: 0.7rem; letter-spacing: .06em; }
+.gjs-one-bg { background: #1e293b; }
+.gjs-two-bg { background: #1e293b; }
+.gjs-pn-panel { background: transparent; border: none; padding: 0; }
+
+#clb-right {
+    width: 240px; background: #1e293b;
+    border-left: 1px solid #334155; overflow-y: auto;
+}
+.gjs-sm-sector { background: transparent; border-color: #334155; }
+.gjs-sm-sector-title { background: #0f172a; color: #94a3b8; border-color: #334155; font-size: 0.7rem; letter-spacing: .06em; }
+.gjs-sm-field, .gjs-field { background: #0f172a; border-color: #334155; color: #e2e8f0; }
+.gjs-field input, .gjs-field select { color: #e2e8f0; background: transparent; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="clb-topbar">
+    <span class="clb-brand">&#x2601;&#xFE0F; Sitebuilder</span>
+    <span class="clb-company">{{ company.name }}</span>
+    <div class="clb-sep"></div>
+
+    <button class="clb-icon-btn" onclick="doUndo()" title="Rückgängig (Ctrl+Z)">
+        <i class="bi bi-arrow-counterclockwise"></i>
+    </button>
+    <button class="clb-icon-btn" onclick="doRedo()" title="Wiederholen (Ctrl+Y)">
+        <i class="bi bi-arrow-clockwise"></i>
+    </button>
+
+    <div class="clb-sep"></div>
+
+    <button class="clb-icon-btn" id="btn-desktop" onclick="setDevice('desktop')" title="Desktop">
+        <i class="bi bi-display"></i>
+    </button>
+    <button class="clb-icon-btn" id="btn-tablet" onclick="setDevice('tablet')" title="Tablet">
+        <i class="bi bi-tablet"></i>
+    </button>
+    <button class="clb-icon-btn" id="btn-mobile" onclick="setDevice('mobile')" title="Mobil">
+        <i class="bi bi-phone"></i>
+    </button>
+
+    <div class="clb-sep"></div>
+
+    <a href="{{ preview_url }}" target="_blank" class="clb-icon-btn" title="Vorschau">
+        <i class="bi bi-eye"></i> Vorschau
+    </a>
+    <a href="{{ back_url }}" class="clb-icon-btn ms-1" title="Zurück zu Einstellungen">
+        <i class="bi bi-gear"></i> Einstellungen
+    </a>
+
+    <div class="clb-spacer"></div>
+
+    <span id="clb-status"></span>
+    <button class="clb-save-btn ms-2" onclick="saveContent()">
+        <i class="bi bi-floppy me-1"></i>Speichern
+    </button>
+</div>
+
+<div id="clb-editor">
+    <div id="clb-left">
+        <div id="clb-left-tabs">
+            <button class="clb-tab active" onclick="switchPanel('blocks', event)">
+                <i class="bi bi-grid-3x3-gap"></i><br>Blöcke
+            </button>
+            <button class="clb-tab" onclick="switchPanel('layers', event)">
+                <i class="bi bi-layers"></i><br>Layer
+            </button>
+        </div>
+        <div id="clb-blocks-panel"></div>
+        <div id="clb-layers-panel"></div>
+    </div>
+
+    <div id="clb-canvas">
+        <div id="gjs"></div>
+    </div>
+
+    <div id="clb-right"></div>
+</div>
+
+<script>
+const SAVE_URL   = "{{ save_url }}";
+const CSRF_TOKEN = "{{ csrf_token }}";
+const INIT_HTML  = "{{ initial_html|escapejs }}";
+const INIT_CSS   = "{{ initial_css|escapejs }}";
+</script>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/grapesjs@0.21.13/dist/grapes.min.js"></script>
+<script>
+'use strict';
+
+var editor = null;
+
+function initEditor() {
+    editor = grapesjs.init({
+        container: '#gjs',
+        height: '100%',
+        storageManager: false,
+        undoManager: { trackComponents: true },
+        blockManager: { appendTo: '#clb-blocks-panel' },
+        layerManager: { appendTo: '#clb-layers-panel' },
+        styleManager: { appendTo: '#clb-right' },
+        traitManager: { appendTo: '#clb-right' },
+        panels: { defaults: [] },
+        deviceManager: {
+            devices: [
+                { name: 'desktop', width: '' },
+                { name: 'tablet',  width: '768px', widthMedia: '992px' },
+                { name: 'mobile',  width: '375px', widthMedia: '480px' },
+            ]
+        },
+        canvas: {
+            styles: [
+                'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css',
+                'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css',
+            ],
+            scripts: [
+                'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js',
+            ],
+            customBadgeLabel: false,
+        },
+        // Landing-Page CSS-Klassen im Canvas verfügbar machen
+        protectedCss: `
+            :root {
+                --primary: {{ company.landing_primary_color|default:"#667eea" }};
+                --secondary: {{ company.landing_secondary_color|default:"#764ba2" }};
+                --grad: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+                --dark: #0f172a; --text: #1e293b; --muted: #64748b;
+                --surface: #f8fafc; --card: #ffffff; --border: #e2e8f0;
+            }
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: var(--text); background: var(--surface); }
+            .lp-section { padding: 5rem 0; }
+            .section-eyebrow {
+                font-size: 0.78rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+                background: var(--grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+                background-clip: text; margin-bottom: 0.6rem;
+            }
+            .section-title { font-size: clamp(1.5rem, 3vw, 2.25rem); font-weight: 800; }
+            .section-sub { color: var(--muted); font-size: 1.05rem; max-width: 580px; line-height: 1.7; }
+            .feature-card {
+                background: var(--card); border-radius: 16px; border: 1px solid var(--border);
+                padding: 1.75rem; height: 100%; transition: box-shadow .2s, transform .2s;
+            }
+            .feature-card:hover { box-shadow: 0 8px 32px rgba(102,126,234,0.15); transform: translateY(-3px); }
+            .feature-icon {
+                width: 48px; height: 48px; border-radius: 12px;
+                background: var(--grad); color: #fff;
+                display: flex; align-items: center; justify-content: center;
+                font-size: 1.35rem; margin-bottom: 1rem;
+            }
+            .feature-card h4 { font-size: 1.05rem; font-weight: 700; margin-bottom: 0.5rem; }
+            .feature-card p { color: var(--muted); font-size: 0.9rem; line-height: 1.65; margin: 0; }
+        `,
+        components: INIT_HTML || '<section class="py-5 text-center"><div class="container"><h1>Willkommen bei ' + '{{ company.name|escapejs }}' + '</h1><p class="lead text-muted">Bearbeite diese Seite mit dem Sitebuilder.</p></div></section>',
+        style: INIT_CSS || '',
+    });
+
+    addBlocks(editor);
+
+    editor.on('load', function() {
+        var root = editor.DomComponents.getWrapper();
+        if (root) {
+            root.set({ open: true });
+            root.components().each(function(c) { c.set({ open: false }); });
+        }
+    });
+
+    document.addEventListener('keydown', function(e) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+            e.preventDefault();
+            saveContent();
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+            e.preventDefault(); doUndo();
+        }
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+            e.preventDefault(); doRedo();
+        }
+    });
+}
+
+function setDevice(d) {
+    if (!editor) return;
+    editor.setDevice(d === 'desktop' ? 'desktop' : d === 'tablet' ? 'tablet' : 'mobile');
+    ['desktop','tablet','mobile'].forEach(function(n) {
+        var btn = document.getElementById('btn-' + n);
+        if (btn) btn.classList.toggle('active', n === d);
+    });
+}
+
+function switchPanel(panel, e) {
+    document.getElementById('clb-blocks-panel').style.display = panel === 'blocks' ? '' : 'none';
+    document.getElementById('clb-layers-panel').style.display = panel === 'layers' ? '' : 'none';
+    document.querySelectorAll('.clb-tab').forEach(function(t) { t.classList.remove('active'); });
+    if (e && e.currentTarget) e.currentTarget.classList.add('active');
+}
+
+function doUndo() { if (editor) editor.UndoManager.undo(); }
+function doRedo() { if (editor) editor.UndoManager.redo(); }
+
+function setStatus(state, text) {
+    var el = document.getElementById('clb-status');
+    if (!el) return;
+    el.className = state;
+    el.textContent = text;
+}
+
+function saveContent() {
+    if (!editor) return;
+    setStatus('saving', 'Wird gespeichert…');
+    var html = editor.getHtml();
+    var css  = editor.getCss();
+    fetch(SAVE_URL, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': CSRF_TOKEN,
+        },
+        body: JSON.stringify({ html: html, css: css }),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.ok) {
+            setStatus('saved', 'Gespeichert');
+            setTimeout(function() { setStatus('', ''); }, 2500);
+        } else {
+            setStatus('error', 'Fehler: ' + (data.error || '?'));
+        }
+    })
+    .catch(function() { setStatus('error', 'Netzwerkfehler'); });
+}
+
+function addBlocks(ed) {
+    var bm = ed.BlockManager;
+    function blk(id, label, cat, icon, html) {
+        bm.add(id, {
+            label: '<div style="font-size:1.4rem;margin-bottom:4px;">' + icon + '</div><div style="font-size:.7rem;">' + label + '</div>',
+            category: cat,
+            content: html,
+        });
+    }
+
+    blk('bs5-hero-dark', 'Hero Dark', 'Hero', '&#x1F9B8;',
+        '<section class="py-5" style="background:#0f172a;color:#fff;min-height:60vh;display:flex;align-items:center;">'
+        + '<div class="container py-4"><div class="col-lg-8">'
+        + '<h1 class="fw-black mb-3" style="font-size:clamp(2rem,5vw,3rem);">Ihr Titel</h1>'
+        + '<p class="mb-4" style="color:#94a3b8;font-size:1.05rem;line-height:1.7;">Ihr Untertitel hier.</p>'
+        + '<a href="#" class="btn btn-lg rounded-pill px-4" style="background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;">Jetzt starten</a>'
+        + '</div></div></section>');
+
+    blk('bs5-hero-light', 'Hero Hell', 'Hero', '&#x2600;&#xFE0F;',
+        '<section class="py-5 bg-white text-center">'
+        + '<div class="container py-4">'
+        + '<h1 class="fw-black mb-3" style="font-size:clamp(2rem,5vw,3rem);">Willkommen</h1>'
+        + '<p class="lead text-muted mb-4">Ihr Untertitel hier.</p>'
+        + '<a href="#" class="btn btn-lg btn-primary rounded-pill px-4">Mehr erfahren</a>'
+        + '</div></section>');
+
+    blk('bs5-features-3col', 'Features 3-Spalten', 'Content', '&#x26A1;',
+        '<section class="py-5" style="background:#f8fafc;"><div class="container">'
+        + '<div class="text-center mb-5"><h2 class="fw-black">Unsere Leistungen</h2>'
+        + '<p class="text-muted mx-auto" style="max-width:540px;">Kurze Beschreibung.</p></div>'
+        + '<div class="row g-4">'
+        + '<div class="col-sm-6 col-lg-4"><div class="h-100 p-4 bg-white border rounded-4 text-center"><div class="d-inline-flex align-items-center justify-content-center rounded-3 mb-3" style="width:56px;height:56px;background:linear-gradient(135deg,#667eea,#764ba2);"><i class="bi bi-star-fill text-white fs-4"></i></div><h5 class="fw-bold">Feature 1</h5><p class="text-muted small mb-0">Beschreibung.</p></div></div>'
+        + '<div class="col-sm-6 col-lg-4"><div class="h-100 p-4 bg-white border rounded-4 text-center"><div class="d-inline-flex align-items-center justify-content-center rounded-3 mb-3" style="width:56px;height:56px;background:linear-gradient(135deg,#667eea,#764ba2);"><i class="bi bi-lightning-fill text-white fs-4"></i></div><h5 class="fw-bold">Feature 2</h5><p class="text-muted small mb-0">Beschreibung.</p></div></div>'
+        + '<div class="col-sm-6 col-lg-4"><div class="h-100 p-4 bg-white border rounded-4 text-center"><div class="d-inline-flex align-items-center justify-content-center rounded-3 mb-3" style="width:56px;height:56px;background:linear-gradient(135deg,#667eea,#764ba2);"><i class="bi bi-shield-fill text-white fs-4"></i></div><h5 class="fw-bold">Feature 3</h5><p class="text-muted small mb-0">Beschreibung.</p></div></div>'
+        + '</div></div></section>');
+
+    blk('bs5-cards-row', '3 Karten', 'Content', '&#x1F0CF;',
+        '<section class="py-5" style="background:#f8fafc;"><div class="container"><div class="row g-4">'
+        + '<div class="col-md-4"><div class="card h-100 border-0 shadow-sm rounded-4 overflow-hidden"><div style="height:160px;background:linear-gradient(135deg,#667eea,#764ba2);"></div><div class="card-body"><h5 class="card-title fw-bold">Karte 1</h5><p class="card-text text-muted small">Beschreibungstext.</p><a href="#" class="btn btn-sm btn-primary rounded-pill">Mehr</a></div></div></div>'
+        + '<div class="col-md-4"><div class="card h-100 border-0 shadow-sm rounded-4 overflow-hidden"><div style="height:160px;background:linear-gradient(135deg,#764ba2,#667eea);"></div><div class="card-body"><h5 class="card-title fw-bold">Karte 2</h5><p class="card-text text-muted small">Beschreibungstext.</p><a href="#" class="btn btn-sm btn-primary rounded-pill">Mehr</a></div></div></div>'
+        + '<div class="col-md-4"><div class="card h-100 border-0 shadow-sm rounded-4 overflow-hidden"><div style="height:160px;background:linear-gradient(135deg,#667eea,#764ba2);"></div><div class="card-body"><h5 class="card-title fw-bold">Karte 3</h5><p class="card-text text-muted small">Beschreibungstext.</p><a href="#" class="btn btn-sm btn-primary rounded-pill">Mehr</a></div></div></div>'
+        + '</div></div></section>');
+
+    blk('bs5-text-block', 'Text Sektion', 'Content', '&#x1F4DD;',
+        '<section class="py-5 bg-white"><div class="container"><div class="row justify-content-center"><div class="col-lg-8 text-center">'
+        + '<h2 class="fw-black mb-3">Überschrift</h2>'
+        + '<p class="text-muted lead mb-4">Ihr Text hier.</p>'
+        + '<a href="#" class="btn btn-primary rounded-pill px-4">Mehr erfahren</a>'
+        + '</div></div></div></section>');
+
+    blk('bs5-text-image-right', 'Text + Bild rechts', 'Content', '&#x2192;&#xFE0F;',
+        '<section class="py-5 bg-white"><div class="container"><div class="row align-items-center g-5">'
+        + '<div class="col-lg-6"><h2 class="fw-black mb-3">Überschrift</h2>'
+        + '<p class="text-muted mb-4" style="line-height:1.7;">Beschreibung.</p>'
+        + '<a href="#" class="btn btn-primary rounded-pill px-4">Aktion</a></div>'
+        + '<div class="col-lg-6"><div class="rounded-4 d-flex align-items-center justify-content-center" style="background:#f1f5f9;border:2px dashed #cbd5e1;min-height:280px;">'
+        + '<div class="text-center text-muted"><i class="bi bi-image" style="font-size:3rem;"></i><p class="mt-2 small">Bild einfügen</p></div></div></div>'
+        + '</div></div></section>');
+
+    blk('bs5-stats-gradient', 'Stats Gradient', 'Stats', '&#x1F4CA;',
+        '<section class="py-5 text-white text-center" style="background:linear-gradient(135deg,#667eea,#764ba2);"><div class="container"><div class="row g-4">'
+        + '<div class="col-6 col-md-3"><div class="fw-black" style="font-size:2.5rem;">100%</div><div style="opacity:.85;">Zuverl&auml;ssigkeit</div></div>'
+        + '<div class="col-6 col-md-3"><div class="fw-black" style="font-size:2.5rem;">&infin;</div><div style="opacity:.85;">Skalierbarkeit</div></div>'
+        + '<div class="col-6 col-md-3"><div class="fw-black" style="font-size:2.5rem;">24/7</div><div style="opacity:.85;">Verf&uuml;gbarkeit</div></div>'
+        + '<div class="col-6 col-md-3"><div class="fw-black" style="font-size:2.5rem;">0 &euro;</div><div style="opacity:.85;">Grundkosten</div></div>'
+        + '</div></div></section>');
+
+    blk('bs5-cta', 'Call to Action', 'CTA', '&#x1F3AF;',
+        '<section class="py-5 text-center" style="background:#0f172a;color:#fff;">'
+        + '<div class="container"><h2 class="fw-black mb-3">Bereit anzufangen?</h2>'
+        + '<p style="color:#94a3b8;font-size:1.05rem;margin-bottom:2rem;">Jetzt loslegen und mehr erfahren.</p>'
+        + '<a href="#" class="btn btn-lg rounded-pill px-4" style="background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;">'
+        + '<i class="bi bi-rocket-takeoff me-2"></i>Jetzt starten</a>'
+        + '</div></section>');
+
+    blk('bs5-accordion', 'FAQ', 'Content', '&#x2753;',
+        '<section class="py-5" style="background:#f8fafc;"><div class="container">'
+        + '<div class="text-center mb-5"><h2 class="fw-black">Häufige Fragen</h2></div>'
+        + '<div class="row justify-content-center"><div class="col-lg-8">'
+        + '<div class="accordion" id="faqAcc">'
+        + '<div class="accordion-item border rounded-3 mb-2"><h2 class="accordion-header"><button class="accordion-button fw-semibold" type="button" data-bs-toggle="collapse" data-bs-target="#faq1">Frage 1?</button></h2><div id="faq1" class="accordion-collapse collapse show" data-bs-parent="#faqAcc"><div class="accordion-body text-muted">Antwort hier.</div></div></div>'
+        + '<div class="accordion-item border rounded-3 mb-2"><h2 class="accordion-header"><button class="accordion-button fw-semibold collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">Frage 2?</button></h2><div id="faq2" class="accordion-collapse collapse" data-bs-parent="#faqAcc"><div class="accordion-body text-muted">Antwort hier.</div></div></div>'
+        + '</div></div></div></div></section>');
+
+    blk('bs5-footer', 'Footer', 'Navigation', '&#x1F4BB;',
+        '<footer style="background:#020617;color:#475569;padding:1.75rem 0;font-size:.88rem;">'
+        + '<div class="container d-flex flex-column flex-md-row justify-content-between align-items-center gap-2">'
+        + '<span>&copy; 2026 <strong style="color:#94a3b8;">{{ company.name|escapejs }}</strong></span>'
+        + '<span><a href="#" style="color:#64748b;text-decoration:none;">Impressum</a></span>'
+        + '</div></footer>');
+
+    blk('bs5-divider', 'Trennlinie', 'Layout', '&#x2015;',
+        '<hr class="my-0" style="border-color:#e2e8f0;">');
+
+    blk('bs5-spacer', 'Abstand', 'Layout', '&#x2195;&#xFE0F;',
+        '<div style="height:80px;"></div>');
+}
+
+initEditor();
+</script>
+{% endblock %}

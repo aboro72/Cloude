@@ -1,60 +1,100 @@
 import json
+
 from django.urls import reverse
-from plugins.ui import PluginMenuItemProvider, PluginPageProvider
+
 from plugins.status import is_plugin_enabled
+from plugins.ui import PluginMenuItemProvider, PluginPageProvider
+
 
 DEFAULTS = {
     "color_primary": "#667eea",
     "color_secondary": "#764ba2",
-    "hero_badge": "Moderner Cloud-Arbeitsbereich",
-    "hero_title_line1": "Dokumente. Teams.",
-    "hero_title_line2": "News. Alles an einem Ort.",
+    "hero_badge": "Moderner Firmen-Workspace",
+    "hero_title_line1": "Firmen. Teams.",
+    "hero_title_line2": "Mitarbeiter. Alles an einem Ort.",
     "hero_subtitle": (
-        "CloudService vereint Dateiablage, Team-Zusammenarbeit, internes Newsportal "
-        "und persönliche Arbeitsbereiche – direkt im Browser, ohne externe Tools."
+        "CloudService vereint mehrere Firmen auf einer Plattform: mit eigenem "
+        "Verzeichnis oder eigener Subdomain pro Firma, Team-Bereichen, "
+        "Mitarbeiterverzeichnis und gemeinsamen Arbeitsbereichen."
     ),
     "hero_cta_primary": "Jetzt loslegen",
     "hero_cta_secondary": "Anmelden",
     "stats": [
         {"value": "100%", "label": "Self-hosted & datenschutzkonform"},
-        {"value": "∞",    "label": "Benutzer & Teams"},
-        {"value": "REST", "label": "Vollständige API inklusive"},
-        {"value": "0 €",  "label": "Keine Cloud-Abo-Kosten"},
+        {"value": "Multi", "label": "Firmen, Teams & Mitarbeiter"},
+        {"value": "REST", "label": "Vollstaendige API inklusive"},
+        {"value": "5", "label": "Mitarbeiter pro Firma kostenfrei"},
     ],
-    "features_title":    "Alles was ein modernes Intranet braucht",
+    "features_title": "Alles was ein modernes Firmenportal braucht",
     "features_subtitle": (
-        "Von der persönlichen Dateiablage bis zu teamweiten Newsartikeln – "
-        "CloudService wächst mit Ihren Anforderungen."
+        "Von Firmen-Workspaces ueber Teams bis zum Mitarbeiterverzeichnis - "
+        "CloudService waechst mit mehreren Unternehmen auf einer Plattform."
     ),
     "features": [
-        {"icon": "bi-folder2-open",  "title": "Cloud-Speicher",      "text": "Dateien und Ordner sicher speichern, versionieren und von überall abrufen – mit Freigabe-Links und Zugriffssteuerung."},
-        {"icon": "bi-people-fill",   "title": "Team Sites",           "text": "Dedizierte Arbeitsbereiche für jedes Team oder Projekt – mit Dokumentbibliothek, News und Mitgliederverwaltung."},
-        {"icon": "bi-newspaper",     "title": "Internes Newsportal",  "text": "Unternehmensmeldungen im Magazine-Layout mit Kategorien, Tags, Reaktionen und Kommentarfunktion."},
-        {"icon": "bi-grid-1x2-fill", "title": "MySite Hub",           "text": "Persönlicher Arbeitsbereich im SharePoint-Stil: Dateien, Team-News, Freigaben und Abteilungsseiten auf einen Blick."},
-        {"icon": "bi-share-fill",    "title": "Flexibles Sharing",    "text": "Dateien per Direktlink, Passwortschutz, Ablaufdatum oder direkt mit Benutzern und Gruppen teilen."},
-        {"icon": "bi-plug-fill",     "title": "Plugin-System",        "text": "Erweiterbar durch Plugins: neue Seiten, Menüeinträge und Widgets ohne Änderung am Kernsystem einspielbar."},
+        {
+            "icon": "bi-building",
+            "title": "Firmen-Workspaces",
+            "text": "Jede Firma erhaelt einen eigenen Bereich - wahlweise als Verzeichnis oder Subdomain mit klarer Trennung.",
+        },
+        {
+            "icon": "bi-folder2-open",
+            "title": "Cloud-Speicher",
+            "text": "Dateien und Ordner sicher speichern, versionieren und von ueberall abrufen - mit Freigabe-Links und Zugriffssteuerung.",
+        },
+        {
+            "icon": "bi-people-fill",
+            "title": "Team Sites",
+            "text": "Dedizierte Arbeitsbereiche fuer jedes Team oder Projekt - mit Dokumentbibliothek, News und Mitgliederverwaltung.",
+        },
+        {
+            "icon": "bi-person-badge",
+            "title": "Mitarbeiterverzeichnis",
+            "text": "Mitarbeiter, Rollen, Abteilungen und Zustaendigkeiten strukturiert pro Firma verwalten.",
+        },
+        {
+            "icon": "bi-grid-1x2-fill",
+            "title": "MySite Hub",
+            "text": "Persoenlicher Arbeitsbereich im SharePoint-Stil: Dateien, Team-News, Freigaben und Abteilungsseiten auf einen Blick.",
+        },
+        {
+            "icon": "bi-cash-coin",
+            "title": "5 Mitarbeiter frei",
+            "text": "Bis zu 5 Mitarbeiter pro registrierter Firma sind kostenfrei enthalten - ideal fuer den Einstieg.",
+        },
     ],
     "steps_title": "In drei Schritten startklar",
     "steps": [
-        {"title": "Konto registrieren", "text": "Benutzernamen und Passwort eingeben – in Sekunden einsatzbereit."},
-        {"title": "MySite Hub öffnen",  "text": "Der persönliche Arbeitsbereich ist sofort verfügbar – Dateien, News und mehr."},
-        {"title": "Team einladen",      "text": "Team Sites erstellen, Mitglieder hinzufügen und gemeinsam arbeiten."},
+        {
+            "title": "Firma registrieren",
+            "text": "Firmennamen anlegen und Verzeichnis oder Subdomain fuer den Workspace festlegen.",
+        },
+        {
+            "title": "Workspace aktivieren",
+            "text": "Der Firmenbereich steht sofort fuer Teams, Dateien und News bereit.",
+        },
+        {
+            "title": "Mitarbeiter einladen",
+            "text": "Bis zu 5 Mitarbeiter kostenfrei hinzufuegen und gemeinsam arbeiten.",
+        },
     ],
-    "cta_title":    "Bereit für Ihren Cloud-Arbeitsbereich?",
-    "cta_subtitle": "Kostenlos starten – kein Abo, keine versteckten Kosten, vollständig self-hosted.",
-    "cta_primary":  "Jetzt registrieren",
+    "cta_title": "Bereit fuer Ihren Firmen-Workspace?",
+    "cta_subtitle": (
+        "Mehrere Firmen registrieren, eigene Bereiche vergeben und mit bis zu 5 "
+        "Mitarbeitern kostenfrei starten."
+    ),
+    "cta_primary": "Jetzt registrieren",
     "cta_secondary": "Bereits registriert? Anmelden",
-    "footer_company":       "CloudService – ABoro IT",
-    "footer_developer":     "Andreas Borowczak",
+    "footer_company": "CloudService - ABoro IT",
+    "footer_developer": "Andreas Borowczak",
     "footer_developer_url": "https://aboro-it.net",
 }
 
 MYSITE_WIDGET_DEFAULTS = [
-    {"id": "news",      "label": "Neuigkeiten",       "icon": "bi-newspaper",    "visible": True},
-    {"id": "files",     "label": "Kürzliche Dateien", "icon": "bi-folder2-open", "visible": True},
-    {"id": "team_news", "label": "Team News",          "icon": "bi-people-fill",  "visible": True},
-    {"id": "teams",     "label": "Abteilungsseiten",   "icon": "bi-building",     "visible": True},
-    {"id": "activity",  "label": "Aktivitäten",        "icon": "bi-activity",     "visible": False},
+    {"id": "news", "label": "Neuigkeiten", "icon": "bi-newspaper", "visible": True},
+    {"id": "files", "label": "Kuerzliche Dateien", "icon": "bi-folder2-open", "visible": True},
+    {"id": "team_news", "label": "Team News", "icon": "bi-people-fill", "visible": True},
+    {"id": "teams", "label": "Abteilungsseiten", "icon": "bi-building", "visible": True},
+    {"id": "activity", "label": "Aktivitaeten", "icon": "bi-activity", "visible": False},
 ]
 
 
@@ -62,6 +102,7 @@ def get_landing_settings() -> dict:
     """Load settings from DB, merged with defaults. Never raises."""
     try:
         from plugins.models import Plugin
+
         plugin = Plugin.objects.get(slug='landing-editor')
         merged = dict(DEFAULTS)
         merged.update(plugin.settings or {})
@@ -91,7 +132,7 @@ def get_mysite_widgets() -> list:
 
 class LandingEditorMenuProvider(PluginMenuItemProvider):
     menu_label = 'Landingpage'
-    menu_icon  = 'bi-layout-text-window-reverse'
+    menu_icon = 'bi-layout-text-window-reverse'
     menu_order = 90
 
     def get_url(self) -> str:
@@ -106,9 +147,9 @@ class LandingEditorMenuProvider(PluginMenuItemProvider):
 
 
 class LandingEditorPageProvider(PluginPageProvider):
-    page_slug  = 'landing-editor'
+    page_slug = 'landing-editor'
     page_title = 'Landing Page Editor'
-    page_icon  = 'bi-layout-text-window-reverse'
+    page_icon = 'bi-layout-text-window-reverse'
 
     def get_template_name(self) -> str:
         return 'landing_editor/builder.html'

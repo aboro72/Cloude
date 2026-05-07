@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}Neuen Kanal erstellen – {{ company.name }}{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="max-width:520px;">
+    <div class="d-flex align-items-center gap-2 mb-4">
+        <a href="{% url 'messenger:home' workspace_key=company.workspace_key %}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <h1 class="h4 mb-0">Neuen Kanal erstellen</h1>
+    </div>
+
+    {% if messages %}
+        {% for msg in messages %}
+        <div class="alert alert-warning">{{ msg }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-4">
+            <form method="post">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Kanalname <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-hash"></i></span>
+                        <input type="text" name="name" class="form-control" placeholder="z.B. allgemein" required autofocus>
+                    </div>
+                    <div class="form-text">Nur Buchstaben, Zahlen und Bindestriche.</div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Beschreibung</label>
+                    <input type="text" name="description" class="form-control" placeholder="Worum geht es in diesem Kanal?">
+                </div>
+                <div class="mb-4">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="is_private" id="is_private">
+                        <label class="form-check-label" for="is_private">
+                            <strong>Privater Kanal</strong>
+                            <div class="text-muted" style="font-size:0.82rem;">Nur per Einladung zugänglich.</div>
+                        </label>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-plus-lg me-1"></i> Kanal erstellen
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

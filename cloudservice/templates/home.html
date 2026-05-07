@@ -198,11 +198,11 @@
                     <i class="bi bi-stars"></i> {{ lp.hero_badge|default:"Moderner Cloud-Arbeitsbereich" }}
                 </div>
                 <h1 class="hero-title">
-                    {{ lp.hero_title_line1|default:"Dokumente. Teams." }}<br>
-                    <span class="grad">{{ lp.hero_title_line2|default:"News. Alles an einem Ort." }}</span>
+                    {{ lp.hero_title_line1|default:"Firmen. Teams." }}<br>
+                    <span class="grad">{{ lp.hero_title_line2|default:"Mitarbeiter. Alles an einem Ort." }}</span>
                 </h1>
                 <p class="hero-sub">
-                    {{ lp.hero_subtitle|default:"CloudService vereint Dateiablage, Team-Zusammenarbeit, internes Newsportal und persönliche Arbeitsbereiche – direkt im Browser, ohne externe Tools." }}
+                    {{ lp.hero_subtitle|default:"CloudService vereint mehrere Firmen auf einer Plattform: mit eigenem Verzeichnis oder eigener Subdomain pro Firma, Team-Bereichen, Mitarbeiterverzeichnis und gemeinsamen Arbeitsbereichen." }}
                 </p>
                 <div class="d-flex gap-3 flex-wrap">
                     <a href="/accounts/register/" class="btn-hero-primary">
@@ -253,9 +253,9 @@
                 {% endfor %}
             {% else %}
                 <div class="col-6 col-md-3"><div class="stat-num">100%</div><div class="stat-label">Self-hosted &amp; datenschutzkonform</div></div>
-                <div class="col-6 col-md-3"><div class="stat-num">∞</div><div class="stat-label">Benutzer &amp; Teams</div></div>
+                <div class="col-6 col-md-3"><div class="stat-num">Multi</div><div class="stat-label">Firmen &amp; Teams</div></div>
                 <div class="col-6 col-md-3"><div class="stat-num">REST</div><div class="stat-label">Vollständige API inklusive</div></div>
-                <div class="col-6 col-md-3"><div class="stat-num">0 €</div><div class="stat-label">Keine Cloud-Abo-Kosten</div></div>
+                <div class="col-6 col-md-3"><div class="stat-num">5</div><div class="stat-label">Mitarbeiter pro Firma kostenfrei</div></div>
             {% endif %}
         </div>
     </div>
@@ -266,8 +266,8 @@
     <div class="container">
         <div class="text-center mb-5">
             <div class="section-eyebrow">Funktionen</div>
-            <h2 class="section-title">{{ lp.features_title|default:"Alles was ein modernes Intranet braucht" }}</h2>
-            <p class="section-sub mx-auto">{{ lp.features_subtitle|default:"Von der persönlichen Dateiablage bis zu teamweiten Newsartikeln – CloudService wächst mit Ihren Anforderungen." }}</p>
+            <h2 class="section-title">{{ lp.features_title|default:"Alles was ein modernes Firmenportal braucht" }}</h2>
+            <p class="section-sub mx-auto">{{ lp.features_subtitle|default:"Von Firmen-Workspaces über Teams bis zum Mitarbeiterverzeichnis – CloudService wächst mit mehreren Unternehmen auf einer Plattform." }}</p>
         </div>
         <div class="row g-4">
             {% if lp.features %}
@@ -281,9 +281,9 @@
                 </div>
                 {% endfor %}
             {% else %}
-                <div class="col-sm-6 col-lg-4"><div class="feature-card"><div class="feature-icon"><i class="bi bi-folder2-open"></i></div><h4>Cloud-Speicher</h4><p>Dateien und Ordner sicher speichern, versionieren und von überall abrufen.</p></div></div>
-                <div class="col-sm-6 col-lg-4"><div class="feature-card"><div class="feature-icon"><i class="bi bi-people-fill"></i></div><h4>Team Sites</h4><p>Dedizierte Arbeitsbereiche für jedes Team oder Projekt.</p></div></div>
-                <div class="col-sm-6 col-lg-4"><div class="feature-card"><div class="feature-icon"><i class="bi bi-newspaper"></i></div><h4>Internes Newsportal</h4><p>Unternehmensmeldungen im Magazine-Layout.</p></div></div>
+                <div class="col-sm-6 col-lg-4"><div class="feature-card"><div class="feature-icon"><i class="bi bi-building"></i></div><h4>Firmen-Workspaces</h4><p>Jede Firma erhält einen eigenen Bereich als Verzeichnis oder Subdomain.</p></div></div>
+                <div class="col-sm-6 col-lg-4"><div class="feature-card"><div class="feature-icon"><i class="bi bi-people-fill"></i></div><h4>Teams &amp; Mitarbeiter</h4><p>Teams, Rollen und Mitarbeiter lassen sich strukturiert pro Firma verwalten.</p></div></div>
+                <div class="col-sm-6 col-lg-4"><div class="feature-card"><div class="feature-icon"><i class="bi bi-cash-coin"></i></div><h4>5 Mitarbeiter frei</h4><p>Bis zu 5 Mitarbeiter pro Firma sind im Einstieg kostenfrei enthalten.</p></div></div>
             {% endif %}
         </div>
     </div>
@@ -306,9 +306,9 @@
                 </div>
                 {% endfor %}
             {% else %}
-                <div class="col-md-4"><div class="step-num">1</div><h5 class="text-white fw-bold">Konto registrieren</h5><p class="text-secondary">Benutzernamen und Passwort eingeben – in Sekunden einsatzbereit.</p></div>
-                <div class="col-md-4"><div class="step-num">2</div><h5 class="text-white fw-bold">MySite Hub öffnen</h5><p class="text-secondary">Der persönliche Arbeitsbereich ist sofort verfügbar.</p></div>
-                <div class="col-md-4"><div class="step-num">3</div><h5 class="text-white fw-bold">Team einladen</h5><p class="text-secondary">Team Sites erstellen und gemeinsam arbeiten.</p></div>
+                <div class="col-md-4"><div class="step-num">1</div><h5 class="text-white fw-bold">Firma registrieren</h5><p class="text-secondary">Firmennamen anlegen und Verzeichnis oder Subdomain festlegen.</p></div>
+                <div class="col-md-4"><div class="step-num">2</div><h5 class="text-white fw-bold">Workspace aktivieren</h5><p class="text-secondary">Der Firmenbereich ist sofort für Teams, Dateien und News verfügbar.</p></div>
+                <div class="col-md-4"><div class="step-num">3</div><h5 class="text-white fw-bold">Mitarbeiter einladen</h5><p class="text-secondary">Bis zu 5 Mitarbeiter kostenfrei hinzufügen und gemeinsam arbeiten.</p></div>
             {% endif %}
         </div>
     </div>
@@ -317,8 +317,8 @@
 <!-- ══ Final CTA ═════════════════════════════════════════ -->
 <section class="lp-cta">
     <div class="container">
-        <h2>{{ lp.cta_title|default:"Bereit für Ihren Cloud-Arbeitsbereich?" }}</h2>
-        <p>{{ lp.cta_subtitle|default:"Kostenlos starten – kein Abo, keine versteckten Kosten, vollständig self-hosted." }}</p>
+        <h2>{{ lp.cta_title|default:"Bereit für Ihren Firmen-Workspace?" }}</h2>
+        <p>{{ lp.cta_subtitle|default:"Mehrere Firmen registrieren, eigene Bereiche vergeben und mit bis zu 5 Mitarbeitern kostenfrei starten." }}</p>
         <div class="d-flex gap-3 justify-content-center flex-wrap">
             <a href="/accounts/register/" class="btn-hero-primary" style="font-size:1.05rem; padding:0.9rem 2.25rem;">
                 <i class="bi bi-rocket-takeoff"></i> {{ lp.cta_primary|default:"Jetzt registrieren" }}

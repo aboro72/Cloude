@@ -37,6 +37,8 @@ Ein moderner Cloud-Speicherdienst auf Basis von Django 6, Gunicorn, Daphne und C
 - **Dateivorschau** – Bilder, Videos, Audio, PDFs direkt im Browser
 - **Papierkorb** – Soft-Delete mit Wiederherstellung
 - **Freigaben** – Öffentliche Links mit Passwortschutz und Ablaufdatum
+- **Messenger** – Echtzeit-Chat mit Kanälen, Direktnachrichten, Reaktionen und Einladungslinks
+- **Video-Call** – P2P-Videoanrufe direkt im DM-Fenster (Jitsi Meet, austauschbar)
 - **Plugin-System** – Erweiterbar durch Hook-basierte Plugins
 - **WebSocket** – Echtzeit-Benachrichtigungen über Daphne/Channels
 - **REST-API** – Vollständige API mit JWT-Authentifizierung
@@ -53,6 +55,7 @@ Cloude/
 │   ├── api/               # REST-API (DRF)
 │   ├── config/            # Django-Konfiguration (settings, urls, wsgi, asgi)
 │   ├── core/              # Dashboard, WebSocket-Consumer, Celery-Tasks
+│   ├── messenger/         # Echtzeit-Messenger (Kanäle, DMs, Video-Calls)
 │   ├── plugins/           # Plugin-System (Loader, Hooks, Admin)
 │   ├── sharing/           # Dateifreigaben & öffentliche Links
 │   ├── storage/           # Dateispeicher-Verwaltung
@@ -204,6 +207,176 @@ tail -f /var/log/cloude-autoupdate.log
 ### Intervall anpassen
 
 In `auto-update.timer` die Zeile `OnUnitActiveSec=5min` ändern (z.B. `15min`, `1h`).
+
+---
+
+## Messenger
+
+Der Messenger ist workspace-basiert und an das Firmenprofil (`Company`) geknüpft. Jede Firma hat einen eigenen Namespace über den `workspace_key`.
+
+### Funktionen
+
+| Feature | Beschreibung |
+|---|---|
+| Kanäle | Öffentliche und private Gruppenräume |
+| Direktnachrichten | 1:1-Chat zwischen Workspace-Mitgliedern |
+| Reaktionen | Emoji-Reaktionen auf Nachrichten |
+| Antworten | Thread-ähnliche Antworten auf einzelne Nachrichten |
+| Einladungslinks | Temporäre Links mit Nutzungslimit und Ablaufdatum |
+| Präsenz | Online/Offline-Status via WebSocket |
+| Video-Call | Integrierter Videoanruf direkt im DM-Fenster |
+
+### URL-Schema
+
+```
+/<workspace_key>/messenger/                        # Übersicht
+/<workspace_key>/messenger/channel/<slug>/         # Kanal-/Gruppenraum
+/<workspace_key>/messenger/dm/<username>/          # Direktnachricht öffnen/erstellen
+/<workspace_key>/messenger/channel/create/        # Neuen Kanal anlegen
+/messenger/invite/<token>/                         # Einladungslink einlösen
+```
+
+### Video-Call (Jitsi) in DM-Räumen
+
+Video-Calls sind in DM-Räumen über den "Video-Call"-Button im Header verfügbar. Die Integration nutzt aktuell `meet.jit.si` als öffentlichen Server.
+
+**Auf eigene Jitsi-Instanz umziehen:**
+
+In `templates/messenger/messenger.html` eine Zeile ändern:
+
+```javascript
+// vorher:
+jitsiApi = new JitsiMeetExternalAPI('meet.jit.si', { ... });
+
+// nachher:
+jitsiApi = new JitsiMeetExternalAPI('jitsi.deine-domain.de', { ... });
+```
+
+Selbst gehostete Jitsi-Instanz aufsetzen (Docker):
+
+```bash
+git clone https://github.com/jitsi/docker-jitsi-meet
+cd docker-jitsi-meet
+cp env.example .env
+# .env anpassen (PUBLIC_URL, Passwörter etc.)
+docker compose up -d
+```
+
+---
+
+## Meetings (Jitsi)
+
+Geplante und spontane Video-Meetings, workspace-gebunden an das `Company`-Modell.
+Konfiguration über `.env`: `JITSI_URL`, `JITSI_APP_ID`, `JITSI_APP_SECRET`.
+
+### Features
+
+| Feature | Beschreibung |
+|---|---|
+| Meeting planen | Titel, Beschreibung, Start/Ende, Eingeladene auswählen |
+| Raum erst beim Start | Jitsi-Raumname wird erst generiert wenn "Starten" geklickt wird |
+| Meeting-Seite | Eingebetteter Jitsi-Call, kein Tab-Wechsel nötig |
+| Nach Meeting → MySite | Nach Verlassen oder Auflegen automatischer Redirect zur MySite |
+| MySite-Widget | Laufende & geplante Meetings direkt auf der MySite sichtbar |
+| API | Vollständige REST-API für externe Clients (siehe unten) |
+
+### URL-Schema
+
+```
+/meetings/                        # Übersicht: laufend / geplant / vergangen
+/meetings/schedule/               # POST: Meeting anlegen
+/meetings/<id>/start/             # POST: Meeting starten (Raum wird erstellt)
+/meetings/<id>/join/              # GET: laufendem Meeting beitreten → Room-Seite
+/meetings/<id>/room/              # Meeting-Room mit eingebettetem Jitsi
+/meetings/<id>/end/               # POST: Meeting beenden
+/meetings/<id>/cancel/            # POST: Meeting absagen
+```
+
+### Meeting-Lebenszyklus
+
+```
+planned → (start) → running → (end) → ended
+planned → (cancel) → cancelled
+```
+
+Der Jitsi-Raumname (`room_name`) bleibt leer bis `start()` aufgerufen wird.
+Erst dann wird ein deterministischer Slug aus Titel + UUID-Suffix generiert.
+
+### MySite-Widget
+
+Das Widget `"Meine Meetings"` erscheint auf der MySite automatisch,
+sobald mindestens ein laufendes oder geplantes Meeting für den Nutzer existiert.
+Eingebaut in `plugins/installed/mysite_hub/providers.py` (`_build_upcoming_meetings`).
+
+---
+
+## REST-API
+
+Basis-URL: `/api/`  
+Authentifizierung: JWT (`/api/auth/token/`)  
+Dokumentation: `/api/docs/` (Swagger) · `/api/redoc/`
+
+### Endpunkte-Übersicht
+
+| Ressource | Pfad | Methoden |
+|---|---|---|
+| Dateien | `/api/files/` | GET, POST, PATCH, DELETE |
+| Ordner | `/api/folders/` | GET, POST, PATCH, DELETE |
+| Freigaben | `/api/shares/` | GET, POST, PATCH, DELETE |
+| Public Links | `/api/public-links/` | GET, POST, PATCH, DELETE |
+| Suche | `/api/search/?q=` | GET |
+| Storage-Quota | `/api/storage/quota/` | GET |
+| Benachrichtigungen | `/api/notifications/` | GET |
+| Abteilungen | `/api/departments/` | GET |
+| Team Sites | `/api/team-sites/` | GET |
+| Kanban-Boards | `/api/boards/` | GET |
+| Tasks | `/api/tasks/` | GET |
+| News-Kategorien | `/api/news/categories/` | GET |
+| News-Artikel | `/api/news/articles/` | GET |
+| **Meetings** | `/api/meetings/` | GET, POST, PATCH, DELETE |
+| Messenger-Räume | `/api/messenger/rooms/` | GET, POST |
+| Nachrichten | `/api/messenger/rooms/{id}/messages/` | GET, POST, PATCH, DELETE |
+| Direktnachricht | `/api/messenger/direct/` | POST |
+| Chat-Einladungen | `/api/messenger/invites/{token}/` | GET |
+
+### Meeting-API im Detail
+
+```
+GET    /api/meetings/                    # eigene Meetings (Organisator oder Eingeladener)
+GET    /api/meetings/?status=planned     # nach Status filtern (planned/running/ended/cancelled)
+POST   /api/meetings/                    # Meeting planen
+GET    /api/meetings/{id}/               # Meeting-Details
+PATCH  /api/meetings/{id}/               # Titel/Beschreibung/Zeiten ändern
+DELETE /api/meetings/{id}/               # Meeting löschen
+POST   /api/meetings/{id}/start/         # Meeting starten
+POST   /api/meetings/{id}/end/           # Meeting beenden
+POST   /api/meetings/{id}/cancel/        # Meeting absagen
+GET    /api/meetings/{id}/join_url/      # Jitsi-JWT + Join-URL abrufen (nur running)
+```
+
+**Beispiel — Meeting planen:**
+
+```json
+POST /api/meetings/
+{
+  "title": "Wöchentliches Standup",
+  "description": "15-Minuten-Update",
+  "scheduled_start": "2026-05-10T09:00:00",
+  "scheduled_end":   "2026-05-10T09:15:00",
+  "invitee_ids": [3, 7, 12]
+}
+```
+
+**Beispiel — Join-URL abrufen:**
+
+```json
+GET /api/meetings/42/join_url/
+→ {
+    "token": "eyJ...",
+    "url": "https://meet.aborosoft.com/standup-a1b2c3?jwt=eyJ...",
+    "room_name": "standup-a1b2c3"
+  }
+```
 
 ---
 

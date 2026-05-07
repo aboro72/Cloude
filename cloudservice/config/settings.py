@@ -71,6 +71,8 @@ LOCAL_APPS = [
     'tasks_board.apps.TasksBoardConfig',
     'forms_builder.apps.FormsBuilderConfig',
     'departments.apps.DepartmentsConfig',
+    'messenger.apps.MessengerConfig',
+    'jitsi.apps.JitsiConfig',
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -122,16 +124,33 @@ WSGI_APPLICATION = 'config.wsgi.application'
 ASGI_APPLICATION = 'config.asgi.application'
 
 # Database
-if DEBUG:
-    # Development: Use SQLite for simplicity
+DB_ENGINE = config('DB_ENGINE', default='sqlite')
+
+if DB_ENGINE == 'sqlite':
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+            'NAME': config('SQLITE_PATH', default=os.path.join(BASE_DIR, 'db.sqlite3')),
+        }
+    }
+elif DB_ENGINE == 'mysql':
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': config('DB_NAME', default='cloudservice'),
+            'USER': config('DB_USER', default='root'),
+            'PASSWORD': config('DB_PASSWORD', default=''),
+            'HOST': config('DB_HOST', default='127.0.0.1'),
+            'PORT': config('DB_PORT', default='3306'),
+            'ATOMIC_REQUESTS': True,
+            'CONN_MAX_AGE': 600,
+            'OPTIONS': {
+                'connect_timeout': 10,
+                'charset': 'utf8mb4',
+            }
         }
     }
 else:
-    # Production: Use PostgreSQL
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
@@ -315,16 +334,24 @@ CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 # ========== Channels (WebSocket) Configuration ==========
 ASGI_APPLICATION = 'config.asgi.application'
 
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        'CONFIG': {
-            'hosts': [('127.0.0.1', 6379)],
-            'capacity': 1500,
-            'expiry': 10,
+if DEBUG:
+    # In-memory channel layer for development — no Redis required
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels.layers.InMemoryChannelLayer',
         },
-    },
-}
+    }
+else:
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'CONFIG': {
+                'hosts': [config('REDIS_URL', default='redis://127.0.0.1:6379/0')],
+                'capacity': 1500,
+                'expiry': 10,
+            },
+        },
+    }
 
 # ========== File Upload Configuration ==========
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760   # 10 MB – darüber schreibt Django auf Disk statt RAM
@@ -353,11 +380,15 @@ ALLOWED_FILE_EXTENSIONS = {
 SECURE_SSL_REDIRECT = config('SECURE_SSL_REDIRECT', default=False, cast=bool)
 SESSION_COOKIE_SECURE = config('SESSION_COOKIE_SECURE', default=False, cast=bool)
 CSRF_COOKIE_SECURE = config('CSRF_COOKIE_SECURE', default=False, cast=bool)
+# Honor reverse-proxy headers (nginx/Cloudflare) so Django can detect HTTPS correctly.
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
 CSRF_TRUSTED_ORIGINS = [
     'http://localhost:8000',
     'http://127.0.0.1:8000',
     'http://localhost:3000',
     'https://storage1.aborosoft.com',
+    'https://cloudshare.aborosoft.com',
 ]
 CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_SAMESITE = 'Lax'
@@ -484,3 +515,8 @@ JAZZMIN = {
     "default_icon_parents": "fas fa-chevron-right",
     "default_icon_children": "fas fa-arrow-right",
 }
+
+# Jitsi Meet Integration
+JITSI_APP_ID = config("JITSI_APP_ID", default="cloudshare")
+JITSI_APP_SECRET = config("JITSI_APP_SECRET", default="")
+JITSI_URL = config("JITSI_URL", default="https://meet.aborosoft.com")

@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+{% block title %}Mitglieder – {{ company.name }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+
+    <div class="d-flex align-items-center gap-3 mb-4 flex-wrap">
+        <a href="{% url 'company_home' workspace_key=company.workspace_key %}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Zurück
+        </a>
+        <h1 class="h4 mb-0"><i class="bi bi-people me-2"></i>Mitglieder – {{ company.name }}</h1>
+    </div>
+
+    <div id="alert-area"></div>
+
+    <div class="row g-4">
+
+        <!-- Aktuelle Mitglieder -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-bottom d-flex align-items-center justify-content-between py-3">
+                    <span class="fw-semibold"><i class="bi bi-person-check me-2 text-primary"></i>Aktuelle Mitglieder ({{ members.count }})</span>
+                </div>
+                <div class="card-body p-0">
+                    {% if members %}
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="ps-3">Benutzer</th>
+                                    <th>E-Mail</th>
+                                    <th>Rolle</th>
+                                    <th class="text-end pe-3">Aktion</th>
+                                </tr>
+                            </thead>
+                            <tbody id="members-table">
+                            {% for mp in members %}
+                            <tr id="row-{{ mp.user.pk }}">
+                                <td class="ps-3">
+                                    <div class="d-flex align-items-center gap-2">
+                                        {% if mp.avatar %}
+                                            <img src="{{ mp.avatar.url }}" class="rounded-circle" width="32" height="32" style="object-fit:cover;">
+                                        {% else %}
+                                            <div class="rounded-circle bg-primary bg-opacity-10 d-flex align-items-center justify-content-center text-primary fw-bold" style="width:32px;height:32px;font-size:.8rem;">
+                                                {{ mp.user.username|slice:":1"|upper }}
+                                            </div>
+                                        {% endif %}
+                                        <div>
+                                            <div class="fw-semibold">{{ mp.user.get_full_name|default:mp.user.username }}</div>
+                                            <div class="text-muted small">@{{ mp.user.username }}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="text-muted small">{{ mp.user.email|default:"–" }}</td>
+                                <td>
+                                    <select class="form-select form-select-sm role-select" style="width:auto;"
+                                            data-user-id="{{ mp.user.pk }}"
+                                            {% if mp.user == request.user %}disabled{% endif %}>
+                                        {% for val, label in role_choices %}
+                                            <option value="{{ val }}"
+                                                {% if mp.role == val %}selected
+                                                {% elif val == 'admin' and mp.role == 'user' and mp.is_company_admin %}selected
+                                                {% endif %}>{{ label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                                <td class="text-end pe-3">
+                                    {% if mp.user != request.user %}
+                                    <button class="btn btn-sm btn-outline-danger remove-btn" data-user-id="{{ mp.user.pk }}" title="Aus Firma entfernen">
+                                        <i class="bi bi-person-x"></i>
+                                    </button>
+                                    {% else %}
+                                    <span class="badge bg-secondary">Du</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center text-muted py-5">
+                        <i class="bi bi-people" style="font-size:2.5rem;"></i>
+                        <p class="mt-2 mb-0">Noch keine Mitglieder.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Rechte Spalte -->
+        <div class="col-lg-4 d-flex flex-column gap-4">
+
+            <!-- Neuen Benutzer anlegen -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-bottom py-3">
+                    <span class="fw-semibold"><i class="bi bi-person-plus-fill me-2 text-primary"></i>Neuen Benutzer anlegen</span>
+                </div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        <input type="text" class="form-control form-control-sm" id="new-username" placeholder="Benutzername *" autocomplete="off">
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <input type="text" class="form-control form-control-sm" id="new-firstname" placeholder="Vorname">
+                        </div>
+                        <div class="col-6">
+                            <input type="text" class="form-control form-control-sm" id="new-lastname" placeholder="Nachname">
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <input type="email" class="form-control form-control-sm" id="new-email" placeholder="E-Mail">
+                    </div>
+                    <div class="mb-2">
+                        <input type="password" class="form-control form-control-sm" id="new-password" placeholder="Temporäres Passwort *" autocomplete="new-password">
+                    </div>
+                    <div class="mb-3">
+                        <select class="form-select form-select-sm" id="new-role">
+                            {% for val, label in role_choices %}
+                                <option value="{{ val }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <p class="text-muted" style="font-size:.75rem;">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Benutzer (nicht Administratoren) müssen das Passwort bei der Erstanmeldung ändern.
+                    </p>
+                    <button class="btn btn-primary btn-sm w-100" id="create-btn">
+                        <i class="bi bi-person-plus me-1"></i>Benutzer anlegen
+                    </button>
+                </div>
+            </div>
+
+            <!-- Vorhandenen Benutzer zuweisen -->
+            {% if available_users %}
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-bottom py-3">
+                    <span class="fw-semibold"><i class="bi bi-person-check me-2 text-success"></i>Vorhandenen Benutzer zuweisen</span>
+                </div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        <input type="text" class="form-control form-control-sm" id="user-search"
+                               placeholder="Name oder Benutzername suchen…">
+                    </div>
+                    <div id="user-list" style="max-height:260px;overflow-y:auto;">
+                        {% for u in available_users %}
+                        <div class="user-item d-flex align-items-center justify-content-between gap-2 py-2 border-bottom"
+                             data-name="{{ u.get_full_name|lower }} {{ u.username|lower }}">
+                            <div class="d-flex align-items-center gap-2 min-w-0">
+                                <div class="rounded-circle bg-success bg-opacity-10 d-flex align-items-center justify-content-center text-success fw-bold flex-shrink-0"
+                                     style="width:28px;height:28px;font-size:.72rem;">
+                                    {{ u.username|slice:":1"|upper }}
+                                </div>
+                                <div class="min-w-0">
+                                    <div class="fw-semibold small text-truncate">{{ u.get_full_name|default:u.username }}</div>
+                                    <div class="text-muted" style="font-size:.7rem;">@{{ u.username }}</div>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                                <select class="form-select form-select-sm add-role-select" style="width:90px;font-size:.72rem;">
+                                    {% for val, label in role_choices %}
+                                        <option value="{{ val }}">{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                                <button class="btn btn-sm btn-success add-btn" data-user-id="{{ u.pk }}" title="Zuweisen">
+                                    <i class="bi bi-plus-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+
+    </div>
+</div>
+
+<script>
+const CSRF = "{{ csrf_token }}";
+const SAVE_URL = "{% url 'company_members' workspace_key=company.workspace_key %}";
+
+function showAlert(msg, type) {
+    var el = document.getElementById('alert-area');
+    el.innerHTML = '<div class="alert alert-' + type + ' alert-dismissible fade show" role="alert">'
+        + msg + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
+    setTimeout(function() {
+        var a = el.querySelector('.alert');
+        if (a) a.classList.remove('show');
+    }, 3000);
+}
+
+function doAction(payload, onSuccess) {
+    fetch(SAVE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+        body: JSON.stringify(payload),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.ok) { onSuccess(); }
+        else { showAlert(data.error || 'Fehler', 'danger'); }
+    })
+    .catch(function() { showAlert('Netzwerkfehler', 'danger'); });
+}
+
+// Rolle ändern
+document.querySelectorAll('.role-select').forEach(function(sel) {
+    sel.addEventListener('change', function() {
+        var userId = this.dataset.userId;
+        var role = this.value;
+        doAction({ action: 'set_role', user_id: parseInt(userId), role: role }, function() {
+            showAlert('Rolle gespeichert.', 'success');
+        });
+    });
+});
+
+// Mitglied entfernen
+document.querySelectorAll('.remove-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        var userId = this.dataset.userId;
+        if (!confirm('Benutzer aus der Firma entfernen?')) return;
+        doAction({ action: 'remove', user_id: parseInt(userId) }, function() {
+            var row = document.getElementById('row-' + userId);
+            if (row) row.remove();
+            showAlert('Benutzer entfernt.', 'success');
+        });
+    });
+});
+
+// Neuen Benutzer anlegen
+document.getElementById('create-btn').addEventListener('click', function() {
+    var username  = document.getElementById('new-username').value.trim();
+    var password  = document.getElementById('new-password').value.trim();
+    var firstname = document.getElementById('new-firstname').value.trim();
+    var lastname  = document.getElementById('new-lastname').value.trim();
+    var email     = document.getElementById('new-email').value.trim();
+    var role      = document.getElementById('new-role').value;
+
+    if (!username || !password) {
+        showAlert('Benutzername und Passwort sind Pflichtfelder.', 'warning');
+        return;
+    }
+
+    var btn = this;
+    btn.disabled = true;
+    doAction({
+        action: 'create',
+        username: username, password: password,
+        first_name: firstname, last_name: lastname,
+        email: email, role: role,
+    }, function() {
+        showAlert('Benutzer <strong>' + username + '</strong> wurde angelegt und der Firma zugewiesen.', 'success');
+        ['new-username','new-password','new-firstname','new-lastname','new-email'].forEach(function(id) {
+            document.getElementById(id).value = '';
+        });
+        btn.disabled = false;
+        // Mitgliederliste nach kurzer Pause neu laden
+        setTimeout(function() { location.reload(); }, 1800);
+    });
+    // Fehler-Callback braucht auch re-enable
+    setTimeout(function() { btn.disabled = false; }, 3000);
+});
+
+// Vorhandenen Benutzer zuweisen
+document.querySelectorAll('.add-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        var userId = this.dataset.userId;
+        var roleSelect = this.closest('.user-item').querySelector('.add-role-select');
+        var role = roleSelect ? roleSelect.value : 'user';
+        doAction({ action: 'add', user_id: parseInt(userId), role: role }, function() {
+            var item = btn.closest('.user-item');
+            if (item) item.remove();
+            showAlert('Benutzer zugewiesen.', 'success');
+            setTimeout(function() { location.reload(); }, 1800);
+        });
+    });
+});
+
+// Suche in der verfügbaren Benutzerliste
+var searchEl = document.getElementById('user-search');
+if (searchEl) {
+    searchEl.addEventListener('input', function() {
+        var q = this.value.toLowerCase();
+        document.querySelectorAll('.user-item').forEach(function(item) {
+            item.style.display = (item.dataset.name || '').includes(q) ? '' : 'none';
+        });
+    });
+}
+</script>
+{% endblock %}

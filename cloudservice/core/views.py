@@ -5,9 +5,11 @@ Main dashboard and activity views.
 
 from django.views.generic import TemplateView, ListView
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
-from django.http import Http404
+from django.http import Http404, JsonResponse
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
 from pathlib import Path
 from core.models import ActivityLog
 from core.navigation import DEFAULT_PLUGIN_APP_SLUG, get_authenticated_home_url
@@ -58,6 +60,294 @@ def home(request):
         'lp': lp,
         'lp_html': page.get('html', ''),
         'lp_css':  page.get('css', ''),
+    })
+
+
+def company_home_redirect(request, workspace_key):
+    """Redirect legacy /firmen/<workspace_key>/ URLs to /<workspace_key>/mysite/."""
+    from django.urls import reverse
+    return redirect(reverse('company_home', kwargs={'workspace_key': workspace_key}), permanent=True)
+
+
+def company_home(request, workspace_key):
+    """Public company landing page at /<workspace_key>/."""
+    from accounts.models import Company
+
+    company = get_object_or_404(Company, workspace_key=workspace_key)
+
+    try:
+        from landing_editor.providers import get_landing_settings
+        lp = get_landing_settings()
+    except Exception:
+        lp = {}
+    try:
+        from landing_editor.providers import get_page_content
+        page = get_page_content('landing')
+    except Exception:
+        page = {}
+
+    lp = dict(lp)
+    lp['hero_badge'] = company.name
+    lp['hero_title_line1'] = company.effective_landing_title
+    lp['hero_title_line2'] = company.landing_subtitle or 'Eigener Bereich fuer Teams und Mitarbeiter.'
+    lp['hero_subtitle'] = (
+        company.landing_subtitle or (
+            f"Workspace fuer {company.name} - "
+            "mit Bereichen fuer Teams, Mitarbeiter und gemeinsame Inhalte."
+        )
+    )
+    if company.landing_primary_color:
+        lp['primary_color'] = company.landing_primary_color
+    if company.landing_secondary_color:
+        lp['secondary_color'] = company.landing_secondary_color
+
+    return render(request, 'company/landing.html', {
+        'lp': lp,
+        'lp_html': page.get('html', ''),
+        'lp_css': page.get('css', ''),
+        'company': company,
+    })
+
+
+def company_landing_settings(request, workspace_key):
+    """Company admin: edit the company's landing page."""
+    from accounts.models import Company
+    from django import forms as django_forms
+
+    company = get_object_or_404(Company, workspace_key=workspace_key)
+
+    if not request.user.is_authenticated:
+        return redirect('accounts:login')
+
+    profile = getattr(request.user, 'profile', None)
+    is_company_admin = (
+        request.user.is_superuser
+        or (profile and profile.company == company and profile.is_company_admin)
+    )
+    if not is_company_admin:
+        messages.error(request, 'Kein Zugriff.')
+        return redirect('company_home', workspace_key=workspace_key)
+
+    class CompanyLandingForm(django_forms.ModelForm):
+        class Meta:
+            model = Company
+            fields = [
+                'landing_title', 'landing_subtitle',
+                'landing_logo', 'landing_hero_style',
+                'landing_hero_image', 'landing_hero_video',
+                'landing_primary_color', 'landing_secondary_color',
+                'landing_custom_html', 'landing_custom_css',
+            ]
+
+    if request.method == 'POST':
+        form = CompanyLandingForm(request.POST, request.FILES, instance=company)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Landing-Page gespeichert.')
+            return redirect('company_landing_settings', workspace_key=workspace_key)
+    else:
+        form = CompanyLandingForm(instance=company)
+
+    return render(request, 'company/landing_settings.html', {
+        'company': company,
+        'form': form,
+    })
+
+
+def company_landing_builder(request, workspace_key):
+    """GrapesJS Sitebuilder für die Firmen-Landingpage."""
+    import json as _json
+    from accounts.models import Company
+
+    company = get_object_or_404(Company, workspace_key=workspace_key)
+
+    if not request.user.is_authenticated:
+        return redirect('accounts:login')
+
+    profile = getattr(request.user, 'profile', None)
+    is_admin = request.user.is_superuser or (
+        profile and profile.company == company and profile.is_company_admin
+    )
+    if not is_admin:
+        messages.error(request, 'Kein Zugriff.')
+        return redirect('company_home', workspace_key=workspace_key)
+
+    default_html = (
+        '<section class="lp-section">'
+        '<div class="container">'
+        '<div class="text-center mb-5">'
+        '<div class="section-eyebrow">Funktionen</div>'
+        '<h2 class="section-title">Alles was Ihr Team braucht</h2>'
+        '</div>'
+        '<div class="row g-4">'
+        '<div class="col-md-4"><div class="feature-card">'
+        '<div class="feature-icon"><i class="bi bi-cloud-upload"></i></div>'
+        '<h4>Sicherer Speicher</h4>'
+        '<p>Alle Dateien Ihres Teams an einem Ort – sicher und immer verfügbar.</p>'
+        '</div></div>'
+        '<div class="col-md-4"><div class="feature-card">'
+        '<div class="feature-icon"><i class="bi bi-people"></i></div>'
+        '<h4>Teamarbeit</h4>'
+        '<p>Gemeinsame Ordner, Freigaben und Zusammenarbeit in Echtzeit.</p>'
+        '</div></div>'
+        '<div class="col-md-4"><div class="feature-card">'
+        '<div class="feature-icon"><i class="bi bi-shield-check"></i></div>'
+        '<h4>Datensicherheit</h4>'
+        '<p>Jeder Nutzer hat seinen eigenen gesicherten Bereich mit individuellen Rechten.</p>'
+        '</div></div>'
+        '</div>'
+        '</div>'
+        '</section>'
+    )
+
+    return render(request, 'company/landing_builder.html', {
+        'company': company,
+        'initial_html': company.landing_custom_html or default_html,
+        'initial_css': company.landing_custom_css or '',
+        'save_url': f'/{workspace_key}/builder/save/',
+        'back_url': f'/{workspace_key}/settings/',
+        'preview_url': f'/{workspace_key}/',
+    })
+
+
+@require_POST
+@login_required
+def company_landing_builder_save(request, workspace_key):
+    """AJAX: speichert GrapesJS-Output in Company.landing_custom_html/css."""
+    import json as _json
+    from accounts.models import Company
+
+    company = get_object_or_404(Company, workspace_key=workspace_key)
+    profile = getattr(request.user, 'profile', None)
+    is_admin = request.user.is_superuser or (
+        profile and profile.company == company and profile.is_company_admin
+    )
+    if not is_admin:
+        return JsonResponse({'ok': False, 'error': 'Kein Zugriff'}, status=403)
+
+    try:
+        payload = _json.loads(request.body)
+    except (ValueError, TypeError):
+        return JsonResponse({'ok': False, 'error': 'Ungültiges JSON'}, status=400)
+
+    company.landing_custom_html = payload.get('html', '')
+    company.landing_custom_css = payload.get('css', '')
+    company.save(update_fields=['landing_custom_html', 'landing_custom_css'])
+    return JsonResponse({'ok': True})
+
+
+def company_members(request, workspace_key):
+    """Firmen-Mitgliederverwaltung für Company-Admins."""
+    import json as _json
+    from accounts.models import Company, UserProfile
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+
+    company = get_object_or_404(Company, workspace_key=workspace_key)
+
+    if not request.user.is_authenticated:
+        return redirect('accounts:login')
+
+    profile = getattr(request.user, 'profile', None)
+    is_admin = request.user.is_superuser or (
+        profile and profile.company == company and profile.is_company_admin
+    )
+    if not is_admin:
+        messages.error(request, 'Kein Zugriff.')
+        return redirect('company_home', workspace_key=workspace_key)
+
+    # AJAX-Aktionen
+    if request.method == 'POST':
+        try:
+            data = _json.loads(request.body)
+        except (ValueError, TypeError):
+            return JsonResponse({'ok': False, 'error': 'Ungültige Daten'}, status=400)
+
+        action = data.get('action')
+
+        if action == 'create':
+            username = data.get('username', '').strip()
+            email = data.get('email', '').strip()
+            first_name = data.get('first_name', '').strip()
+            last_name = data.get('last_name', '').strip()
+            password = data.get('password', '').strip()
+            role = data.get('role', 'user')
+
+            if not username or not password:
+                return JsonResponse({'ok': False, 'error': 'Benutzername und Passwort sind Pflicht'}, status=400)
+            if User.objects.filter(username=username).exists():
+                return JsonResponse({'ok': False, 'error': f'Benutzername „{username}" ist bereits vergeben'}, status=400)
+            if role not in ('user', 'moderator', 'admin'):
+                role = 'user'
+
+            new_user = User.objects.create_user(
+                username=username,
+                email=email,
+                password=password,
+                first_name=first_name,
+                last_name=last_name,
+            )
+            new_user.profile.company = company
+            new_user.profile.role = role
+            new_user.profile.must_change_password = (role != 'admin')
+            new_user.profile.save(update_fields=['company', 'role', 'must_change_password'])
+            return JsonResponse({'ok': True, 'username': new_user.username, 'user_id': new_user.pk})
+
+        user_id = data.get('user_id')
+
+        try:
+            target_user = User.objects.get(pk=user_id)
+            target_profile = target_user.profile
+        except (User.DoesNotExist, UserProfile.DoesNotExist):
+            return JsonResponse({'ok': False, 'error': 'Benutzer nicht gefunden'}, status=404)
+
+        if action == 'add':
+            target_profile.company = company
+            target_profile.role = data.get('role', 'user')
+            target_profile.save(update_fields=['company', 'role'])
+            return JsonResponse({'ok': True})
+
+        elif action == 'set_role':
+            if target_profile.company != company and not request.user.is_superuser:
+                return JsonResponse({'ok': False, 'error': 'Benutzer gehört nicht zu dieser Firma'}, status=403)
+            new_role = data.get('role', 'user')
+            if new_role not in ('user', 'moderator', 'admin'):
+                return JsonResponse({'ok': False, 'error': 'Ungültige Rolle'}, status=400)
+            target_profile.role = new_role
+            target_profile.save(update_fields=['role'])
+            return JsonResponse({'ok': True})
+
+        elif action == 'remove':
+            if target_profile.company != company and not request.user.is_superuser:
+                return JsonResponse({'ok': False, 'error': 'Benutzer gehört nicht zu dieser Firma'}, status=403)
+            # Eigenen Account nicht entfernen
+            if target_user == request.user:
+                return JsonResponse({'ok': False, 'error': 'Du kannst dich nicht selbst entfernen'}, status=400)
+            target_profile.company = None
+            target_profile.role = 'user'
+            target_profile.save(update_fields=['company', 'role'])
+            return JsonResponse({'ok': True})
+
+        return JsonResponse({'ok': False, 'error': 'Unbekannte Aktion'}, status=400)
+
+    # GET – Seite rendern
+    # Rollen-Sync: falls jemand über eine Gruppe Admin ist, aber role='user' hat → korrigieren
+    members_qs = UserProfile.objects.filter(company=company).select_related('user')
+    for mp in members_qs:
+        if mp.role == 'user' and mp.is_company_admin:
+            mp.role = 'admin'
+            mp.save(update_fields=['role'])
+    members = members_qs.order_by('role', 'user__last_name', 'user__username')
+    # Benutzer ohne Firma (für "Hinzufügen")
+    available_users = User.objects.filter(
+        is_active=True, profile__company__isnull=True
+    ).select_related('profile').order_by('last_name', 'username')
+
+    return render(request, 'company/members.html', {
+        'company': company,
+        'members': members,
+        'available_users': available_users,
+        'role_choices': [('user', 'Benutzer'), ('moderator', 'Moderator'), ('admin', 'Administrator')],
     })
 
 
