@@ -253,15 +253,45 @@ class CreateGroupView(LoginRequiredMixin, CreateView):
     fields = ['group_name', 'members', 'background_image', 'background_video']
     success_url = reverse_lazy('sharing:groups_list')
 
+    def _get_department_for_assignment(self):
+        """
+        Optional: assign the newly created Team-Site to a Department via query param.
+
+        Accepts: ?department=<department-slug>
+        Only assigns if the user is allowed to manage that department.
+        """
+        dept_slug = (self.request.GET.get('department') or '').strip()
+        if not dept_slug:
+            return None
+
+        try:
+            from departments.models import Department
+        except Exception:
+            return None
+
+        dept = Department.objects.filter(slug=dept_slug).first()
+        if not dept:
+            return None
+        if not dept.user_can_manage(self.request.user):
+            return None
+        return dept
+
     def dispatch(self, request, *args, **kwargs):
-        if not request.user.has_perm('sharing.create_groupshare'):
+        dept = self._get_department_for_assignment()
+        if not request.user.has_perm('sharing.create_groupshare') and not dept:
             from django.shortcuts import render as _r
             return _r(request, '403.html', {
                 'error_message': 'Du hast keine Berechtigung, Team-Sites zu erstellen.',
             }, status=403)
         return super().dispatch(request, *args, **kwargs)
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['department'] = self._get_department_for_assignment()
+        return context
+
     def form_valid(self, form):
+        dept = self._get_department_for_assignment()
         site_folder = StorageFolder.objects.create(
             owner=self.request.user,
             parent=None,
@@ -273,9 +303,52 @@ class CreateGroupView(LoginRequiredMixin, CreateView):
         form.instance.content_type = ContentType.objects.get_for_model(StorageFolder)
         form.instance.object_id = site_folder.id
         form.instance.permission = 'admin'
+        form.instance.department = dept
 
         response = super().form_valid(form)
         self.object.members.add(self.request.user)
+
+        if dept:
+            leader_ids = set(
+                dept.memberships
+                .filter(role__in=['manager', 'head'])
+                .values_list('user_id', flat=True)
+            )
+            if dept.head_id:
+                leader_ids.add(dept.head_id)
+            if leader_ids:
+                preexisting_member_ids = set(self.object.members.filter(id__in=leader_ids).values_list('id', flat=True))
+                preexisting_leader_ids = set(self.object.team_leaders.filter(id__in=leader_ids).values_list('id', flat=True))
+
+                to_add_members = leader_ids - preexisting_member_ids
+                to_add_leaders = leader_ids - preexisting_leader_ids
+
+                if to_add_members:
+                    self.object.members.add(*to_add_members)
+                if to_add_leaders:
+                    self.object.team_leaders.add(*to_add_leaders)
+
+                try:
+                    from sharing.models import GroupShareDepartmentAutoRole
+                    for user_id in leader_ids:
+                        added_to_members = user_id in to_add_members
+                        added_to_team_leaders = user_id in to_add_leaders
+                        if not (added_to_members or added_to_team_leaders):
+                            continue
+                        GroupShareDepartmentAutoRole.objects.update_or_create(
+                            group=self.object,
+                            department=dept,
+                            user_id=user_id,
+                            defaults={
+                                'preexisting_member': user_id in preexisting_member_ids,
+                                'preexisting_team_leader': user_id in preexisting_leader_ids,
+                                'added_to_members': added_to_members,
+                                'added_to_team_leaders': added_to_team_leaders,
+                            },
+                        )
+                except Exception:
+                    pass
+
         return response
 
     def get_success_url(self):

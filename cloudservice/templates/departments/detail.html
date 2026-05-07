@@ -1,10 +1,10 @@
-{% extends 'base.html' %}
-{% block title %}{{ department.name }} – Abteilung{% endblock %}
+﻿{% extends 'base.html' %}
+{% block title %}{{ department.name }} â€“ Abteilung{% endblock %}
 
 {% block content %}
 <div class="container py-4">
 
-    <!-- ── Hero ──────────────────────────────────────────────── -->
+    <!-- â”€â”€ Hero â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
     <div class="rounded-4 p-4 mb-4 text-white position-relative overflow-hidden"
          style="background:linear-gradient(135deg,{{ department.color }},{{ department.color }}99);">
         <div class="d-flex flex-column flex-lg-row justify-content-between align-items-start gap-3">
@@ -44,7 +44,7 @@
                 <button class="btn btn-sm rounded-pill px-3"
                         style="background:rgba(220,38,38,.35);color:#fff;border:1px solid rgba(255,255,255,.2);"
                         onclick="confirmDelete()">
-                    <i class="bi bi-trash me-1"></i>Löschen
+                    <i class="bi bi-trash me-1"></i>LÃ¶schen
                 </button>
                 {% endif %}
             </div>
@@ -81,21 +81,21 @@
 
     <div class="row g-4">
 
-        <!-- ── Members ─────────────────────────────────────── -->
+        <!-- â”€â”€ Members â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
         <div class="col-lg-5">
             <div class="border rounded-4 p-4 h-100" style="background:var(--surface-bg);">
                 <div class="d-flex align-items-center justify-content-between mb-3">
                     <h5 class="fw-bold mb-0"><i class="bi bi-people-fill me-2" style="color:{{ department.color }};"></i>Mitglieder</h5>
                     {% if can_manage %}
                     <button class="btn btn-sm btn-outline-primary rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#addMemberModal">
-                        <i class="bi bi-plus-lg me-1"></i>Hinzufügen
+                        <i class="bi bi-plus-lg me-1"></i>HinzufÃ¼gen
                     </button>
                     {% endif %}
                 </div>
 
                 {% if not memberships %}
                 <div class="text-muted small py-3 text-center">
-                    Noch keine Mitglieder. {% if can_manage %}Füge Mitglieder hinzu.{% endif %}
+                    Noch keine Mitglieder. {% if can_manage %}FÃ¼ge Mitglieder hinzu.{% endif %}
                 </div>
                 {% else %}
                 <!-- Heads -->
@@ -184,15 +184,22 @@
 
         <div class="col-lg-7">
 
-            <!-- ── Team Sites ───────────────────────────────── -->
+            <!-- â”€â”€ Team Sites â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
             <div class="border rounded-4 p-4 mb-4" style="background:var(--surface-bg);">
                 <div class="d-flex align-items-center justify-content-between mb-3">
                     <h5 class="fw-bold mb-0"><i class="bi bi-people me-2" style="color:{{ department.color }};"></i>Team-Sites</h5>
-                    {% if can_manage %}
-                    <a href="{% url 'departments:assign_sites' department.slug %}" class="btn btn-sm btn-outline-secondary rounded-pill px-3">
-                        <i class="bi bi-gear me-1"></i>Verwalten
-                    </a>
-                    {% endif %}
+                    <div class="d-flex gap-2">
+                        {% if can_create_team_site %}
+                        <a href="{% url 'sharing:create_group' %}?department={{ department.slug }}" class="btn btn-sm btn-primary rounded-pill px-3">
+                            <i class="bi bi-plus-lg me-1"></i>Neue Team-Site
+                        </a>
+                        {% endif %}
+                        {% if can_manage %}
+                        <a href="{% url 'departments:assign_sites' department.slug %}" class="btn btn-sm btn-outline-secondary rounded-pill px-3">
+                            <i class="bi bi-gear me-1"></i>Zuweisen
+                        </a>
+                        {% endif %}
+                    </div>
                 </div>
 
                 {% if not team_sites %}
@@ -204,28 +211,57 @@
                 <div class="row g-3">
                     {% for site in team_sites %}
                     <div class="col-sm-6">
-                        <a href="{% url 'sharing:group_detail' site.pk %}" class="text-decoration-none">
-                            <div class="border rounded-3 p-3 h-100 site-card">
-                                <div class="d-flex align-items-center gap-2 mb-2">
-                                    <i class="bi bi-people-fill" style="color:{{ department.color }};"></i>
-                                    <div class="fw-semibold text-truncate">{{ site.group_name }}</div>
-                                </div>
-                                <div class="small text-muted">
-                                    Eigentümer: {{ site.owner.get_full_name|default:site.owner.username }}
-                                </div>
+                        <div class="border rounded-3 p-3 h-100 site-card position-relative">
+                            <a href="{% url 'sharing:group_detail' site.pk %}" class="stretched-link" aria-label="{{ site.group_name }}"></a>
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <i class="bi bi-people-fill" style="color:{{ department.color }};"></i>
+                                <div class="fw-semibold text-truncate">{{ site.group_name }}</div>
                             </div>
-                        </a>
+                            <div class="small text-muted">
+                                EigentÃ¼mer: {{ site.owner.get_full_name|default:site.owner.username }}
+                            </div>
+                            {% if site in manageable_sites %}
+                            <div class="d-flex flex-wrap gap-2 mt-3 position-relative" style="z-index:2;">
+                                <a href="{% url 'sharing:team_news_list' site.pk %}" class="btn btn-sm btn-outline-secondary rounded-pill px-3">
+                                    <i class="bi bi-newspaper me-1"></i>News
+                                </a>
+                                <a href="{% url 'sharing:team_news_create' site.pk %}" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                                    <i class="bi bi-plus-lg me-1"></i>News erstellen
+                                </a>
+                            </div>
+                            {% endif %}
+                        </div>
                     </div>
                     {% endfor %}
                 </div>
                 {% endif %}
             </div>
 
-            <!-- ── News ────────────────────────────────────── -->
+            <!-- â”€â”€ News â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
             <div class="border rounded-4 p-4" style="background:var(--surface-bg);">
-                <h5 class="fw-bold mb-3"><i class="bi bi-newspaper me-2" style="color:{{ department.color }};"></i>Aktuelle News</h5>
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <h5 class="fw-bold mb-0"><i class="bi bi-newspaper me-2" style="color:{{ department.color }};"></i>Aktuelle News</h5>
+                    {% if manageable_sites %}
+                        {% if manageable_sites|length == 1 %}
+                            <a href="{% url 'sharing:team_news_create' manageable_sites.0.pk %}" class="btn btn-sm btn-primary rounded-pill px-3">
+                                <i class="bi bi-plus-lg me-1"></i>News erstellen
+                            </a>
+                        {% else %}
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-primary rounded-pill px-3 dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                    <i class="bi bi-plus-lg me-1"></i>News erstellen
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    {% for s in manageable_sites %}
+                                    <li><a class="dropdown-item" href="{% url 'sharing:team_news_create' s.pk %}">{{ s.group_name }}</a></li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        {% endif %}
+                    {% endif %}
+                </div>
                 {% if not news %}
-                <div class="text-muted small text-center py-3">Keine News von verknüpften Team-Sites.</div>
+                <div class="text-muted small text-center py-3">Keine News von verknÃ¼pften Team-Sites.</div>
                 {% else %}
                 <div class="d-grid gap-3">
                     {% for item in news %}
@@ -256,20 +292,20 @@
     </div>
 </div>
 
-<!-- ── Add Member Modal ──────────────────────────────────────── -->
+<!-- â”€â”€ Add Member Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
 {% if can_manage %}
 <div class="modal fade" id="addMemberModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content rounded-4 border-0 shadow-lg">
             <div class="modal-header border-0 pb-0">
-                <h5 class="modal-title fw-bold">Mitglied hinzufügen</h5>
+                <h5 class="modal-title fw-bold">Mitglied hinzufÃ¼gen</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <div class="mb-3">
                     <label class="form-label fw-semibold small">Nutzer</label>
                     <select id="addMemberUser" class="form-select rounded-3">
-                        <option value="">— Nutzer wählen —</option>
+                        <option value="">â€” Nutzer wÃ¤hlen â€”</option>
                         {% for u in all_users %}
                         <option value="{{ u.pk }}">{{ u.get_full_name|default:u.username }} (@{{ u.username }})</option>
                         {% endfor %}
@@ -286,28 +322,28 @@
             </div>
             <div class="modal-footer border-0 pt-0">
                 <button class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Abbrechen</button>
-                <button class="btn btn-primary rounded-pill px-4" id="addMemberSubmit">Hinzufügen</button>
+                <button class="btn btn-primary rounded-pill px-4" id="addMemberSubmit">HinzufÃ¼gen</button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- ── Delete confirm modal ──────────────────────────────────── -->
+<!-- â”€â”€ Delete confirm modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
 <div class="modal fade" id="deleteModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content rounded-4 border-0 shadow-lg">
             <div class="modal-header border-0 pb-0">
-                <h5 class="modal-title fw-bold text-danger">Abteilung löschen?</h5>
+                <h5 class="modal-title fw-bold text-danger">Abteilung lÃ¶schen?</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <p class="text-muted">Die Abteilung <strong>{{ department.name }}</strong> und alle Mitgliedschaften werden unwiderruflich gelöscht. Team-Sites bleiben erhalten.</p>
+                <p class="text-muted">Die Abteilung <strong>{{ department.name }}</strong> und alle Mitgliedschaften werden unwiderruflich gelÃ¶scht. Team-Sites bleiben erhalten.</p>
             </div>
             <div class="modal-footer border-0 pt-0">
                 <button class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Abbrechen</button>
                 <form method="post" action="{% url 'departments:delete' department.slug %}">
                     {% csrf_token %}
-                    <button type="submit" class="btn btn-danger rounded-pill px-4">Endgültig löschen</button>
+                    <button type="submit" class="btn btn-danger rounded-pill px-4">EndgÃ¼ltig lÃ¶schen</button>
                 </form>
             </div>
         </div>
@@ -326,7 +362,7 @@ function confirmDelete() {
 document.getElementById('addMemberSubmit').addEventListener('click', async function() {
     const userId = document.getElementById('addMemberUser').value;
     const role   = document.getElementById('addMemberRole').value;
-    if (!userId) { alert('Bitte einen Nutzer wählen.'); return; }
+    if (!userId) { alert('Bitte einen Nutzer wÃ¤hlen.'); return; }
     const resp = await fetch(`/departments/${DEPT_SLUG}/mitglieder/hinzufuegen/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
@@ -377,3 +413,4 @@ document.querySelectorAll('.remove-member-btn').forEach(function(btn) {
 .news-item:last-child { border-bottom: none !important; padding-bottom: 0 !important; }
 </style>
 {% endblock %}
+
