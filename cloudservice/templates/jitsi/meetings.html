@@ -1,0 +1,376 @@
+{% extends "base.html" %}
+{% block title %}Meetings{% endblock %}
+
+{% block extra_css %}
+<style>
+    .meeting-card {
+        border-radius: 12px;
+        border: 1px solid #e8eaed;
+        transition: box-shadow 0.15s;
+    }
+    .meeting-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.09); }
+    .meeting-card.running {
+        border-color: #34a853;
+        background: linear-gradient(135deg, #f0fdf4, #fff);
+    }
+    .meeting-card.planned { background: #fff; }
+    .meeting-card.past { background: #fafafa; opacity: 0.85; }
+
+    .status-badge {
+        font-size: 0.72rem;
+        font-weight: 700;
+        padding: 0.2rem 0.6rem;
+        border-radius: 20px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    .status-running { background: #d4edda; color: #155724; }
+    .status-planned { background: #cce5ff; color: #004085; }
+    .status-ended   { background: #e9ecef; color: #495057; }
+    .status-cancelled { background: #f8d7da; color: #721c24; }
+
+    .meeting-meta {
+        font-size: 0.8rem;
+        color: #6c757d;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin-top: 0.35rem;
+    }
+    .meeting-meta i { margin-right: 0.25rem; }
+
+    .invitee-avatars { display: flex; gap: -4px; }
+    .inv-avatar {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: #fff;
+        font-size: 0.6rem;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid #fff;
+        margin-left: -6px;
+        flex-shrink: 0;
+    }
+    .inv-avatar:first-child { margin-left: 0; }
+
+    .section-title {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #9aa0a6;
+        margin-bottom: 0.75rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .section-title::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: #e8eaed;
+    }
+
+    .pulse-dot {
+        width: 9px; height: 9px;
+        border-radius: 50%;
+        background: #34a853;
+        display: inline-block;
+        margin-right: 4px;
+        animation: pulse 1.4s infinite;
+    }
+    @keyframes pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.5; transform: scale(1.3); }
+    }
+
+    #scheduleModal .modal-body { padding: 1.5rem; }
+    .form-label { font-size: 0.85rem; font-weight: 600; color: #444; }
+
+    .invite-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        background: #e8f0fe;
+        color: #3c4db8;
+        border-radius: 20px;
+        padding: 0.2rem 0.6rem;
+        font-size: 0.78rem;
+        cursor: pointer;
+        border: 1px solid transparent;
+        transition: background 0.1s, border-color 0.1s;
+    }
+    .invite-chip.selected {
+        background: #667eea;
+        color: #fff;
+        border-color: #667eea;
+    }
+    .invite-chip input[type=checkbox] { display: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-lg py-4">
+
+{% if no_company %}
+<div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle me-2"></i>
+    Du bist keiner Firma zugewiesen. Meetings sind workspace-gebunden.
+</div>
+{% else %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-0"><i class="bi bi-camera-video me-2"></i>Meetings</h2>
+        <small class="text-muted">{{ company.name }}</small>
+    </div>
+    <button class="btn btn-primary rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#scheduleModal">
+        <i class="bi bi-calendar-plus me-1"></i> Meeting planen
+    </button>
+</div>
+
+{% if messages %}
+{% for msg in messages %}
+<div class="alert alert-{{ msg.tags|default:'info' }} alert-dismissible fade show py-2 small" role="alert">
+    {{ msg }} <button type="button" class="btn-close btn-sm" data-bs-dismiss="alert"></button>
+</div>
+{% endfor %}
+{% endif %}
+
+<!-- Running Meetings -->
+{% if running %}
+<div class="section-title"><span class="pulse-dot"></span>Laufende Meetings</div>
+<div class="row g-3 mb-4">
+{% for m in running %}
+<div class="col-12 col-md-6 col-xl-4">
+<div class="meeting-card running p-3">
+    <div class="d-flex justify-content-between align-items-start mb-1">
+        <h6 class="mb-0 fw-bold">{{ m.title }}</h6>
+        <span class="status-badge status-running ms-2">Läuft</span>
+    </div>
+    {% if m.description %}
+    <p class="text-muted small mb-1">{{ m.description|truncatechars:80 }}</p>
+    {% endif %}
+    <div class="meeting-meta">
+        <span><i class="bi bi-clock"></i>Gestartet {{ m.started_at|date:"H:i" }} Uhr</span>
+        <span><i class="bi bi-person"></i>{{ m.organizer.get_full_name|default:m.organizer.username }}</span>
+    </div>
+    {% with invitees=m.invitees.all %}
+    {% if invitees %}
+    <div class="d-flex align-items-center gap-2 mt-2">
+        <div class="invitee-avatars">
+            {% for inv in invitees|slice:":5" %}
+            <div class="inv-avatar" title="{{ inv.get_full_name|default:inv.username }}">
+                {{ inv.get_full_name|default:inv.username|slice:":1"|upper }}
+            </div>
+            {% endfor %}
+        </div>
+        {% if invitees.count > 5 %}<small class="text-muted">+{{ invitees.count|add:"-5" }}</small>{% endif %}
+    </div>
+    {% endif %}
+    {% endwith %}
+    <div class="d-flex gap-2 mt-3">
+        <a href="{% url 'jitsi:join_meeting' m.pk %}" class="btn btn-success btn-sm rounded-pill flex-grow-1">
+            <i class="bi bi-box-arrow-in-right me-1"></i>Beitreten
+        </a>
+        {% if m.organizer == request.user or request.user.is_superuser %}
+        <form method="post" action="{% url 'jitsi:end_meeting' m.pk %}" class="mb-0">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill" title="Meeting beenden">
+                <i class="bi bi-stop-circle"></i>
+            </button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+</div>
+{% endfor %}
+</div>
+{% endif %}
+
+<!-- Planned Meetings -->
+{% if planned %}
+<div class="section-title"><span>Geplante Meetings</span></div>
+<div class="row g-3 mb-4">
+{% for m in planned %}
+<div class="col-12 col-md-6 col-xl-4">
+<div class="meeting-card planned p-3">
+    <div class="d-flex justify-content-between align-items-start mb-1">
+        <h6 class="mb-0 fw-bold">{{ m.title }}</h6>
+        <span class="status-badge status-planned ms-2">Geplant</span>
+    </div>
+    {% if m.description %}
+    <p class="text-muted small mb-1">{{ m.description|truncatechars:80 }}</p>
+    {% endif %}
+    <div class="meeting-meta">
+        {% if m.scheduled_start %}
+        <span><i class="bi bi-calendar-event"></i>{{ m.scheduled_start|date:"d.m.Y H:i" }} Uhr</span>
+        {% endif %}
+        {% if m.scheduled_end %}
+        <span><i class="bi bi-arrow-right-short"></i>{{ m.scheduled_end|date:"H:i" }} Uhr</span>
+        {% endif %}
+        <span><i class="bi bi-person"></i>{{ m.organizer.get_full_name|default:m.organizer.username }}</span>
+    </div>
+    {% with invitees=m.invitees.all %}
+    {% if invitees %}
+    <div class="d-flex align-items-center gap-2 mt-2">
+        <div class="invitee-avatars">
+            {% for inv in invitees|slice:":5" %}
+            <div class="inv-avatar" title="{{ inv.get_full_name|default:inv.username }}">
+                {{ inv.get_full_name|default:inv.username|slice:":1"|upper }}
+            </div>
+            {% endfor %}
+        </div>
+        {% if invitees.count > 5 %}<small class="text-muted">+{{ invitees.count|add:"-5" }}</small>{% endif %}
+    </div>
+    {% endif %}
+    {% endwith %}
+    <div class="d-flex gap-2 mt-3">
+        {% if m.organizer == request.user or request.user.is_superuser %}
+        <form method="post" action="{% url 'jitsi:start_meeting' m.pk %}" class="mb-0 flex-grow-1">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary btn-sm rounded-pill w-100">
+                <i class="bi bi-play-fill me-1"></i>Starten
+            </button>
+        </form>
+        <form method="post" action="{% url 'jitsi:cancel_meeting' m.pk %}" class="mb-0"
+              onsubmit="return confirm('Meeting absagen?')">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-secondary btn-sm rounded-pill">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </form>
+        {% else %}
+        <span class="text-muted small align-self-center">Warte auf den Organisator</span>
+        {% endif %}
+    </div>
+</div>
+</div>
+{% endfor %}
+</div>
+{% endif %}
+
+{% if not running and not planned %}
+<div class="text-center text-muted py-5">
+    <i class="bi bi-calendar-x" style="font-size:3rem;opacity:.25;"></i>
+    <p class="mt-3 mb-1 fw-semibold">Keine aktiven oder geplanten Meetings</p>
+    <p class="small">Plane ein Meeting oder starte einen spontanen Raum.</p>
+    <button class="btn btn-primary btn-sm rounded-pill px-4 mt-1" data-bs-toggle="modal" data-bs-target="#scheduleModal">
+        <i class="bi bi-calendar-plus me-1"></i>Meeting planen
+    </button>
+</div>
+{% endif %}
+
+<!-- Past Meetings -->
+{% if past %}
+<div class="section-title mt-2"><span>Vergangene Meetings</span></div>
+<div class="row g-3">
+{% for m in past %}
+<div class="col-12 col-md-6 col-xl-4">
+<div class="meeting-card past p-3">
+    <div class="d-flex justify-content-between align-items-start mb-1">
+        <h6 class="mb-0 fw-semibold text-muted">{{ m.title }}</h6>
+        <span class="status-badge {% if m.status == 'ended' %}status-ended{% else %}status-cancelled{% endif %} ms-2">
+            {{ m.get_status_display }}
+        </span>
+    </div>
+    <div class="meeting-meta">
+        {% if m.started_at %}
+        <span><i class="bi bi-calendar-check"></i>{{ m.started_at|date:"d.m.Y H:i" }}</span>
+        {% elif m.scheduled_start %}
+        <span><i class="bi bi-calendar-event"></i>{{ m.scheduled_start|date:"d.m.Y H:i" }}</span>
+        {% endif %}
+        {% if m.duration_display %}
+        <span><i class="bi bi-stopwatch"></i>{{ m.duration_display }}</span>
+        {% endif %}
+        <span><i class="bi bi-person"></i>{{ m.organizer.get_full_name|default:m.organizer.username }}</span>
+    </div>
+    {% with invitees=m.invitees.all %}
+    {% if invitees %}
+    <div class="invitee-avatars mt-2">
+        {% for inv in invitees|slice:":5" %}
+        <div class="inv-avatar" title="{{ inv.get_full_name|default:inv.username }}">
+            {{ inv.get_full_name|default:inv.username|slice:":1"|upper }}
+        </div>
+        {% endfor %}
+        {% if invitees.count > 5 %}<span class="text-muted small ms-1">+{{ invitees.count|add:"-5" }}</span>{% endif %}
+    </div>
+    {% endif %}
+    {% endwith %}
+</div>
+</div>
+{% endfor %}
+</div>
+{% endif %}
+
+{% endif %}{# end no_company #}
+</div>
+
+<!-- Schedule Modal -->
+<div class="modal fade" id="scheduleModal" tabindex="-1">
+<div class="modal-dialog modal-lg">
+<div class="modal-content">
+    <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-calendar-plus me-2"></i>Meeting planen</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    </div>
+    <form method="post" action="{% url 'jitsi:schedule' %}">
+    {% csrf_token %}
+    <div class="modal-body">
+        <div class="mb-3">
+            <label class="form-label">Titel *</label>
+            <input type="text" name="title" class="form-control" placeholder="z.B. Wöchentliches Team-Meeting" required maxlength="200">
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Beschreibung</label>
+            <textarea name="description" class="form-control" rows="2" placeholder="Agenda oder Hinweise…"></textarea>
+        </div>
+        <div class="row g-3 mb-3">
+            <div class="col-sm-6">
+                <label class="form-label">Start (optional)</label>
+                <input type="datetime-local" name="scheduled_start" class="form-control">
+            </div>
+            <div class="col-sm-6">
+                <label class="form-label">Ende (optional)</label>
+                <input type="datetime-local" name="scheduled_end" class="form-control">
+            </div>
+        </div>
+        {% if company_users %}
+        <div class="mb-1">
+            <label class="form-label">Eingeladene</label>
+            <div class="d-flex flex-wrap gap-2 mt-1" id="invitee-chips">
+                {% for u in company_users %}
+                <label class="invite-chip" id="chip-{{ u.pk }}">
+                    <input type="checkbox" name="invitees" value="{{ u.pk }}"
+                           onchange="toggleChip(this, 'chip-{{ u.pk }}')">
+                    {{ u.get_full_name|default:u.username }}
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+        <small class="text-muted">Klicken zum Auswählen — der Raum wird erst beim Starten erstellt.</small>
+        {% else %}
+        <p class="text-muted small">Keine weiteren Nutzer im Workspace gefunden.</p>
+        {% endif %}
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill" data-bs-dismiss="modal">Abbrechen</button>
+        <button type="submit" class="btn btn-primary btn-sm rounded-pill px-4">
+            <i class="bi bi-calendar-check me-1"></i>Planen
+        </button>
+    </div>
+    </form>
+</div>
+</div>
+</div>
+
+<script>
+function toggleChip(checkbox, chipId) {
+    document.getElementById(chipId).classList.toggle('selected', checkbox.checked);
+}
+</script>
+{% endblock %}
