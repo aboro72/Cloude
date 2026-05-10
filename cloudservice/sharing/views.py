@@ -13,11 +13,30 @@ from django.db.models import Q
 from django.contrib.contenttypes.models import ContentType
 from django.utils import timezone
 
+from django.core.cache import cache
+from django.http import HttpResponseTooManyRequests
 from sharing.models import UserShare, PublicLink, GroupShare, ShareLog, TeamSiteNews
 from sharing.forms import TeamSiteNewsForm
 from core.models import ActivityLog, StorageFile, StorageFolder
 from core.navigation import get_optional_plugin_app_url
-import logging
+
+
+def _get_client_ip(request):
+    xff = request.META.get('HTTP_X_FORWARDED_FOR', '')
+    ip = xff.split(',')[0].strip() if xff else request.META.get('REMOTE_ADDR', '')
+    return ip or '0.0.0.0'
+
+
+def _check_public_link_rate_limit(request, token: str) -> bool:
+    """True = erlaubt, False = Rate-Limit überschritten (429 zurückgeben)."""
+    ip = _get_client_ip(request)
+    key = f'publink_rate:{ip}'
+    count = cache.get(key, 0) + 1
+    cache.set(key, count, timeout=60)  # 1 Minute Fenster
+    if count > 20:
+        logger.warning('Public-Link Rate-Limit überschritten: IP=%s token=%s', ip, token[:8])
+        return False
+    return True
 
 logger = logging.getLogger(__name__)
 
@@ -107,6 +126,14 @@ class PublicLinkView(DetailView):
     def get_queryset(self):
         return PublicLink.objects.filter(is_active=True)
 
+    def get(self, request, *args, **kwargs):
+        token = kwargs.get('token', '')
+        if not _check_public_link_rate_limit(request, token):
+            return HttpResponseTooManyRequests(
+                'Zu viele Anfragen. Bitte warte eine Minute.'
+            )
+        return super().get(request, *args, **kwargs)
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         link = self.get_object()
@@ -116,6 +143,9 @@ class PublicLinkView(DetailView):
             return context
 
         link.increment_view_count()
+
+        ip = _get_client_ip(self.request)
+        logger.info('Public-Link aufgerufen: token=%s ip=%s', link.token[:8], ip)
 
         # Get shared object details
         if link.content_object:
@@ -134,6 +164,10 @@ class PublicDownloadView(DetailView):
         return PublicLink.objects.filter(is_active=True)
 
     def get(self, request, *args, **kwargs):
+        token = kwargs.get('token', '')
+        if not _check_public_link_rate_limit(request, token):
+            return HttpResponseTooManyRequests('Zu viele Anfragen. Bitte warte eine Minute.')
+
         link = self.get_object()
 
         if link.is_expired():
@@ -154,6 +188,11 @@ class PublicDownloadView(DetailView):
         if isinstance(link.content_object, StorageFile):
             file_obj = link.content_object
             link.increment_download_count()
+            ip = _get_client_ip(request)
+            logger.info(
+                'Public-Link Download: token=%s file=%s ip=%s',
+                link.token[:8], file_obj.name, ip
+            )
 
             response = FileResponse(
                 file_obj.file.open('rb'),
