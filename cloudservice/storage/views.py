@@ -23,9 +23,118 @@ from core.models import StorageFile, StorageFolder
 import logging
 import mimetypes
 import os
+import re
 from urllib.parse import quote
 
 logger = logging.getLogger(__name__)
+
+# Magic-Bytes der häufigsten Dateitypen (erste Bytes der Datei)
+_MAGIC_SIGNATURES = {
+    b'\xff\xd8\xff': 'image/jpeg',
+    b'\x89PNG\r\n\x1a\n': 'image/png',
+    b'GIF87a': 'image/gif',
+    b'GIF89a': 'image/gif',
+    b'RIFF': 'audio/wav',   # Prüfung unvollständig, aber gut genug für Blocklist
+    b'%PDF': 'application/pdf',
+    b'PK\x03\x04': 'application/zip',   # ZIP, DOCX, XLSX, PPTX, …
+    b'\x1f\x8b': 'application/gzip',
+    b'BZh': 'application/x-bzip2',
+    b'7z\xbc\xaf\x27\x1c': 'application/x-7z-compressed',
+    b'Rar!\x1a\x07': 'application/x-rar-compressed',
+    b'\x4d\x5a': 'application/x-dosexec',   # MZ – Windows-Executables → immer blockieren
+    b'\x7fELF': 'application/x-executable',  # ELF – Linux-Executables → immer blockieren
+    b'#!': 'text/x-shellscript',             # Shebang – Shell-Skripte → immer blockieren
+}
+
+# Dateitypen die grundsätzlich abgelehnt werden, unabhängig von der Allowlist
+_BLOCKED_MIME_TYPES = frozenset({
+    'application/x-dosexec',
+    'application/x-executable',
+    'application/x-msdownload',
+    'application/x-sh',
+    'text/x-shellscript',
+    'application/x-php',
+    'application/x-httpd-php',
+    'text/x-php',
+})
+
+# Dateiendungen die generell blockiert werden (auch wenn MIME ok ist)
+_BLOCKED_EXTENSIONS = frozenset({
+    'exe', 'bat', 'cmd', 'com', 'sh', 'bash', 'zsh', 'fish',
+    'ps1', 'psm1', 'psd1',                         # PowerShell
+    'php', 'php3', 'php4', 'php5', 'phtml', 'phar', # PHP
+    'asp', 'aspx', 'axd',                           # ASP.NET
+    'jsp', 'jspx',                                  # Java
+    'cgi', 'pl', 'py', 'rb',                        # Skripte (auch als Upload riskant)
+    'htaccess', 'htpasswd',                         # Web-Server-Konfig
+    'dll', 'so', 'dylib',                           # Bibliotheken
+    'elf', 'bin',                                   # Binaries
+    'vbs', 'vbe', 'js', 'jse', 'wsf', 'wsh',       # Windows-Skripte
+    'lnk', 'pif',                                   # Windows-Shortcuts
+    'jar', 'class',                                 # Java-Bytecode
+    'reg',                                          # Windows-Registry
+    'msi', 'msp',                                   # Windows-Installer
+    'scr',                                          # Windows-Screensaver (= EXE)
+    'hta',                                          # HTML-Application (Script-Execution)
+    'svg',                                          # SVG kann XSS enthalten
+})
+
+
+def _sniff_magic_bytes(file_obj) -> str | None:
+    """Liest die ersten 16 Bytes und vergleicht mit bekannten Signaturen."""
+    try:
+        header = file_obj.read(16)
+        file_obj.seek(0)
+        for sig, mime in _MAGIC_SIGNATURES.items():
+            if header.startswith(sig):
+                return mime
+    except Exception:
+        pass
+    return None
+
+
+def _sanitize_filename(name: str) -> str:
+    """Entfernt Path-Traversal-Muster und bereinigt den Dateinamen."""
+    name = os.path.basename(name)
+    name = re.sub(r'[^\w\s.\-]', '_', name)
+    # Doppelte Extensions verhindern (z.B. exploit.php.jpg)
+    parts = name.rsplit('.', 1)
+    if len(parts) == 2:
+        base, ext = parts
+        base = re.sub(r'\.', '_', base)   # Punkte im Basis-Namen entfernen
+        name = f'{base}.{ext}'
+    return name or 'upload'
+
+
+def validate_upload(uploaded_file) -> tuple[bool, str]:
+    """Validiert eine hochgeladene Datei auf Sicherheit.
+
+    Returns:
+        (True, '') wenn ok, (False, Fehlermeldung) wenn abgelehnt.
+    """
+    filename = uploaded_file.name or ''
+    ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+
+    # 1. Extension-Blocklist
+    if ext in _BLOCKED_EXTENSIONS:
+        return False, f'Dateityp ".{ext}" ist nicht erlaubt.'
+
+    # 2. Extension-Allowlist (aus settings)
+    allowed = getattr(settings, 'ALLOWED_FILE_EXTENSIONS', None)
+    if allowed and ext not in allowed:
+        return False, f'Dateityp ".{ext}" ist nicht in der Allowlist.'
+
+    # 3. Magic-Bytes prüfen (überschreibt vom Client gesendeten Content-Type)
+    detected_mime = _sniff_magic_bytes(uploaded_file)
+    if detected_mime and detected_mime in _BLOCKED_MIME_TYPES:
+        return False, f'Dateiinhalt wurde als "{detected_mime}" erkannt und ist nicht erlaubt.'
+
+    # 4. Dateigröße-Check (doppelt absichern neben Django-Einstellung)
+    max_size = getattr(settings, 'MAX_UPLOAD_SIZE_BYTES', 500 * 1024 * 1024)
+    if uploaded_file.size > max_size:
+        return False, f'Datei überschreitet die maximale Größe von {max_size // (1024*1024)} MB.'
+
+    return True, ''
 
 COLLABORA_EXTENSIONS = {
     'doc', 'docx', 'odt', 'xls', 'xlsx', 'ods', 'ppt', 'pptx', 'odp',
@@ -392,16 +501,34 @@ class FileUploadView(LoginRequiredMixin, CreateView):
 
                 # Get uploaded file
                 uploaded_file = request.FILES['file']
+
+                # Sicherheitsvalidierung (Extension, Magic-Bytes, Größe)
+                ok, reason = validate_upload(uploaded_file)
+                if not ok:
+                    logger.warning(
+                        'Upload abgelehnt von %s: %s', request.user.username, reason
+                    )
+                    return JsonResponse({'success': False, 'error': reason}, status=400)
+
                 ensure_quota_available(request.user, uploaded_file.size)
+
+                # Dateiname sanitieren (Path-Traversal verhindern)
+                safe_name = _sanitize_filename(
+                    request.POST.get('name', uploaded_file.name)
+                )
+
+                # MIME-Typ aus Magic-Bytes ableiten statt Client-Header blind zu vertrauen
+                detected_mime = _sniff_magic_bytes(uploaded_file)
+                mime_type = detected_mime or mimetypes.guess_type(safe_name)[0] or 'application/octet-stream'
 
                 # Create file object
                 storage_file = StorageFile(
                     owner=request.user,
                     folder=root_folder,
                     file=uploaded_file,
-                    name=request.POST.get('name', uploaded_file.name),
+                    name=safe_name,
                     size=uploaded_file.size,
-                    mime_type=uploaded_file.content_type or 'application/octet-stream'
+                    mime_type=mime_type,
                 )
                 storage_file.save()
 
@@ -444,6 +571,21 @@ class ChunkUploadView(LoginRequiredMixin, CreateView):
 
         if not all([upload_id, total_chunks, filename, chunk_file]) or chunk_index is None:
             return JsonResponse({'success': False, 'error': 'Missing parameters'}, status=400)
+
+        # Dateinamen bereits beim ersten Chunk validieren
+        ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+        if ext in _BLOCKED_EXTENSIONS:
+            return JsonResponse(
+                {'success': False, 'error': f'Dateityp ".{ext}" ist nicht erlaubt.'},
+                status=400,
+            )
+        allowed_exts = getattr(settings, 'ALLOWED_FILE_EXTENSIONS', None)
+        if allowed_exts and ext not in allowed_exts:
+            return JsonResponse(
+                {'success': False, 'error': f'Dateityp ".{ext}" ist nicht in der Allowlist.'},
+                status=400,
+            )
+        filename = _sanitize_filename(filename)
 
         try:
             chunk_index = int(chunk_index)

@@ -414,6 +414,52 @@ class GroupShare(models.Model):
         return self.owner_id == user.id or self.team_leaders.filter(id=user.id).exists()
 
 
+class GroupShareDepartmentAutoRole(models.Model):
+    """
+    Tracks users that were auto-added to a Team-Site due to a Department assignment.
+
+    This allows us to remove only the users that were added automatically when a Team-Site
+    is unassigned from a department (without touching users that were already members/leaders).
+    """
+    group = models.ForeignKey(
+        GroupShare,
+        on_delete=models.CASCADE,
+        related_name='department_auto_roles',
+        verbose_name=_('Group'),
+    )
+    department = models.ForeignKey(
+        'departments.Department',
+        on_delete=models.CASCADE,
+        related_name='team_site_auto_roles',
+        verbose_name=_('Abteilung'),
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='group_share_department_auto_roles',
+        verbose_name=_('User'),
+    )
+
+    preexisting_member = models.BooleanField(default=False)
+    preexisting_team_leader = models.BooleanField(default=False)
+    added_to_members = models.BooleanField(default=False)
+    added_to_team_leaders = models.BooleanField(default=False)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = _('Team-Site Auto Role')
+        verbose_name_plural = _('Team-Site Auto Roles')
+        unique_together = [['group', 'department', 'user']]
+        indexes = [
+            models.Index(fields=['group', 'department']),
+            models.Index(fields=['user']),
+        ]
+
+    def __str__(self):
+        return f'{self.user_id} @ {self.group_id} ({self.department_id})'
+
+
 class TeamSiteNews(models.Model):
     group = models.ForeignKey(
         GroupShare,

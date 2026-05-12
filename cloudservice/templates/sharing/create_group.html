@@ -11,6 +11,15 @@
                     <h4 class="mb-0"><i class="bi bi-people-fill me-2"></i>Neue Team Site</h4>
                 </div>
                 <div class="card-body">
+                    {% if department %}
+                        <div class="alert alert-info d-flex align-items-center gap-2">
+                            <i class="bi bi-building"></i>
+                            <div>
+                                Diese Team-Site wird nach dem Erstellen automatisch der Abteilung
+                                <strong>{{ department.name }}</strong> zugewiesen.
+                            </div>
+                        </div>
+                    {% endif %}
                     <form method="post" enctype="multipart/form-data">
                         {% csrf_token %}
                         {% for field in form %}
@@ -26,7 +35,11 @@
                             </div>
                         {% endfor %}
                         <button type="submit" class="btn btn-primary">Erstellen</button>
-                        <a href="{% url 'sharing:groups_list' %}" class="btn btn-secondary">Abbrechen</a>
+                        {% if department %}
+                            <a href="{% url 'departments:detail' department.slug %}" class="btn btn-secondary">Abbrechen</a>
+                        {% else %}
+                            <a href="{% url 'sharing:groups_list' %}" class="btn btn-secondary">Abbrechen</a>
+                        {% endif %}
                     </form>
                 </div>
             </div>
