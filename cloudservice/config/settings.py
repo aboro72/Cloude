@@ -57,6 +57,7 @@ THIRD_PARTY_APPS = [
     'modeltranslation',
     'structlog',
     'jazzmin',  # Enhanced admin interface
+    'rest_framework_simplejwt.token_blacklist',
 ]
 
 LOCAL_APPS = [

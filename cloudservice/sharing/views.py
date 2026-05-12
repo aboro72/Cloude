@@ -3,22 +3,25 @@ Views for Sharing app.
 File and folder sharing management.
 """
 
+import logging
+
 from django.db import models
 from django.views.generic import CreateView, DeleteView, ListView, TemplateView, DetailView, UpdateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import redirect, get_object_or_404, render
 from django.urls import reverse_lazy
-from django.http import JsonResponse, FileResponse, Http404
+from django.http import JsonResponse, FileResponse, Http404, HttpResponse
 from django.db.models import Q
 from django.contrib.contenttypes.models import ContentType
 from django.utils import timezone
-
 from django.core.cache import cache
-from django.http import HttpResponseTooManyRequests
+
 from sharing.models import UserShare, PublicLink, GroupShare, ShareLog, TeamSiteNews
 from sharing.forms import TeamSiteNewsForm
 from core.models import ActivityLog, StorageFile, StorageFolder
 from core.navigation import get_optional_plugin_app_url
+
+logger = logging.getLogger(__name__)
 
 
 def _get_client_ip(request):
@@ -32,13 +35,11 @@ def _check_public_link_rate_limit(request, token: str) -> bool:
     ip = _get_client_ip(request)
     key = f'publink_rate:{ip}'
     count = cache.get(key, 0) + 1
-    cache.set(key, count, timeout=60)  # 1 Minute Fenster
+    cache.set(key, count, timeout=60)
     if count > 20:
         logger.warning('Public-Link Rate-Limit überschritten: IP=%s token=%s', ip, token[:8])
         return False
     return True
-
-logger = logging.getLogger(__name__)
 
 
 class ShareView(LoginRequiredMixin, CreateView):
@@ -129,9 +130,7 @@ class PublicLinkView(DetailView):
     def get(self, request, *args, **kwargs):
         token = kwargs.get('token', '')
         if not _check_public_link_rate_limit(request, token):
-            return HttpResponseTooManyRequests(
-                'Zu viele Anfragen. Bitte warte eine Minute.'
-            )
+            return HttpResponse('Zu viele Anfragen. Bitte warte eine Minute.', status=429)
         return super().get(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
@@ -166,7 +165,7 @@ class PublicDownloadView(DetailView):
     def get(self, request, *args, **kwargs):
         token = kwargs.get('token', '')
         if not _check_public_link_rate_limit(request, token):
-            return HttpResponseTooManyRequests('Zu viele Anfragen. Bitte warte eine Minute.')
+            return HttpResponse('Zu viele Anfragen. Bitte warte eine Minute.', status=429)
 
         link = self.get_object()
 
