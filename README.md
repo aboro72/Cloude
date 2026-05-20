@@ -1,104 +1,115 @@
-# Cloude – Django Cloud Storage
+# Cloude — Self-Hosted Company Intranet
 
-Ein moderner Cloud-Speicherdienst auf Basis von Django 6, Gunicorn, Daphne und Celery.
+> **The SharePoint alternative that keeps your data on your own server.**  
+> Full intranet platform — file storage, messenger, video calls, news, team sites, and more.  
+> Self-hosted. GDPR-compliant. German UI. No per-user fees.
 
-**Entwickelt von Andreas Borowczak | [Aboro IT](https://aboro-it.de)**
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-cloudshare.aborosoft.com-blue?style=for-the-badge)](https://cloudshare.aborosoft.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11+-yellow?style=for-the-badge)](https://python.org)
+[![Django 6](https://img.shields.io/badge/Django-6.0-darkgreen?style=for-the-badge)](https://djangoproject.com)
+[![Bootstrap 5](https://img.shields.io/badge/Bootstrap-5.3-purple?style=for-the-badge)](https://getbootstrap.com)
 
 ---
 
-## Changelog / Projektbereinigung
+## Try it now — Live Demo
 
-### Entfernte Bestandteile
+**[cloudshare.aborosoft.com](https://cloudshare.aborosoft.com)**
 
-| Entfernt | Grund |
+| Login | Password |
 |---|---|
-| `Dockerfile` | Docker wird nicht mehr unterstützt |
-| `docker-compose.yml` | Docker wird nicht mehr unterstützt |
-| `unified-install/` | Docker-basiertes Setup-Wizard entfernt |
-| `README_MIGRATION.md` | Veraltete Migrationsdokumentation |
-| `MIGRATION_GUIDE_HELPDESK.md` | Nicht projektrelevant |
-| `cloudservice/storage/*.bak.*` | Automatisch erstellte Backup-Dateien |
+| `demo` | `demo` |
 
-### Hinzugefügte Bestandteile
+---
 
-| Datei | Beschreibung |
+## Why Cloude?
+
+| The problem with SharePoint / Microsoft 365 | How Cloude solves it |
 |---|---|
-| `auto-update.sh` | Automatisches Update-Skript (GitHub → Server) |
-| `auto-update.service` | Systemd Service für das Update-Skript |
-| `auto-update.timer` | Systemd Timer (alle 5 Minuten) |
-| `auto-update.sudoers` | Optionale Sudoers-Regel für manuelle Ausführung |
+| €10–25 per user per month | Self-hosted — pay once for your server |
+| Data stored in Microsoft's cloud | Your data stays on **your** server |
+| Complex licensing and admin | Simple Django admin + friendly web UI |
+| Vendor lock-in | Open source, you own the code |
+| Requires Active Directory / Azure | Works standalone, plain user accounts |
+
+---
+
+## Screenshots
+
+| Dashboard (MySite) | File Storage | Messenger |
+|---|---|---|
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Storage](docs/screenshots/storage.png) | ![Messenger](docs/screenshots/messenger.png) |
+
+| News | Team Sites | Page Editor |
+|---|---|---|
+| ![News](docs/screenshots/news.png) | ![Teams](docs/screenshots/teams.png) | ![Editor](docs/screenshots/editor.png) |
 
 ---
 
 ## Features
 
-- **Dateiverwaltung** – Upload, Download, Verschieben, Umbenennen, Versionen
-- **Ordnerstruktur** – Hierarchische Ordner mit Breadcrumb-Navigation
-- **Dateivorschau** – Bilder, Videos, Audio, PDFs direkt im Browser
-- **Papierkorb** – Soft-Delete mit Wiederherstellung
-- **Freigaben** – Öffentliche Links mit Passwortschutz und Ablaufdatum
-- **Messenger** – Echtzeit-Chat mit Kanälen, Direktnachrichten, Reaktionen und Einladungslinks
-- **Video-Call** – P2P-Videoanrufe direkt im DM-Fenster (Jitsi Meet, austauschbar)
-- **Plugin-System** – Erweiterbar durch Hook-basierte Plugins
-- **WebSocket** – Echtzeit-Benachrichtigungen über Daphne/Channels
-- **REST-API** – Vollständige API mit JWT-Authentifizierung
-- **Auto-Update** – Automatische Aktualisierung vom GitHub Master-Branch
+### Core Platform
+
+| | Feature | Description |
+|---|---|---|
+| 📁 | **File Storage** | Upload, download, rename, move, versioning, recycle bin, file preview (images, PDF, video, audio) |
+| 🔗 | **Sharing** | Public links with password protection and expiry date |
+| 💬 | **Real-time Messenger** | Channels, direct messages, emoji reactions, threaded replies, online presence |
+| 📹 | **Video Calls** | Peer-to-peer video calls in DM windows (Jitsi, self-hostable) |
+| 📅 | **Meeting Scheduler** | Plan and run video meetings with invitees, embedded Jitsi room |
+| 📰 | **Company News** | Magazine-style news with categories, reactions, threaded comments |
+| 🏢 | **Team Sites** | Departmental sites with their own news, files, and members |
+| 👤 | **People Directory** | Employee profiles, org chart, contact cards |
+| ✅ | **Kanban Boards** | Visual task boards per team or project |
+| 🌐 | **REST API** | Full JWT-authenticated API, Swagger docs at `/api/docs/` |
+| 🔌 | **Plugin System** | Extend with hook-based plugins, zero core changes needed |
+
+### Bundled Plugins
+
+| Plugin | What it does |
+|---|---|
+| **MySite Hub** | Personal dashboard — your news, files, meetings, team widgets in one place |
+| **Landing Editor** | Visual drag-and-drop page editor (GrapesJS) for your company's start page |
+| **Collabora Online** | In-browser Office document editing (requires Collabora server) |
+| **Forms Builder** | Create and publish internal forms |
+| **Tasks Board** | Kanban-style task management |
+| **People Directory** | Searchable employee directory |
+| **RSS Feed** | Dashboard widget for external news feeds |
+| **Weather** | Dashboard weather widget |
+| **Clock** | Dashboard clock widget |
 
 ---
 
-## Projektstruktur
+## Quick Install (1-Click)
 
-```
-Cloude/
-├── cloudservice/          # Django-Projekt
-│   ├── accounts/          # Benutzerverwaltung & Profile
-│   ├── api/               # REST-API (DRF)
-│   ├── config/            # Django-Konfiguration (settings, urls, wsgi, asgi)
-│   ├── core/              # Dashboard, WebSocket-Consumer, Celery-Tasks
-│   ├── messenger/         # Echtzeit-Messenger (Kanäle, DMs, Video-Calls)
-│   ├── plugins/           # Plugin-System (Loader, Hooks, Admin)
-│   ├── sharing/           # Dateifreigaben & öffentliche Links
-│   ├── storage/           # Dateispeicher-Verwaltung
-│   ├── templates/         # HTML-Templates
-│   ├── static/            # CSS, JS, Bilder (Quellen)
-│   └── manage.py
-├── django-platform-auth/  # Eigenes Authentifizierungs-Modul
-├── plugins/               # Installierte & paketierte Plugins
-│   └── installed/
-│       ├── clock_preview/
-│       ├── collabora_online/
-│       ├── mysite_hub/
-│       ├── rss_feed/
-│       └── weather/
-├── requirements.txt       # Python-Abhängigkeiten
-├── .env.example           # Umgebungsvariablen-Vorlage
-├── gunicorn.service       # Systemd Service (WSGI)
-├── daphne.service         # Systemd Service (ASGI/WebSocket)
-├── demo-password-reset.service  # Systemd Service (Demo-Reset)
-├── demo-password-reset.timer    # Systemd Timer (alle 30 Min.)
-├── auto-update.service    # Systemd Service (GitHub-Update)
-├── auto-update.timer      # Systemd Timer (alle 5 Min.)
-├── auto-update.sh         # Update-Skript
-├── nginx.conf             # Nginx-Konfiguration
-└── nginx-proxy.conf       # Nginx Proxy-Konfiguration
+> **Requires:** Ubuntu 22.04 / Debian 12, root or sudo access
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/aboro72/Cloude/master/install.sh | sudo bash
 ```
 
----
-
-## Systemanforderungen
-
-- Ubuntu/Debian Linux
-- Python 3.11+
-- PostgreSQL 14+
-- Redis 7+
-- Nginx
-- git
+The script installs all dependencies, configures systemd services, and sets up Nginx automatically.  
+At the end it prints your admin URL and asks you to create the first user.
 
 ---
 
-## Installation (Linux-Server)
+## Manual Install
 
-### 1. Benutzer und Repository
+<details>
+<summary>Full step-by-step installation guide (click to expand)</summary>
+
+### System Requirements
+
+| Component | Minimum version |
+|---|---|
+| OS | Ubuntu 22.04 LTS or Debian 12 |
+| Python | 3.11+ |
+| PostgreSQL | 14+ |
+| Redis | 7+ |
+| Nginx | 1.18+ |
+| RAM | 1 GB (2 GB recommended) |
+
+### Step 1 — System user and repository
 
 ```bash
 sudo useradd -m -s /bin/bash storage
@@ -112,27 +123,31 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. Umgebung konfigurieren
+### Step 2 — Configure environment
 
 ```bash
 cp .env.example cloudservice/.env
 nano cloudservice/.env
 ```
 
-Wichtige Variablen:
+Key variables to set:
 
 ```env
-DEBUG=False
-SECRET_KEY=<langer-geheimer-schluessel>
-ALLOWED_HOSTS=deine-domain.de
+SECRET_KEY=<generate-with-python-secrets>
+ALLOWED_HOSTS=your-domain.com
 DB_NAME=cloudservice
 DB_USER=postgres
-DB_PASSWORD=<passwort>
+DB_PASSWORD=<your-db-password>
 DB_HOST=localhost
 REDIS_URL=redis://localhost:6379/0
 ```
 
-### 3. Datenbank & statische Dateien
+Generate a secure key:
+```bash
+python3 -c "import secrets; print(secrets.token_urlsafe(50))"
+```
+
+### Step 3 — Database and static files
 
 ```bash
 cd cloudservice
@@ -141,21 +156,16 @@ python manage.py collectstatic --noinput
 python manage.py createsuperuser
 ```
 
-### 4. Systemd Services einrichten
+### Step 4 — Systemd services
 
 ```bash
-# Als root:
-sudo cp /home/storage/Cloude/gunicorn.service       /etc/systemd/system/
-sudo cp /home/storage/Cloude/daphne.service         /etc/systemd/system/
-sudo cp /home/storage/Cloude/demo-password-reset.service /etc/systemd/system/
-sudo cp /home/storage/Cloude/demo-password-reset.timer   /etc/systemd/system/
-
+sudo cp /home/storage/Cloude/gunicorn.service  /etc/systemd/system/
+sudo cp /home/storage/Cloude/daphne.service    /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now gunicorn daphne
-sudo systemctl enable --now demo-password-reset.timer
 ```
 
-### 5. Nginx konfigurieren
+### Step 5 — Nginx
 
 ```bash
 sudo cp /home/storage/Cloude/nginx.conf /etc/nginx/sites-available/cloude
@@ -163,284 +173,92 @@ sudo ln -s /etc/nginx/sites-available/cloude /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
----
-
-## Auto-Update (GitHub → Server)
-
-Das Auto-Update-System prüft alle **5 Minuten** ob es neue Commits im `master`-Branch gibt und aktualisiert den Server automatisch.
-
-### Was passiert bei einem Update
-
-1. `git fetch origin master` – neuen Stand prüfen (ohne zu mergen)
-2. Vergleich `HEAD` vs. `origin/master` – kein Pull wenn nichts Neues
-3. `git pull` – Änderungen einspielen
-4. `pip install -r requirements.txt` – neue Abhängigkeiten installieren
-5. `manage.py migrate` – Datenbankmigrationen ausführen
-6. `manage.py collectstatic` – statische Dateien aktualisieren
-7. Dienste neu starten (gunicorn, daphne, celery, celery-beat)
-
-### Installation des Auto-Updates
+### Step 6 — (Optional) Automatic updates from GitHub
 
 ```bash
-# Als root:
-cp /home/storage/Cloude/auto-update.sh /usr/local/bin/cloude-auto-update.sh
-chmod +x /usr/local/bin/cloude-auto-update.sh
-
-cp /home/storage/Cloude/auto-update.service /etc/systemd/system/
-cp /home/storage/Cloude/auto-update.timer   /etc/systemd/system/
-
-touch /var/log/cloude-autoupdate.log
-chown storage:storage /var/log/cloude-autoupdate.log
-
-systemctl daemon-reload
-systemctl enable --now auto-update.timer
+sudo cp /home/storage/Cloude/auto-update.sh /usr/local/bin/cloude-auto-update.sh
+sudo chmod +x /usr/local/bin/cloude-auto-update.sh
+sudo cp /home/storage/Cloude/auto-update.service /etc/systemd/system/
+sudo cp /home/storage/Cloude/auto-update.timer   /etc/systemd/system/
+sudo touch /var/log/cloude-autoupdate.log
+sudo chown storage:storage /var/log/cloude-autoupdate.log
+sudo systemctl daemon-reload
+sudo systemctl enable --now auto-update.timer
 ```
 
-### Status & Logs prüfen
+This pulls the latest `master` commits every 5 minutes, runs migrations, and restarts services automatically.
 
-```bash
-systemctl status auto-update.timer
-journalctl -u cloude-autoupdate -f
-tail -f /var/log/cloude-autoupdate.log
-```
-
-### Intervall anpassen
-
-In `auto-update.timer` die Zeile `OnUnitActiveSec=5min` ändern (z.B. `15min`, `1h`).
+</details>
 
 ---
 
-## Messenger
+## Tech Stack
 
-Der Messenger ist workspace-basiert und an das Firmenprofil (`Company`) geknüpft. Jede Firma hat einen eigenen Namespace über den `workspace_key`.
-
-### Funktionen
-
-| Feature | Beschreibung |
+| Layer | Technology |
 |---|---|
-| Kanäle | Öffentliche und private Gruppenräume |
-| Direktnachrichten | 1:1-Chat zwischen Workspace-Mitgliedern |
-| Reaktionen | Emoji-Reaktionen auf Nachrichten |
-| Antworten | Thread-ähnliche Antworten auf einzelne Nachrichten |
-| Einladungslinks | Temporäre Links mit Nutzungslimit und Ablaufdatum |
-| Präsenz | Online/Offline-Status via WebSocket |
-| Video-Call | Integrierter Videoanruf direkt im DM-Fenster |
-
-### URL-Schema
-
-```
-/<workspace_key>/messenger/                        # Übersicht
-/<workspace_key>/messenger/channel/<slug>/         # Kanal-/Gruppenraum
-/<workspace_key>/messenger/dm/<username>/          # Direktnachricht öffnen/erstellen
-/<workspace_key>/messenger/channel/create/        # Neuen Kanal anlegen
-/messenger/invite/<token>/                         # Einladungslink einlösen
-```
-
-### Video-Call (Jitsi) in DM-Räumen
-
-Video-Calls sind in DM-Räumen über den "Video-Call"-Button im Header verfügbar. Die Integration nutzt aktuell `meet.jit.si` als öffentlichen Server.
-
-**Auf eigene Jitsi-Instanz umziehen:**
-
-In `templates/messenger/messenger.html` eine Zeile ändern:
-
-```javascript
-// vorher:
-jitsiApi = new JitsiMeetExternalAPI('meet.jit.si', { ... });
-
-// nachher:
-jitsiApi = new JitsiMeetExternalAPI('jitsi.deine-domain.de', { ... });
-```
-
-Selbst gehostete Jitsi-Instanz aufsetzen (Docker):
-
-```bash
-git clone https://github.com/jitsi/docker-jitsi-meet
-cd docker-jitsi-meet
-cp env.example .env
-# .env anpassen (PUBLIC_URL, Passwörter etc.)
-docker compose up -d
-```
-
----
-
-## Meetings (Jitsi)
-
-Geplante und spontane Video-Meetings, workspace-gebunden an das `Company`-Modell.
-Konfiguration über `.env`: `JITSI_URL`, `JITSI_APP_ID`, `JITSI_APP_SECRET`.
-
-### Features
-
-| Feature | Beschreibung |
-|---|---|
-| Meeting planen | Titel, Beschreibung, Start/Ende, Eingeladene auswählen |
-| Raum erst beim Start | Jitsi-Raumname wird erst generiert wenn "Starten" geklickt wird |
-| Meeting-Seite | Eingebetteter Jitsi-Call, kein Tab-Wechsel nötig |
-| Nach Meeting → MySite | Nach Verlassen oder Auflegen automatischer Redirect zur MySite |
-| MySite-Widget | Laufende & geplante Meetings direkt auf der MySite sichtbar |
-| API | Vollständige REST-API für externe Clients (siehe unten) |
-
-### URL-Schema
-
-```
-/meetings/                        # Übersicht: laufend / geplant / vergangen
-/meetings/schedule/               # POST: Meeting anlegen
-/meetings/<id>/start/             # POST: Meeting starten (Raum wird erstellt)
-/meetings/<id>/join/              # GET: laufendem Meeting beitreten → Room-Seite
-/meetings/<id>/room/              # Meeting-Room mit eingebettetem Jitsi
-/meetings/<id>/end/               # POST: Meeting beenden
-/meetings/<id>/cancel/            # POST: Meeting absagen
-```
-
-### Meeting-Lebenszyklus
-
-```
-planned → (start) → running → (end) → ended
-planned → (cancel) → cancelled
-```
-
-Der Jitsi-Raumname (`room_name`) bleibt leer bis `start()` aufgerufen wird.
-Erst dann wird ein deterministischer Slug aus Titel + UUID-Suffix generiert.
-
-### MySite-Widget
-
-Das Widget `"Meine Meetings"` erscheint auf der MySite automatisch,
-sobald mindestens ein laufendes oder geplantes Meeting für den Nutzer existiert.
-Eingebaut in `plugins/installed/mysite_hub/providers.py` (`_build_upcoming_meetings`).
-
----
-
-## REST-API
-
-Basis-URL: `/api/`  
-Authentifizierung: JWT (`/api/auth/token/`)  
-Dokumentation: `/api/docs/` (Swagger) · `/api/redoc/`
-
-### Endpunkte-Übersicht
-
-| Ressource | Pfad | Methoden |
-|---|---|---|
-| Dateien | `/api/files/` | GET, POST, PATCH, DELETE |
-| Ordner | `/api/folders/` | GET, POST, PATCH, DELETE |
-| Freigaben | `/api/shares/` | GET, POST, PATCH, DELETE |
-| Public Links | `/api/public-links/` | GET, POST, PATCH, DELETE |
-| Suche | `/api/search/?q=` | GET |
-| Storage-Quota | `/api/storage/quota/` | GET |
-| Benachrichtigungen | `/api/notifications/` | GET |
-| Abteilungen | `/api/departments/` | GET |
-| Team Sites | `/api/team-sites/` | GET |
-| Kanban-Boards | `/api/boards/` | GET |
-| Tasks | `/api/tasks/` | GET |
-| News-Kategorien | `/api/news/categories/` | GET |
-| News-Artikel | `/api/news/articles/` | GET |
-| **Meetings** | `/api/meetings/` | GET, POST, PATCH, DELETE |
-| Messenger-Räume | `/api/messenger/rooms/` | GET, POST |
-| Nachrichten | `/api/messenger/rooms/{id}/messages/` | GET, POST, PATCH, DELETE |
-| Direktnachricht | `/api/messenger/direct/` | POST |
-| Chat-Einladungen | `/api/messenger/invites/{token}/` | GET |
-
-### Meeting-API im Detail
-
-```
-GET    /api/meetings/                    # eigene Meetings (Organisator oder Eingeladener)
-GET    /api/meetings/?status=planned     # nach Status filtern (planned/running/ended/cancelled)
-POST   /api/meetings/                    # Meeting planen
-GET    /api/meetings/{id}/               # Meeting-Details
-PATCH  /api/meetings/{id}/               # Titel/Beschreibung/Zeiten ändern
-DELETE /api/meetings/{id}/               # Meeting löschen
-POST   /api/meetings/{id}/start/         # Meeting starten
-POST   /api/meetings/{id}/end/           # Meeting beenden
-POST   /api/meetings/{id}/cancel/        # Meeting absagen
-GET    /api/meetings/{id}/join_url/      # Jitsi-JWT + Join-URL abrufen (nur running)
-```
-
-**Beispiel — Meeting planen:**
-
-```json
-POST /api/meetings/
-{
-  "title": "Wöchentliches Standup",
-  "description": "15-Minuten-Update",
-  "scheduled_start": "2026-05-10T09:00:00",
-  "scheduled_end":   "2026-05-10T09:15:00",
-  "invitee_ids": [3, 7, 12]
-}
-```
-
-**Beispiel — Join-URL abrufen:**
-
-```json
-GET /api/meetings/42/join_url/
-→ {
-    "token": "eyJ...",
-    "url": "https://meet.aborosoft.com/standup-a1b2c3?jwt=eyJ...",
-    "room_name": "standup-a1b2c3"
-  }
-```
-
----
-
-## Plugin-System
-
-Plugins liegen unter `plugins/installed/`. Jedes Plugin enthält eine `plugin.json` mit Metadaten.
-
-### Plugin aktivieren
-
-1. Plugin-Verzeichnis nach `plugins/installed/<name>/` legen
-2. Im Admin-Panel unter **Plugins** aktivieren
-
-### Eigene Plugins entwickeln
-
-Siehe `cloudservice/plugins/example_clock_preview/` als Referenz-Implementierung.
-
-Verfügbare Hooks:
-- `UI_DASHBOARD_WIDGET` – Dashboard-Widgets
-- `UI_NAVBAR_ITEM` – Navigationseinträge
-- `STORAGE_FILE_UPLOAD` – Upload-Verarbeitung
-- `STORAGE_FILE_DOWNLOAD` – Download-Verarbeitung
+| Backend | Django 6, Django REST Framework, Celery |
+| Real-time | Django Channels, Daphne (ASGI), WebSocket |
+| Frontend | Bootstrap 5.3, Bootstrap Icons, vanilla JS |
+| Page builder | GrapesJS 0.21 |
+| Database | PostgreSQL (or MySQL) |
+| Cache / Queue | Redis |
+| Web server | Nginx + Gunicorn + Daphne |
+| Auth | JWT (djangorestframework-simplejwt) |
 
 ---
 
 ## Troubleshooting
 
-### 502 Bad Gateway
+<details>
+<summary>Common issues and fixes</summary>
 
+**502 Bad Gateway**
 ```bash
 sudo systemctl status gunicorn
 sudo journalctl -u gunicorn -n 50
 sudo systemctl restart gunicorn
 ```
 
-### Static/Media Files fehlen
-
+**Static files missing**
 ```bash
 source /home/storage/Cloude/venv/bin/activate
-cd /home/storage/Cloude/cloudservice
-python manage.py collectstatic --noinput
+python /home/storage/Cloude/cloudservice/manage.py collectstatic --noinput
 ```
 
-### Migrations-Fehler
-
+**Migration errors**
 ```bash
 python manage.py migrate --fake-initial
-python manage.py makemigrations
-python manage.py migrate
 ```
 
-### Auto-Update läuft nicht
-
+**Auto-update not running**
 ```bash
-# Service manuell testen:
 sudo /usr/local/bin/cloude-auto-update.sh
-
-# Logs prüfen:
 tail -50 /var/log/cloude-autoupdate.log
-journalctl -u cloude-autoupdate --no-pager
 ```
+
+</details>
 
 ---
 
-## Support
+## REST API
+
+Base URL: `/api/`  
+Auth: JWT — `POST /api/auth/token/`  
+Swagger UI: `/api/docs/`  
+ReDoc: `/api/redoc/`
+
+Endpoints cover: files, folders, shares, notifications, departments, team sites, news, meetings, kanban boards, messenger rooms and messages.
+
+---
+
+## License
+
+MIT License — see [LICENSE](LICENSE)
+
+---
+
+## Support & Contact
 
 - **Issues:** [GitHub Issues](https://github.com/aboro72/Cloude/issues)
-- **Entwickler:** Andreas Borowczak | [Aboro IT](https://aboro-it.de)
+- **Developer:** Andreas Borowczak · [Aboro IT](https://aboro-it.de)
+- **Demo:** [cloudshare.aborosoft.com](https://cloudshare.aborosoft.com)
