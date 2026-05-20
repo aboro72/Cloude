@@ -18,7 +18,7 @@
 
 | Login | Password |
 |---|---|
-| `demo` | `demo` |
+| `demo` | `demo2026` |
 
 ---
 
