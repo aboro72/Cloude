@@ -5,7 +5,7 @@ Django 5.x Configuration
 import os
 import sys
 from pathlib import Path
-from decouple import config, Csv
+from decouple import AutoConfig, config, Csv
 
 # Build paths inside the project
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -57,6 +57,7 @@ THIRD_PARTY_APPS = [
     'modeltranslation',
     'structlog',
     'jazzmin',  # Enhanced admin interface
+    'rest_framework_simplejwt.token_blacklist',
 ]
 
 LOCAL_APPS = [
@@ -79,15 +80,18 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',  # Static files
-    'django.contrib.sessions.middleware.SessionMiddleware',  # Sessions must come before CSRF
+    'whitenoise.middleware.WhiteNoiseMiddleware',             # Static files
+    'accounts.middleware.SecurityHeadersMiddleware',          # Sicherheits-Header
+    'accounts.middleware.AdminIPAllowlistMiddleware',         # Admin IP-Schutz
+    'accounts.middleware.BruteForceLoginMiddleware',          # Brute-Force-Schutz
+    'django.contrib.sessions.middleware.SessionMiddleware',   # Sessions must come before CSRF
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'accounts.middleware.ForcePasswordChangeMiddleware',      # Passwort-Pflicht
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    # 'structlog.contextvars.clear_contextvars',  # Optional: uncomment if using structlog
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -257,12 +261,24 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 25,
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_THROTTLE_CLASSES': [
+        'api.throttling.BurstAnonThrottle',
+        'api.throttling.BurstUserThrottle',
         'rest_framework.throttling.AnonRateThrottle',
-        'rest_framework.throttling.UserRateThrottle'
+        'rest_framework.throttling.UserRateThrottle',
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'anon': '100/hour',
-        'user': '1000/hour'
+        # Stündliche Obergrenzen
+        'anon': '200/hour',
+        'user': '2000/hour',
+        # Kurzzeit-Bursts
+        'anon_burst': '30/min',
+        'user_burst': '120/min',
+        # Spezifische Endpunkte
+        'login': '5/min',
+        'password_reset': '3/hour',
+        'upload': '50/hour',
+        'public_link': '20/min',
+        'public_link_download': '10/min',
     },
 }
 
@@ -270,12 +286,17 @@ REST_FRAMEWORK = {
 from datetime import timedelta
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),       # Kürzer: 30 min statt 1h
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,                        # Neues Refresh-Token bei jedem Refresh
+    'BLACKLIST_AFTER_ROTATION': True,                     # Altes Token sofort ungültig
+    'UPDATE_LAST_LOGIN': True,                            # last_login in DB aktualisieren
     'ALGORITHM': 'HS256',
     'SIGNING_KEY': SECRET_KEY,
     'VERIFYING_KEY': None,
     'AUTH_HEADER_TYPES': ('Bearer',),
+    'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
+    'JTI_CLAIM': 'jti',                                   # JWT ID – ermöglicht Token-Invalidierung
 }
 
 # ========== CORS Configuration ==========
@@ -318,7 +339,6 @@ else:
     }
     SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
     SESSION_CACHE_ALIAS = 'default'
-SESSION_COOKIE_AGE = 1209600  # 2 weeks
 
 # ========== Celery Configuration ==========
 CELERY_BROKER_URL = config('CELERY_BROKER_URL', default='redis://127.0.0.1:6379/1')
@@ -354,8 +374,9 @@ else:
     }
 
 # ========== File Upload Configuration ==========
-FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760   # 10 MB – darüber schreibt Django auf Disk statt RAM
-DATA_UPLOAD_MAX_MEMORY_SIZE = None       # Kein Limit für Upload-Daten
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760        # 10 MB – darüber schreibt Django auf Disk statt RAM
+DATA_UPLOAD_MAX_MEMORY_SIZE = 524288000       # 500 MB – harte Obergrenze für Request-Body
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 100           # Max Formfelder, verhindert Hash-Flood-Angriff
 FILE_UPLOAD_PERMISSIONS = 0o644
 FILE_UPLOAD_DIRECTORY_PERMISSIONS = 0o755
 
@@ -380,28 +401,43 @@ ALLOWED_FILE_EXTENSIONS = {
 SECURE_SSL_REDIRECT = config('SECURE_SSL_REDIRECT', default=False, cast=bool)
 SESSION_COOKIE_SECURE = config('SESSION_COOKIE_SECURE', default=False, cast=bool)
 CSRF_COOKIE_SECURE = config('CSRF_COOKIE_SECURE', default=False, cast=bool)
+
+# HSTS: Nur in Produktion aktivieren (mindestens 6 Monate = 15768000 Sekunden)
+if not DEBUG:
+    SECURE_HSTS_SECONDS = config('SECURE_HSTS_SECONDS', default=15768000, cast=int)
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True   # Verhindert MIME-Sniffing
+    SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
+
 # Honor reverse-proxy headers (nginx/Cloudflare) so Django can detect HTTPS correctly.
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 USE_X_FORWARDED_HOST = True
-CSRF_TRUSTED_ORIGINS = [
-    'http://localhost:8000',
-    'http://127.0.0.1:8000',
-    'http://localhost:3000',
-    'https://storage1.aborosoft.com',
-    'https://cloudshare.aborosoft.com',
-]
-CSRF_COOKIE_HTTPONLY = False
-CSRF_COOKIE_SAMESITE = 'Lax'
-SESSION_COOKIE_SAMESITE = 'Lax'
+
+CSRF_TRUSTED_ORIGINS = config(
+    'CSRF_TRUSTED_ORIGINS',
+    default='http://localhost:8000,http://127.0.0.1:8000,https://storage1.aborosoft.com,https://cloudshare.aborosoft.com',
+    cast=Csv()
+)
+CSRF_COOKIE_HTTPONLY = False   # JS braucht CSRF-Token für AJAX
+CSRF_COOKIE_SAMESITE = 'Strict'   # Strikter als Lax: kein Cross-Site POST
+SESSION_COOKIE_SAMESITE = 'Strict'
+SESSION_COOKIE_NAME = 'cld_session'   # Kein generischer Name 'sessionid'
+SESSION_COOKIE_HTTPONLY = True        # JS kann Session-Cookie nicht lesen
 SECURE_BROWSER_XSS_FILTER = True
-SECURE_CONTENT_SECURITY_POLICY = {
-    'DEFAULT_SRC': ("'self'",),
-    'SCRIPT_SRC': ("'self'", "'unsafe-inline'", "cdn.jsdelivr.net"),
-    'STYLE_SRC': ("'self'", "'unsafe-inline'", "cdn.jsdelivr.net"),
-    'IMG_SRC': ("'self'", "data:", "https:"),
-    'FONT_SRC': ("'self'", "cdn.jsdelivr.net"),
-}
-X_FRAME_OPTIONS = 'SAMEORIGIN'
+X_FRAME_OPTIONS = 'DENY'            # Kein Embedding in iframes (war SAMEORIGIN)
+
+# Maximale Session-Inaktivität: 8 Stunden
+SESSION_COOKIE_AGE = config('SESSION_COOKIE_AGE', default=28800, cast=int)
+SESSION_SAVE_EVERY_REQUEST = False
+SESSION_EXPIRE_AT_BROWSER_CLOSE = config('SESSION_EXPIRE_AT_BROWSER_CLOSE', default=False, cast=bool)
+
+# IP-Allowlist für Admin-Bereich (kommagetrennte CIDRs/IPs, leer = deaktiviert)
+ADMIN_IP_ALLOWLIST = config('ADMIN_IP_ALLOWLIST', default='', cast=Csv())
+
+# Maximale fehlgeschlagene Logins bevor Account temporär gesperrt wird
+MAX_FAILED_LOGINS = config('MAX_FAILED_LOGINS', default=5, cast=int)
+FAILED_LOGIN_LOCKOUT_MINUTES = config('FAILED_LOGIN_LOCKOUT_MINUTES', default=15, cast=int)
 
 # ========== Logging Configuration ==========
 LOGGING = {
@@ -492,6 +528,23 @@ MODELTRANSLATION_FALLBACK_LANGUAGES = {
     'de': ('de', 'en'),
     'en': ('en', 'de'),
 }
+
+# ========== Email / SMTP ==========
+email_config = AutoConfig(search_path=BASE_DIR)
+EMAIL_BACKEND = email_config(
+    'EMAIL_BACKEND', default='django.core.mail.backends.smtp.EmailBackend'
+)
+EMAIL_HOST = email_config('EMAIL_HOST', default='localhost')
+EMAIL_PORT = email_config('EMAIL_PORT', default=25, cast=int)
+EMAIL_HOST_USER = email_config('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = email_config('EMAIL_HOST_PASSWORD', default='')
+EMAIL_USE_TLS = email_config('EMAIL_USE_TLS', default=False, cast=bool)
+EMAIL_USE_SSL = email_config('EMAIL_USE_SSL', default=False, cast=bool)
+EMAIL_TIMEOUT = email_config('EMAIL_TIMEOUT', default=15, cast=int)
+DEFAULT_FROM_EMAIL = email_config(
+    'DEFAULT_FROM_EMAIL', default=EMAIL_HOST_USER or 'webmaster@localhost'
+)
+SERVER_EMAIL = email_config('SERVER_EMAIL', default=DEFAULT_FROM_EMAIL)
 
 # ========== Django Admin Customization ==========
 JAZZMIN = {

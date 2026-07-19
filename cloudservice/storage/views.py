@@ -20,12 +20,440 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.cache import never_cache
 
 from core.models import StorageFile, StorageFolder
+import io
 import logging
 import mimetypes
 import os
+import re
+import zipfile
 from urllib.parse import quote
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Office-Dokument-Templates (minimal valide Dateien für Collabora)
+# ---------------------------------------------------------------------------
+
+def _make_ooxml_docx():
+    W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+    PKG = 'http://schemas.openxmlformats.org/package/2006/content-types'
+    REL = 'http://schemas.openxmlformats.org/package/2006/relationships'
+    OFF = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr('[Content_Types].xml', (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            f'<Types xmlns="{PKG}">'
+            '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+            '<Default Extension="xml" ContentType="application/xml"/>'
+            f'<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'
+            f'<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>'
+            f'<Override PartName="/word/settings.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"/>'
+            f'<Override PartName="/word/fontTable.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.fontTable+xml"/>'
+            '</Types>'
+        ))
+        zf.writestr('_rels/.rels', (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            f'<Relationships xmlns="{REL}">'
+            f'<Relationship Id="rId1" Type="{OFF}/officeDocument" Target="word/document.xml"/>'
+            '</Relationships>'
+        ))
+        zf.writestr('word/_rels/document.xml.rels', (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            f'<Relationships xmlns="{REL}">'
+            f'<Relationship Id="rId1" Type="{OFF}/styles" Target="styles.xml"/>'
+            f'<Relationship Id="rId2" Type="{OFF}/settings" Target="settings.xml"/>'
+            f'<Relationship Id="rId3" Type="{OFF}/fontTable" Target="fontTable.xml"/>'
+            '</Relationships>'
+        ))
+        zf.writestr('word/document.xml', (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            f'<w:document xmlns:w="{W}">'
+            '<w:body>'
+            '<w:p><w:pPr><w:pStyle w:val="Normal"/></w:pPr><w:r><w:t/></w:r></w:p>'
+            '<w:sectPr><w:pgSz w:w="12240" w:h="15840"/></w:sectPr>'
+            '</w:body>'
+            '</w:document>'
+        ))
+        zf.writestr('word/styles.xml', (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            f'<w:styles xmlns:w="{W}" w:docDefaults="">'
+            '<w:docDefaults>'
+            '<w:rPrDefault><w:rPr>'
+            '<w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>'
+            '<w:sz w:val="24"/><w:szCs w:val="24"/>'
+            '</w:rPr></w:rPrDefault>'
+            '</w:docDefaults>'
+            '<w:style w:type="paragraph" w:default="1" w:styleId="Normal">'
+            '<w:name w:val="Normal"/>'
+            '</w:style>'
+            '</w:styles>'
+        ))
+        zf.writestr('word/settings.xml', (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            f'<w:settings xmlns:w="{W}">'
+            '<w:zoom w:percent="100"/>'
+            '</w:settings>'
+        ))
+        zf.writestr('word/fontTable.xml', (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            f'<w:fonts xmlns:w="{W}">'
+            '<w:font w:name="Calibri"><w:charset w:val="00"/></w:font>'
+            '</w:fonts>'
+        ))
+    return buf.getvalue()
+
+
+def _make_ooxml_xlsx():
+    SS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'
+    REL = 'http://schemas.openxmlformats.org/package/2006/relationships'
+    OFF = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+    PKG = 'http://schemas.openxmlformats.org/package/2006/content-types'
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr('[Content_Types].xml', (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            f'<Types xmlns="{PKG}">'
+            '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+            '<Default Extension="xml" ContentType="application/xml"/>'
+            '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+            '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+            '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
+            '<Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>'
+            '</Types>'
+        ))
+        zf.writestr('_rels/.rels', (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            f'<Relationships xmlns="{REL}">'
+            f'<Relationship Id="rId1" Type="{OFF}/officeDocument" Target="xl/workbook.xml"/>'
+            '</Relationships>'
+        ))
+        zf.writestr('xl/_rels/workbook.xml.rels', (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            f'<Relationships xmlns="{REL}">'
+            f'<Relationship Id="rId1" Type="{OFF}/worksheet" Target="worksheets/sheet1.xml"/>'
+            f'<Relationship Id="rId2" Type="{OFF}/styles" Target="styles.xml"/>'
+            f'<Relationship Id="rId3" Type="{OFF}/sharedStrings" Target="sharedStrings.xml"/>'
+            '</Relationships>'
+        ))
+        zf.writestr('xl/workbook.xml', (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            f'<workbook xmlns="{SS}" xmlns:r="{OFF}">'
+            '<bookViews><workbookView xWindow="0" yWindow="0" windowWidth="16384" windowHeight="8192"/></bookViews>'
+            '<sheets><sheet name="Tabelle1" sheetId="1" r:id="rId1"/></sheets>'
+            '</workbook>'
+        ))
+        zf.writestr('xl/worksheets/sheet1.xml', (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            f'<worksheet xmlns="{SS}">'
+            '<sheetViews><sheetView workbookViewId="0"/></sheetViews>'
+            '<sheetData/>'
+            '</worksheet>'
+        ))
+        zf.writestr('xl/styles.xml', (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            f'<styleSheet xmlns="{SS}">'
+            '<fonts count="1"><font><sz val="11"/><name val="Calibri"/></font></fonts>'
+            '<fills count="2">'
+            '<fill><patternFill patternType="none"/></fill>'
+            '<fill><patternFill patternType="gray125"/></fill>'
+            '</fills>'
+            '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
+            '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+            '<cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs>'
+            '</styleSheet>'
+        ))
+        zf.writestr('xl/sharedStrings.xml', (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            f'<sst xmlns="{SS}" count="0" uniqueCount="0"/>'
+        ))
+    return buf.getvalue()
+
+
+def _make_ooxml_pptx():
+    PML = 'http://schemas.openxmlformats.org/presentationml/2006/main'
+    DML = 'http://schemas.openxmlformats.org/drawingml/2006/main'
+    REL = 'http://schemas.openxmlformats.org/package/2006/relationships'
+    OFF = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+    PKG = 'http://schemas.openxmlformats.org/package/2006/content-types'
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr('[Content_Types].xml', (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            f'<Types xmlns="{PKG}">'
+            '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+            '<Default Extension="xml" ContentType="application/xml"/>'
+            '<Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>'
+            '<Override PartName="/ppt/slides/slide1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>'
+            '<Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>'
+            '<Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/>'
+            '</Types>'
+        ))
+        zf.writestr('_rels/.rels', (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            f'<Relationships xmlns="{REL}">'
+            f'<Relationship Id="rId1" Type="{OFF}/officeDocument" Target="ppt/presentation.xml"/>'
+            '</Relationships>'
+        ))
+        zf.writestr('ppt/_rels/presentation.xml.rels', (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            f'<Relationships xmlns="{REL}">'
+            f'<Relationship Id="rId1" Type="{OFF}/slide" Target="slides/slide1.xml"/>'
+            f'<Relationship Id="rId2" Type="{OFF}/slideMaster" Target="slideMasters/slideMaster1.xml"/>'
+            '</Relationships>'
+        ))
+        zf.writestr('ppt/presentation.xml', (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            f'<p:presentation xmlns:p="{PML}" xmlns:r="{OFF}" xmlns:a="{DML}">'
+            '<p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId2"/></p:sldMasterIdLst>'
+            '<p:sldIdLst><p:sldId id="256" r:id="rId1"/></p:sldIdLst>'
+            '<p:sldSz cx="9144000" cy="6858000"/>'
+            '<p:notesSz cx="6858000" cy="9144000"/>'
+            '</p:presentation>'
+        ))
+        zf.writestr('ppt/slides/_rels/slide1.xml.rels', (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            f'<Relationships xmlns="{REL}">'
+            f'<Relationship Id="rId1" Type="{OFF}/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>'
+            '</Relationships>'
+        ))
+        zf.writestr('ppt/slides/slide1.xml', (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            f'<p:sld xmlns:p="{PML}" xmlns:a="{DML}" xmlns:r="{OFF}">'
+            '<p:cSld><p:spTree>'
+            '<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>'
+            '<p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>'
+            '</p:spTree></p:cSld>'
+            '<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>'
+            '</p:sld>'
+        ))
+        zf.writestr('ppt/slideLayouts/_rels/slideLayout1.xml.rels', (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            f'<Relationships xmlns="{REL}">'
+            f'<Relationship Id="rId1" Type="{OFF}/slideMaster" Target="../slideMasters/slideMaster1.xml"/>'
+            '</Relationships>'
+        ))
+        zf.writestr('ppt/slideLayouts/slideLayout1.xml', (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            f'<p:sldLayout xmlns:p="{PML}" xmlns:a="{DML}" xmlns:r="{OFF}" type="blank">'
+            '<p:cSld name="Blank"><p:spTree>'
+            '<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>'
+            '<p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>'
+            '</p:spTree></p:cSld>'
+            '<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>'
+            '</p:sldLayout>'
+        ))
+        zf.writestr('ppt/slideMasters/_rels/slideMaster1.xml.rels', (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            f'<Relationships xmlns="{REL}">'
+            f'<Relationship Id="rId1" Type="{OFF}/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>'
+            '</Relationships>'
+        ))
+        zf.writestr('ppt/slideMasters/slideMaster1.xml', (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            f'<p:sldMaster xmlns:p="{PML}" xmlns:a="{DML}" xmlns:r="{OFF}">'
+            '<p:cSld><p:bg><p:bgRef idx="1001"><a:schemeClr clr="bg1"/></p:bgRef></p:bg>'
+            '<p:spTree>'
+            '<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>'
+            '<p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>'
+            '</p:spTree></p:cSld>'
+            '<p:clrMap bg1="lt1" tx1="dk1" bg2="lt2" tx2="dk2" accent1="accent1" accent2="accent2" accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" hlink="hlink" folHlink="folHlink"/>'
+            '<p:sldLayoutIdLst><p:sldLayoutId id="2147483649" r:id="rId1"/></p:sldLayoutIdLst>'
+            '</p:sldMaster>'
+        ))
+    return buf.getvalue()
+
+
+def _make_odf(mime_type):
+    type_map = {
+        'application/vnd.oasis.opendocument.text':
+            ('office:text', 'xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0"',
+             '<text:p/>'),
+        'application/vnd.oasis.opendocument.spreadsheet':
+            ('office:spreadsheet', 'xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0"',
+             '<table:table table:name="Tabelle1"><table:table-row>'
+             '<table:table-cell/></table:table-row></table:table>'),
+        'application/vnd.oasis.opendocument.presentation':
+            ('office:presentation', 'xmlns:draw="urn:oasis:names:tc:opendocument:xmlns:drawing:1.0"',
+             '<draw:page draw:name="Seite1"/>'),
+    }
+    body_tag, extra_ns, body_content = type_map.get(mime_type, type_map[
+        'application/vnd.oasis.opendocument.text'
+    ])
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr('mimetype', mime_type, compress_type=zipfile.ZIP_STORED)
+        zf.writestr('content.xml', (
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<office:document-content'
+            ' xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"'
+            f' {extra_ns}'
+            ' office:version="1.3">'
+            f'<office:body><{body_tag}>{body_content}</{body_tag}></office:body>'
+            '</office:document-content>'
+        ))
+        zf.writestr('META-INF/manifest.xml', (
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"'
+            ' manifest:version="1.3">'
+            f'<manifest:file-entry manifest:full-path="/" manifest:media-type="{mime_type}"/>'
+            '<manifest:file-entry manifest:full-path="content.xml" manifest:media-type="text/xml"/>'
+            '</manifest:manifest>'
+        ))
+    return buf.getvalue()
+
+
+# Mapping Extension → Template-Funktion
+_OFFICE_TEMPLATES = {
+    'docx': _make_ooxml_docx,
+    'xlsx': _make_ooxml_xlsx,
+    'pptx': _make_ooxml_pptx,
+    'odt':  lambda: _make_odf('application/vnd.oasis.opendocument.text'),
+    'ods':  lambda: _make_odf('application/vnd.oasis.opendocument.spreadsheet'),
+    'odp':  lambda: _make_odf('application/vnd.oasis.opendocument.presentation'),
+}
+
+# Legacy-Formate die kein programmatisches Template haben
+_OFFICE_LEGACY = {'doc', 'xls', 'ppt'}
+
+
+def _get_office_template(filename):
+    """
+    Gibt minimale gültige Bytes für Office-Dateiformate zurück.
+    Gibt None zurück wenn kein Template verfügbar ist.
+    """
+    ext = os.path.splitext(filename)[1].lstrip('.').lower()
+    factory = _OFFICE_TEMPLATES.get(ext)
+    if factory:
+        return factory()
+    return None
+
+
+def _add_wopi_cors(response, request):
+    """Fügt CORS-Header für den Collabora-Origin hinzu."""
+    collabora_origin = getattr(settings, 'COLLABORA_BASE_URL', '').rstrip('/')
+    origin = request.headers.get('Origin', '').rstrip('/')
+    if origin and (not collabora_origin or origin == collabora_origin):
+        response['Access-Control-Allow-Origin'] = origin
+        response['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+        response['Access-Control-Allow-Headers'] = (
+            'Content-Type, X-WOPI-Override, X-WOPI-Lock, Authorization'
+        )
+        response['Access-Control-Expose-Headers'] = 'X-WOPI-Lock'
+        # COOP auf WOPI-Endpoints entfernen – stört Cross-Origin-Kommunikation
+        if response.has_header('Cross-Origin-Opener-Policy'):
+            del response['Cross-Origin-Opener-Policy']
+    return response
+
+
+# Magic-Bytes der häufigsten Dateitypen (erste Bytes der Datei)
+_MAGIC_SIGNATURES = {
+    b'\xff\xd8\xff': 'image/jpeg',
+    b'\x89PNG\r\n\x1a\n': 'image/png',
+    b'GIF87a': 'image/gif',
+    b'GIF89a': 'image/gif',
+    b'RIFF': 'audio/wav',   # Prüfung unvollständig, aber gut genug für Blocklist
+    b'%PDF': 'application/pdf',
+    b'PK\x03\x04': 'application/zip',   # ZIP, DOCX, XLSX, PPTX, …
+    b'\x1f\x8b': 'application/gzip',
+    b'BZh': 'application/x-bzip2',
+    b'7z\xbc\xaf\x27\x1c': 'application/x-7z-compressed',
+    b'Rar!\x1a\x07': 'application/x-rar-compressed',
+    b'\x4d\x5a': 'application/x-dosexec',   # MZ – Windows-Executables → immer blockieren
+    b'\x7fELF': 'application/x-executable',  # ELF – Linux-Executables → immer blockieren
+    b'#!': 'text/x-shellscript',             # Shebang – Shell-Skripte → immer blockieren
+}
+
+# Dateitypen die grundsätzlich abgelehnt werden, unabhängig von der Allowlist
+_BLOCKED_MIME_TYPES = frozenset({
+    'application/x-dosexec',
+    'application/x-executable',
+    'application/x-msdownload',
+    'application/x-sh',
+    'text/x-shellscript',
+    'application/x-php',
+    'application/x-httpd-php',
+    'text/x-php',
+})
+
+# Dateiendungen die generell blockiert werden (auch wenn MIME ok ist)
+_BLOCKED_EXTENSIONS = frozenset({
+    'exe', 'bat', 'cmd', 'com', 'sh', 'bash', 'zsh', 'fish',
+    'ps1', 'psm1', 'psd1',                         # PowerShell
+    'php', 'php3', 'php4', 'php5', 'phtml', 'phar', # PHP
+    'asp', 'aspx', 'axd',                           # ASP.NET
+    'jsp', 'jspx',                                  # Java
+    'cgi', 'pl', 'py', 'rb',                        # Skripte (auch als Upload riskant)
+    'htaccess', 'htpasswd',                         # Web-Server-Konfig
+    'dll', 'so', 'dylib',                           # Bibliotheken
+    'elf', 'bin',                                   # Binaries
+    'vbs', 'vbe', 'js', 'jse', 'wsf', 'wsh',       # Windows-Skripte
+    'lnk', 'pif',                                   # Windows-Shortcuts
+    'jar', 'class',                                 # Java-Bytecode
+    'reg',                                          # Windows-Registry
+    'msi', 'msp',                                   # Windows-Installer
+    'scr',                                          # Windows-Screensaver (= EXE)
+    'hta',                                          # HTML-Application (Script-Execution)
+    'svg',                                          # SVG kann XSS enthalten
+})
+
+
+def _sniff_magic_bytes(file_obj) -> str | None:
+    """Liest die ersten 16 Bytes und vergleicht mit bekannten Signaturen."""
+    try:
+        header = file_obj.read(16)
+        file_obj.seek(0)
+        for sig, mime in _MAGIC_SIGNATURES.items():
+            if header.startswith(sig):
+                return mime
+    except Exception:
+        pass
+    return None
+
+
+def _sanitize_filename(name: str) -> str:
+    """Entfernt Path-Traversal-Muster und bereinigt den Dateinamen."""
+    name = os.path.basename(name)
+    name = re.sub(r'[^\w\s.\-]', '_', name)
+    # Doppelte Extensions verhindern (z.B. exploit.php.jpg)
+    parts = name.rsplit('.', 1)
+    if len(parts) == 2:
+        base, ext = parts
+        base = re.sub(r'\.', '_', base)   # Punkte im Basis-Namen entfernen
+        name = f'{base}.{ext}'
+    return name or 'upload'
+
+
+def validate_upload(uploaded_file) -> tuple[bool, str]:
+    """Validiert eine hochgeladene Datei auf Sicherheit.
+
+    Returns:
+        (True, '') wenn ok, (False, Fehlermeldung) wenn abgelehnt.
+    """
+    filename = uploaded_file.name or ''
+    ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+
+    # 1. Extension-Blocklist
+    if ext in _BLOCKED_EXTENSIONS:
+        return False, f'Dateityp ".{ext}" ist nicht erlaubt.'
+
+    # 2. Extension-Allowlist (aus settings)
+    allowed = getattr(settings, 'ALLOWED_FILE_EXTENSIONS', None)
+    if allowed and ext not in allowed:
+        return False, f'Dateityp ".{ext}" ist nicht in der Allowlist.'
+
+    # 3. Magic-Bytes prüfen (überschreibt vom Client gesendeten Content-Type)
+    detected_mime = _sniff_magic_bytes(uploaded_file)
+    if detected_mime and detected_mime in _BLOCKED_MIME_TYPES:
+        return False, f'Dateiinhalt wurde als "{detected_mime}" erkannt und ist nicht erlaubt.'
+
+    # 4. Dateigröße-Check (doppelt absichern neben Django-Einstellung)
+    max_size = getattr(settings, 'MAX_UPLOAD_SIZE_BYTES', 500 * 1024 * 1024)
+    if uploaded_file.size > max_size:
+        return False, f'Datei überschreitet die maximale Größe von {max_size // (1024*1024)} MB.'
+
+    return True, ''
 
 COLLABORA_EXTENSIONS = {
     'doc', 'docx', 'odt', 'xls', 'xlsx', 'ods', 'ppt', 'pptx', 'odp',
@@ -333,14 +761,29 @@ class CreateFileView(LoginRequiredMixin, FormView):
     def form_valid(self, form):
         """Create file with content"""
         try:
-            # Get or create root folder
             root_folder = get_or_create_root_folder(self.request.user)
 
             filename = form.cleaned_data['filename']
             content = form.cleaned_data.get('content', '')
+            ext = os.path.splitext(filename)[1].lstrip('.').lower()
 
-            # Create file content
-            file_content = ContentFile(content.encode('utf-8'))
+            # Legacy-Binärformate können nicht leer angelegt werden
+            if ext in _OFFICE_LEGACY and not content:
+                from django.contrib import messages
+                messages.error(
+                    self.request,
+                    f'❌ .{ext}-Dateien müssen als .docx/.xlsx/.pptx angelegt '
+                    f'oder über Upload hochgeladen werden.'
+                )
+                return self.form_invalid(form)
+
+            # Für Office-Formate: minimales gültiges Template verwenden
+            if not content and _get_office_template(filename) is not None:
+                raw_bytes = _get_office_template(filename)
+                file_content = ContentFile(raw_bytes)
+            else:
+                file_content = ContentFile(content.encode('utf-8'))
+
             ensure_quota_available(self.request.user, file_content.size)
 
             # Detect MIME type
@@ -392,16 +835,34 @@ class FileUploadView(LoginRequiredMixin, CreateView):
 
                 # Get uploaded file
                 uploaded_file = request.FILES['file']
+
+                # Sicherheitsvalidierung (Extension, Magic-Bytes, Größe)
+                ok, reason = validate_upload(uploaded_file)
+                if not ok:
+                    logger.warning(
+                        'Upload abgelehnt von %s: %s', request.user.username, reason
+                    )
+                    return JsonResponse({'success': False, 'error': reason}, status=400)
+
                 ensure_quota_available(request.user, uploaded_file.size)
+
+                # Dateiname sanitieren (Path-Traversal verhindern)
+                safe_name = _sanitize_filename(
+                    request.POST.get('name', uploaded_file.name)
+                )
+
+                # MIME-Typ aus Magic-Bytes ableiten statt Client-Header blind zu vertrauen
+                detected_mime = _sniff_magic_bytes(uploaded_file)
+                mime_type = detected_mime or mimetypes.guess_type(safe_name)[0] or 'application/octet-stream'
 
                 # Create file object
                 storage_file = StorageFile(
                     owner=request.user,
                     folder=root_folder,
                     file=uploaded_file,
-                    name=request.POST.get('name', uploaded_file.name),
+                    name=safe_name,
                     size=uploaded_file.size,
-                    mime_type=uploaded_file.content_type or 'application/octet-stream'
+                    mime_type=mime_type,
                 )
                 storage_file.save()
 
@@ -444,6 +905,21 @@ class ChunkUploadView(LoginRequiredMixin, CreateView):
 
         if not all([upload_id, total_chunks, filename, chunk_file]) or chunk_index is None:
             return JsonResponse({'success': False, 'error': 'Missing parameters'}, status=400)
+
+        # Dateinamen bereits beim ersten Chunk validieren
+        ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+        if ext in _BLOCKED_EXTENSIONS:
+            return JsonResponse(
+                {'success': False, 'error': f'Dateityp ".{ext}" ist nicht erlaubt.'},
+                status=400,
+            )
+        allowed_exts = getattr(settings, 'ALLOWED_FILE_EXTENSIONS', None)
+        if allowed_exts and ext not in allowed_exts:
+            return JsonResponse(
+                {'success': False, 'error': f'Dateityp ".{ext}" ist nicht in der Allowlist.'},
+                status=400,
+            )
+        filename = _sanitize_filename(filename)
 
         try:
             chunk_index = int(chunk_index)
@@ -637,7 +1113,7 @@ class WopiFileView(View):
         file_obj = self.get_file(file_id)
         payload = self.get_payload(request, file_id)
 
-        return JsonResponse({
+        response = JsonResponse({
             'BaseFileName': file_obj.name,
             'OwnerId': str(file_obj.owner_id),
             'Size': file_obj.size,
@@ -648,6 +1124,7 @@ class WopiFileView(View):
             'SupportsUpdate': True,
             'SupportsLocks': True,
         })
+        return _add_wopi_cors(response, request)
 
     def post(self, request, file_id, *args, **kwargs):
         self.get_payload(request, file_id)
@@ -706,7 +1183,12 @@ class WopiFileContentsView(View):
     def get(self, request, file_id, *args, **kwargs):
         file_obj = self.get_file(file_id)
         self.get_payload(request, file_id)
-        return FileResponse(file_obj.file.open('rb'), as_attachment=False, content_type=file_obj.mime_type or 'application/octet-stream')
+        response = FileResponse(
+            file_obj.file.open('rb'),
+            as_attachment=False,
+            content_type=file_obj.mime_type or 'application/octet-stream',
+        )
+        return _add_wopi_cors(response, request)
 
     def post(self, request, file_id, *args, **kwargs):
         file_obj = self.get_file(file_id)

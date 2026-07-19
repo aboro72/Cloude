@@ -40,6 +40,11 @@
     .meeting-meta i { margin-right: 0.25rem; }
 
     .invitee-avatars { display: flex; gap: -4px; }
+    .participant-names {
+        color: #5f6368;
+        font-size: 0.78rem;
+        line-height: 1.35;
+    }
     .inv-avatar {
         width: 26px;
         height: 26px;
@@ -171,6 +176,10 @@
         </div>
         {% if invitees.count > 5 %}<small class="text-muted">+{{ invitees.count|add:"-5" }}</small>{% endif %}
     </div>
+    <div class="participant-names mt-1">
+        <i class="bi bi-people me-1"></i>
+        {{ m.organizer.get_full_name|default:m.organizer.username }} (Organisator){% for inv in invitees %}, {{ inv.get_full_name|default:inv.username }}{% endfor %}
+    </div>
     {% endif %}
     {% endwith %}
     <div class="d-flex gap-2 mt-3">
@@ -226,6 +235,10 @@
             {% endfor %}
         </div>
         {% if invitees.count > 5 %}<small class="text-muted">+{{ invitees.count|add:"-5" }}</small>{% endif %}
+    </div>
+    <div class="participant-names mt-1">
+        <i class="bi bi-people me-1"></i>
+        {{ m.organizer.get_full_name|default:m.organizer.username }} (Organisator){% for inv in invitees %}, {{ inv.get_full_name|default:inv.username }}{% endfor %}
     </div>
     {% endif %}
     {% endwith %}
@@ -298,6 +311,10 @@
         </div>
         {% endfor %}
         {% if invitees.count > 5 %}<span class="text-muted small ms-1">+{{ invitees.count|add:"-5" }}</span>{% endif %}
+    </div>
+    <div class="participant-names mt-1">
+        <i class="bi bi-people me-1"></i>
+        {{ m.organizer.get_full_name|default:m.organizer.username }} (Organisator){% for inv in invitees %}, {{ inv.get_full_name|default:inv.username }}{% endfor %}
     </div>
     {% endif %}
     {% endwith %}

@@ -2,8 +2,31 @@ import re
 
 from django import forms
 from django.contrib import admin
+from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
+from django.contrib.auth.models import User
+from django.db import transaction
 
 from accounts.models import AuditLog, Company, PasswordReset, TwoFactorAuth, UserProfile, UserSession
+
+
+admin.site.unregister(User)
+
+
+@admin.register(User)
+class UserAdmin(DjangoUserAdmin):
+    """Built-in user admin plus a one-time welcome email on creation."""
+
+    def save_model(self, request, obj, form, change):
+        is_new = not change
+        initial_password = form.cleaned_data.get('password1') if is_new else None
+        super().save_model(request, obj, form, change)
+        if is_new and initial_password and obj.email:
+            profile = getattr(obj, 'profile', None)
+            if profile:
+                profile.must_change_password = True
+                profile.save(update_fields=['must_change_password'])
+            from core.email_notifications import send_welcome_email
+            transaction.on_commit(lambda: send_welcome_email(obj, initial_password))
 
 
 @admin.register(Company)

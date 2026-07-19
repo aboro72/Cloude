@@ -10,6 +10,7 @@ from django.contrib import messages
 from django.http import Http404, JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
+from django.db import transaction
 from pathlib import Path
 from core.models import ActivityLog
 from core.navigation import DEFAULT_PLUGIN_APP_SLUG, get_authenticated_home_url
@@ -291,6 +292,12 @@ def company_members(request, workspace_key):
             new_user.profile.role = role
             new_user.profile.must_change_password = (role != 'admin')
             new_user.profile.save(update_fields=['company', 'role', 'must_change_password'])
+            if new_user.email:
+                from core.email_notifications import send_welcome_email
+                transaction.on_commit(
+                    lambda user=new_user, initial_password=password:
+                        send_welcome_email(user, initial_password)
+                )
             return JsonResponse({'ok': True, 'username': new_user.username, 'user_id': new_user.pk})
 
         user_id = data.get('user_id')
@@ -403,6 +410,40 @@ def activity_log(request):
     return ActivityLogView.as_view()(request)
 
 
+def _ft_search(qs, match_fields, icontains_fields, query, limit=20):
+    """
+    MySQL FULLTEXT-Suche mit Relevanz-Ranking.
+    Fällt automatisch auf icontains zurück wenn der Begriff zu kurz ist
+    oder der Index noch nicht existiert.
+    """
+    from django.db.models import Q, FloatField
+    from django.db.models.expressions import RawSQL
+
+    def _icontains():
+        q_filter = Q()
+        for field in icontains_fields:
+            q_filter |= Q(**{f'{field}__icontains': query})
+        return list(qs.filter(q_filter)[:limit])
+
+    if len(query) < 3:
+        return _icontains()
+
+    words = [w for w in query.split() if w]
+    ft_query = ' '.join(f'+{w}*' for w in words)
+    try:
+        return list(
+            qs.annotate(
+                _score=RawSQL(
+                    f'MATCH({match_fields}) AGAINST (%s IN BOOLEAN MODE)',
+                    (ft_query,),
+                    output_field=FloatField(),
+                )
+            ).filter(_score__gt=0).order_by('-_score')[:limit]
+        )
+    except Exception:
+        return _icontains()
+
+
 def search(request):
     """Globale Volltext-Suche über alle Inhaltstypen."""
     if not request.user.is_authenticated:
@@ -417,65 +458,82 @@ def search(request):
         from django.contrib.auth.models import User
         from django.db.models import Q
 
-        # Dateien & Ordner (eigene)
-        files = StorageFile.objects.filter(
-            owner=request.user,
-            name__icontains=query
-        ).select_related('owner')[:20]
+        # Dateien (eigene) — FULLTEXT auf name
+        files = _ft_search(
+            StorageFile.objects.filter(owner=request.user).select_related('owner'),
+            'name', ['name'], query, limit=20,
+        )
 
-        folders = StorageFolder.objects.filter(
-            owner=request.user,
-            name__icontains=query
-        )[:10]
+        # Ordner (eigene) — kurz, icontains reicht
+        folders = list(
+            StorageFolder.objects.filter(owner=request.user, name__icontains=query)[:10]
+        )
 
-        # News-Artikel
+        # News-Artikel — FULLTEXT auf title, summary, content, tags
         try:
             from news.models import NewsArticle
-            news = NewsArticle.objects.filter(
-                is_published=True
-            ).filter(
-                Q(title__icontains=query) |
-                Q(summary__icontains=query) |
-                Q(content__icontains=query) |
-                Q(tags__icontains=query)
-            ).select_related('author', 'category')[:10]
+            news = _ft_search(
+                NewsArticle.objects.filter(is_published=True).select_related('author', 'category'),
+                'title, summary, content, tags',
+                ['title', 'summary', 'content', 'tags'],
+                query, limit=10,
+            )
         except Exception:
             news = []
 
-        # Team-Sites (GroupShare)
+        # Team-Sites — icontains (kurze Texte)
         try:
             from sharing.models import GroupShare
-            team_sites = GroupShare.objects.filter(
-                Q(group_name__icontains=query)
-            ).filter(is_active=True)[:10]
+            team_sites = list(
+                GroupShare.objects.filter(is_active=True, group_name__icontains=query)[:10]
+            )
         except Exception:
             team_sites = []
 
-        # Team-Site News
+        # Team-Site News — FULLTEXT auf title, content
         try:
             from sharing.models import TeamSiteNews
-            team_news = TeamSiteNews.objects.filter(
-                Q(title__icontains=query) |
-                Q(content__icontains=query)
-            ).select_related('group', 'author')[:10]
+            team_news = _ft_search(
+                TeamSiteNews.objects.select_related('group', 'author'),
+                'title, content',
+                ['title', 'content'],
+                query, limit=10,
+            )
         except Exception:
             team_news = []
 
-        # Personen (nur für eingeloggte)
-        people = User.objects.filter(is_active=True).filter(
-            Q(username__icontains=query) |
-            Q(first_name__icontains=query) |
-            Q(last_name__icontains=query) |
-            Q(email__icontains=query)
-        )[:8]
+        # Aufgaben — FULLTEXT auf title, description
+        try:
+            from tasks_board.models import Task
+            tasks = _ft_search(
+                Task.objects.filter(
+                    Q(board__owner=request.user) | Q(assigned_to=request.user)
+                ).select_related('board', 'assigned_to').distinct(),
+                'title, description',
+                ['title', 'description'],
+                query, limit=10,
+            )
+        except Exception:
+            tasks = []
+
+        # Personen — icontains (kein FULLTEXT auf User-Feldern nötig)
+        people = list(
+            User.objects.filter(is_active=True).filter(
+                Q(username__icontains=query) |
+                Q(first_name__icontains=query) |
+                Q(last_name__icontains=query) |
+                Q(email__icontains=query)
+            )[:8]
+        )
 
         results = {
-            'files': list(files),
-            'folders': list(folders),
-            'news': list(news),
-            'team_sites': list(team_sites),
-            'team_news': list(team_news),
-            'people': list(people),
+            'files': files,
+            'folders': folders,
+            'news': news,
+            'team_sites': team_sites,
+            'team_news': team_news,
+            'tasks': tasks,
+            'people': people,
         }
         total = sum(len(v) for v in results.values())
 
@@ -488,9 +546,6 @@ def search(request):
 
 def search_suggest(request):
     """AJAX-Autocomplete für die Navbar-Suche."""
-    import json
-    from django.http import JsonResponse
-
     if not request.user.is_authenticated:
         return JsonResponse({'suggestions': []})
 
@@ -503,26 +558,48 @@ def search_suggest(request):
     suggestions = []
 
     # Dateien
-    for f in StorageFile.objects.filter(owner=request.user, name__icontains=q)[:5]:
-        suggestions.append({'label': f.name, 'type': 'file', 'icon': 'bi-file-earmark', 'url': f'/storage/file/{f.id}/'})
+    for f in StorageFile.objects.filter(owner=request.user, name__icontains=q)[:4]:
+        suggestions.append({
+            'label': f.name, 'type': 'file',
+            'icon': 'bi-file-earmark', 'url': f'/storage/file/{f.id}/',
+        })
 
     # News
     try:
         from news.models import NewsArticle
-        for a in NewsArticle.objects.filter(is_published=True, title__icontains=q)[:5]:
-            suggestions.append({'label': a.title, 'type': 'news', 'icon': 'bi-newspaper', 'url': f'/news/{a.slug}/'})
+        for a in NewsArticle.objects.filter(is_published=True, title__icontains=q)[:3]:
+            suggestions.append({
+                'label': a.title, 'type': 'news',
+                'icon': 'bi-newspaper', 'url': f'/news/{a.slug}/',
+            })
+    except Exception:
+        pass
+
+    # Aufgaben
+    try:
+        from tasks_board.models import Task
+        from django.db.models import Q as DQ
+        for t in Task.objects.filter(
+            DQ(board__owner=request.user) | DQ(assigned_to=request.user)
+        ).filter(title__icontains=q).select_related('board').distinct()[:3]:
+            suggestions.append({
+                'label': t.title, 'type': 'task',
+                'icon': 'bi-check2-square', 'url': f'/tasks/board/{t.board_id}/',
+            })
     except Exception:
         pass
 
     # Personen
     from django.contrib.auth.models import User
     for u in User.objects.filter(is_active=True).filter(
-        Q(username__icontains=q) | Q(first_name__icontains=q) | Q(last_name__icontains=q)
+        Q(first_name__icontains=q) | Q(last_name__icontains=q) | Q(username__icontains=q)
     )[:3]:
-        name = u.get_full_name() or u.username
-        suggestions.append({'label': name, 'type': 'person', 'icon': 'bi-person', 'url': f'/accounts/profile/{u.username}/'})
+        suggestions.append({
+            'label': u.get_full_name() or u.username, 'type': 'person',
+            'icon': 'bi-person', 'url': f'/accounts/profile/{u.username}/',
+        })
 
-    return JsonResponse({'suggestions': suggestions[:10]})
+    return JsonResponse({'suggestions': suggestions[:12]})
 
 
 class SettingsView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):

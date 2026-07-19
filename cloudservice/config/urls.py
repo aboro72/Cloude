@@ -9,9 +9,15 @@ from django.urls import include, path, re_path
 from django.views.static import serve
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from api.throttling import LoginRateThrottle
 
 from core import views as core_views
 from messenger import views as messenger_views
+
+
+class ThrottledTokenObtainPairView(TokenObtainPairView):
+    """JWT-Login mit Rate-Limiting: max. 5 Versuche/Minute je IP."""
+    throttle_classes = [LoginRateThrottle]
 
 
 urlpatterns = [
@@ -20,7 +26,7 @@ urlpatterns = [
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
-    path('api/auth/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/auth/token/', ThrottledTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('settings/', core_views.settings, name='settings'),
     path('debug/plugins/', core_views.debug_plugins, name='debug_plugins'),

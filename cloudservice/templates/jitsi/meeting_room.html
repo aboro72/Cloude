@@ -32,6 +32,12 @@
         align-items: center;
         gap: 0.5rem;
     }
+    .participant-count {
+        color: #c9cbd6;
+        font-size: 0.78rem;
+        font-weight: 500;
+        white-space: nowrap;
+    }
     .pulse-dot {
         width: 8px; height: 8px;
         border-radius: 50%;
@@ -74,9 +80,10 @@
             <span class="pulse-dot"></span>
             <i class="bi bi-camera-video-fill text-success"></i>
             {{ meeting.title }}
+            <span class="participant-count" id="participant-count">1 Teilnehmer</span>
         </span>
         <button class="btn-leave" onclick="leaveAndReturn()">
-            <i class="bi bi-telephone-x-fill"></i> Verlassen
+            <i class="bi bi-telephone-x-fill"></i> Meeting verlassen
         </button>
     </div>
     <div id="jitsi-container" style="flex:1;"></div>
@@ -99,6 +106,7 @@ function adjustLayout() {
 }
 
 let api = null;
+let conferenceJoined = false;
 
 function initJitsi() {
     api = new JitsiMeetExternalAPI(JITSI_DOMAIN, {
@@ -116,12 +124,32 @@ function initJitsi() {
         interfaceConfigOverwrite: {
             SHOW_JITSI_WATERMARK: false,
             SHOW_BRAND_WATERMARK: false,
-            TOOLBAR_BUTTONS: ['microphone', 'camera', 'desktop', 'fullscreen', 'hangup', 'chat', 'settings', 'participants-pane'],
+            TOOLBAR_BUTTONS: ['microphone', 'camera', 'desktop', 'tileview', 'fullscreen', 'hangup', 'chat', 'settings', 'participants-pane'],
         },
     });
 
-    api.addEventListener('readyToClose', leaveAndReturn);
-    api.addEventListener('videoConferenceLeft', leaveAndReturn);
+    api.addEventListener('videoConferenceJoined', () => {
+        conferenceJoined = true;
+        api.executeCommand('setTileView', true);
+        updateParticipantCount();
+    });
+    api.addEventListener('participantJoined', updateParticipantCount);
+    api.addEventListener('participantLeft', updateParticipantCount);
+    api.addEventListener('readyToClose', leaveAfterConference);
+    api.addEventListener('videoConferenceLeft', leaveAfterConference);
+}
+
+function leaveAfterConference() {
+    // Some Jitsi versions emit a leave event while switching from the
+    // prejoin screen into the conference. Do not navigate away in that case.
+    if (conferenceJoined) leaveAndReturn();
+}
+
+function updateParticipantCount() {
+    if (!api) return;
+    const count = api.getNumberOfParticipants();
+    const label = document.getElementById('participant-count');
+    if (label) label.textContent = `${count} Teilnehmer`;
 }
 
 function leaveAndReturn() {
