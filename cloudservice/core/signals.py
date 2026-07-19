@@ -6,11 +6,22 @@ Handles automatic tasks on model changes.
 from django.db.models.signals import post_save, post_delete, pre_delete
 from django.dispatch import receiver
 from django.contrib.auth.models import User
-from core.models import StorageFile, StorageFolder, FileVersion, ActivityLog
+from core.models import StorageFile, StorageFolder, FileVersion, ActivityLog, Notification
 import os
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+@receiver(post_save, sender=Notification)
+def email_new_notification(sender, instance, created, **kwargs):
+    if not created:
+        return
+    from django.db import transaction
+    from core.email_notifications import send_user_email
+    transaction.on_commit(lambda: send_user_email(
+        instance.user, instance.title, instance.message, instance.url
+    ))
 
 
 @receiver(post_save, sender=StorageFile)
@@ -119,17 +130,14 @@ def _notify_on_published_article(article):
         from django.contrib.auth.models import User
 
         users = User.objects.filter(is_active=True).exclude(pk=article.author_id if article.author else 0)
-        notifications = [
-            Notification(
-                user=u,
+        for user in users.iterator():
+            Notification.notify(
+                user=user,
                 notification_type='news',
-                title=f'Neuer Artikel: {article.title}',
-                message=article.summary[:120] if article.summary else '',
+                title=f'Neue Neuigkeit: {article.title}',
+                message=article.summary[:240] if article.summary else 'Eine neue Neuigkeit wurde veröffentlicht.',
                 url=f'/news/{article.slug}/',
             )
-            for u in users
-        ]
-        Notification.objects.bulk_create(notifications, ignore_conflicts=True)
     except Exception as e:
         logger.warning(f"Notification signal error (news publish): {e}")
 

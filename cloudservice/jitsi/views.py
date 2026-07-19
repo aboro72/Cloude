@@ -144,12 +144,12 @@ def schedule(request):
     return redirect('jitsi:meetings')
 
 
-def _mysite_url():
+def _meetings_url():
     try:
         from django.urls import reverse
-        return reverse('core:plugin_app', kwargs={'slug': 'mysite'})
+        return reverse('jitsi:meetings')
     except Exception:
-        return '/'
+        return '/meetings/'
 
 
 @login_required
@@ -209,7 +209,7 @@ def meeting_room(request, pk):
         'meeting': meeting,
         'jitsi_domain': JITSI_URL.replace('https://', '').replace('http://', '').rstrip('/'),
         'jitsi_token': token,
-        'return_url': _mysite_url(),
+        'return_url': _meetings_url(),
         'display_name': request.user.get_full_name() or request.user.username,
     })
 

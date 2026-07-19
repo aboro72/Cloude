@@ -4,3 +4,6 @@ class JitsiConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "jitsi"
     verbose_name = "Jitsi Meet"
+
+    def ready(self):
+        import jitsi.signals  # noqa: F401

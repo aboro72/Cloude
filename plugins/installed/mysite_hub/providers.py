@@ -315,6 +315,25 @@ class MySitePageProvider(PluginPageProvider):
     def get_template_name(self) -> str:
         return 'mysite_hub/page.html'
 
+    def _build_upcoming_meetings(self, request):
+        try:
+            from django.db.models import Q as DQ
+            from jitsi.models import Meeting
+            profile = getattr(request.user, 'profile', None)
+            company = profile.company if profile else None
+            if not company:
+                return []
+            return list(
+                Meeting.objects.filter(company=company)
+                .filter(DQ(organizer=request.user) | DQ(invitees=request.user))
+                .filter(status__in=[Meeting.STATUS_PLANNED, Meeting.STATUS_RUNNING])
+                .distinct()
+                .select_related('organizer')
+                .order_by('scheduled_start', 'created_at')[:5]
+            )
+        except Exception:
+            return []
+
     def get_context(self, request):
         settings = get_mysite_plugin_settings()
         profile = request.user.profile
@@ -337,6 +356,7 @@ class MySitePageProvider(PluginPageProvider):
                 {'title': 'Landing', 'description': 'Widgets und persoenliche Startansicht.', 'url': reverse('core:landing'), 'icon': 'bi-speedometer2'},
             ],
             'news_items': self._build_news_items(request),
+            'upcoming_meetings': self._build_upcoming_meetings(request),
             'team_sites': self._build_team_sites(request),
             'document_libraries': self._build_document_libraries(request),
             'department_pages': self._build_department_pages(),

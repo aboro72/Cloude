@@ -267,6 +267,48 @@
         </div>
     </div>
 
+    {% if upcoming_meetings %}
+    <div class="mysite-surface mb-4">
+        <div class="mysite-section-head">
+            <div>
+                <h4 class="mb-1"><i class="bi bi-camera-video me-2 text-primary"></i>Meine Meetings</h4>
+                <div class="mysite-meta">Geplante und laufende Meetings, zu denen du eingeladen bist.</div>
+            </div>
+            <a href="/meetings/" class="mysite-pill text-decoration-none"><i class="bi bi-calendar2-week me-1"></i>Alle Meetings &rarr;</a>
+        </div>
+        <div class="mysite-stack">
+            {% for m in upcoming_meetings %}
+            <div class="mysite-list-item align-items-center">
+                {% if m.status == 'running' %}
+                <span style="width:9px;height:9px;border-radius:50%;background:#34a853;flex-shrink:0;animation:pulse 1.4s infinite;display:inline-block;"></span>
+                {% else %}
+                <i class="bi bi-calendar-event mysite-mini-icon"></i>
+                {% endif %}
+                <div class="flex-grow-1 overflow-hidden">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="fw-semibold text-truncate">{{ m.title }}</span>
+                        {% if m.status == 'running' %}
+                        <span class="badge text-bg-success" style="font-size:.65rem;">Läuft</span>
+                        {% else %}
+                        <span class="badge text-bg-primary" style="font-size:.65rem;">Geplant</span>
+                        {% endif %}
+                    </div>
+                    <div class="mysite-meta">
+                        {% if m.scheduled_start %}{{ m.scheduled_start|date:"d.m.Y H:i" }} Uhr — {% endif %}
+                        von {{ m.organizer.get_full_name|default:m.organizer.username }}
+                    </div>
+                </div>
+                {% if m.status == 'running' %}
+                <a href="/meetings/{{ m.pk }}/join/" class="btn btn-sm btn-success rounded-pill px-3" style="font-size:.78rem;flex-shrink:0;">
+                    <i class="bi bi-box-arrow-in-right me-1"></i>Beitreten
+                </a>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
     <div class="row g-4 mb-4">
         <div class="col-xl-6">
             <div class="mysite-surface">

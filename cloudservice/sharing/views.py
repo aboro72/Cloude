@@ -3,23 +3,43 @@ Views for Sharing app.
 File and folder sharing management.
 """
 
+import logging
+
 from django.db import models
 from django.views.generic import CreateView, DeleteView, ListView, TemplateView, DetailView, UpdateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import redirect, get_object_or_404, render
 from django.urls import reverse_lazy
-from django.http import JsonResponse, FileResponse, Http404
+from django.http import JsonResponse, FileResponse, Http404, HttpResponse
 from django.db.models import Q
 from django.contrib.contenttypes.models import ContentType
 from django.utils import timezone
+from django.core.cache import cache
 
 from sharing.models import UserShare, PublicLink, GroupShare, ShareLog, TeamSiteNews
 from sharing.forms import TeamSiteNewsForm
 from core.models import ActivityLog, StorageFile, StorageFolder
 from core.navigation import get_optional_plugin_app_url
-import logging
 
 logger = logging.getLogger(__name__)
+
+
+def _get_client_ip(request):
+    xff = request.META.get('HTTP_X_FORWARDED_FOR', '')
+    ip = xff.split(',')[0].strip() if xff else request.META.get('REMOTE_ADDR', '')
+    return ip or '0.0.0.0'
+
+
+def _check_public_link_rate_limit(request, token: str) -> bool:
+    """True = erlaubt, False = Rate-Limit überschritten (429 zurückgeben)."""
+    ip = _get_client_ip(request)
+    key = f'publink_rate:{ip}'
+    count = cache.get(key, 0) + 1
+    cache.set(key, count, timeout=60)
+    if count > 20:
+        logger.warning('Public-Link Rate-Limit überschritten: IP=%s token=%s', ip, token[:8])
+        return False
+    return True
 
 
 class ShareView(LoginRequiredMixin, CreateView):
@@ -107,6 +127,12 @@ class PublicLinkView(DetailView):
     def get_queryset(self):
         return PublicLink.objects.filter(is_active=True)
 
+    def get(self, request, *args, **kwargs):
+        token = kwargs.get('token', '')
+        if not _check_public_link_rate_limit(request, token):
+            return HttpResponse('Zu viele Anfragen. Bitte warte eine Minute.', status=429)
+        return super().get(request, *args, **kwargs)
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         link = self.get_object()
@@ -116,6 +142,9 @@ class PublicLinkView(DetailView):
             return context
 
         link.increment_view_count()
+
+        ip = _get_client_ip(self.request)
+        logger.info('Public-Link aufgerufen: token=%s ip=%s', link.token[:8], ip)
 
         # Get shared object details
         if link.content_object:
@@ -134,6 +163,10 @@ class PublicDownloadView(DetailView):
         return PublicLink.objects.filter(is_active=True)
 
     def get(self, request, *args, **kwargs):
+        token = kwargs.get('token', '')
+        if not _check_public_link_rate_limit(request, token):
+            return HttpResponse('Zu viele Anfragen. Bitte warte eine Minute.', status=429)
+
         link = self.get_object()
 
         if link.is_expired():
@@ -154,6 +187,11 @@ class PublicDownloadView(DetailView):
         if isinstance(link.content_object, StorageFile):
             file_obj = link.content_object
             link.increment_download_count()
+            ip = _get_client_ip(request)
+            logger.info(
+                'Public-Link Download: token=%s file=%s ip=%s',
+                link.token[:8], file_obj.name, ip
+            )
 
             response = FileResponse(
                 file_obj.file.open('rb'),
@@ -253,15 +291,45 @@ class CreateGroupView(LoginRequiredMixin, CreateView):
     fields = ['group_name', 'members', 'background_image', 'background_video']
     success_url = reverse_lazy('sharing:groups_list')
 
+    def _get_department_for_assignment(self):
+        """
+        Optional: assign the newly created Team-Site to a Department via query param.
+
+        Accepts: ?department=<department-slug>
+        Only assigns if the user is allowed to manage that department.
+        """
+        dept_slug = (self.request.GET.get('department') or '').strip()
+        if not dept_slug:
+            return None
+
+        try:
+            from departments.models import Department
+        except Exception:
+            return None
+
+        dept = Department.objects.filter(slug=dept_slug).first()
+        if not dept:
+            return None
+        if not dept.user_can_manage(self.request.user):
+            return None
+        return dept
+
     def dispatch(self, request, *args, **kwargs):
-        if not request.user.has_perm('sharing.create_groupshare'):
+        dept = self._get_department_for_assignment()
+        if not request.user.has_perm('sharing.create_groupshare') and not dept:
             from django.shortcuts import render as _r
             return _r(request, '403.html', {
                 'error_message': 'Du hast keine Berechtigung, Team-Sites zu erstellen.',
             }, status=403)
         return super().dispatch(request, *args, **kwargs)
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['department'] = self._get_department_for_assignment()
+        return context
+
     def form_valid(self, form):
+        dept = self._get_department_for_assignment()
         site_folder = StorageFolder.objects.create(
             owner=self.request.user,
             parent=None,
@@ -273,9 +341,52 @@ class CreateGroupView(LoginRequiredMixin, CreateView):
         form.instance.content_type = ContentType.objects.get_for_model(StorageFolder)
         form.instance.object_id = site_folder.id
         form.instance.permission = 'admin'
+        form.instance.department = dept
 
         response = super().form_valid(form)
         self.object.members.add(self.request.user)
+
+        if dept:
+            leader_ids = set(
+                dept.memberships
+                .filter(role__in=['manager', 'head'])
+                .values_list('user_id', flat=True)
+            )
+            if dept.head_id:
+                leader_ids.add(dept.head_id)
+            if leader_ids:
+                preexisting_member_ids = set(self.object.members.filter(id__in=leader_ids).values_list('id', flat=True))
+                preexisting_leader_ids = set(self.object.team_leaders.filter(id__in=leader_ids).values_list('id', flat=True))
+
+                to_add_members = leader_ids - preexisting_member_ids
+                to_add_leaders = leader_ids - preexisting_leader_ids
+
+                if to_add_members:
+                    self.object.members.add(*to_add_members)
+                if to_add_leaders:
+                    self.object.team_leaders.add(*to_add_leaders)
+
+                try:
+                    from sharing.models import GroupShareDepartmentAutoRole
+                    for user_id in leader_ids:
+                        added_to_members = user_id in to_add_members
+                        added_to_team_leaders = user_id in to_add_leaders
+                        if not (added_to_members or added_to_team_leaders):
+                            continue
+                        GroupShareDepartmentAutoRole.objects.update_or_create(
+                            group=self.object,
+                            department=dept,
+                            user_id=user_id,
+                            defaults={
+                                'preexisting_member': user_id in preexisting_member_ids,
+                                'preexisting_team_leader': user_id in preexisting_leader_ids,
+                                'added_to_members': added_to_members,
+                                'added_to_team_leaders': added_to_team_leaders,
+                            },
+                        )
+                except Exception:
+                    pass
+
         return response
 
     def get_success_url(self):
