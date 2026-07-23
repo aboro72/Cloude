@@ -1,50 +1,98 @@
-# Cloude – Django Cloud Storage
+# CloudShare – Die Open-Source-Unternehmensplattform
 
-Ein moderner Cloud-Speicherdienst auf Basis von Django 6, Gunicorn, Daphne und Celery.
+> **CloudShare ist mehr als ein Cloudspeicher.**
+>
+> Es ist eine Open-Source-Plattform für Dokumentenmanagement, Zusammenarbeit und den digitalen Arbeitsplatz – vollständig selbst hostbar, erweiterbar und mit voller Datenhoheit.
 
-**Entwickelt von Andreas Borowczak | [Aboro IT](https://aboro-it.de)**
+**Entwickelt von Andreas Borowczak | https://aborosoft.com**
+
+## Vision
+
+Viele Unternehmen arbeiten heute mit einer Vielzahl einzelner Lösungen:
+
+- Dateispeicher
+- Messenger
+- Videokonferenzen
+- Dokumentenmanagement
+- Wissensdatenbanken
+- Freigaben
+
+CloudShare vereint diese Funktionen in einer zentralen Plattform.
+
+**Ein Login. Eine Oberfläche. Eine Plattform.**
+
+## Warum CloudShare?
+
+- ✅ Open Source
+- ✅ Self Hosting
+- ✅ Keine laufenden Benutzerlizenzen bei Eigenbetrieb
+- ✅ Volle Datenhoheit
+- ✅ Erweiterbar durch Plugins
+- ✅ REST API
+- ✅ Echtzeit-Kommunikation
+- ✅ Für Unternehmen, Behörden, Vereine und Bildungseinrichtungen
+
+## Funktionen
+
+### Dokumentenmanagement
+
+- Versionierung
+- Ordnerverwaltung
+- Vorschau für Bilder, PDFs, Audio und Videos
+- Papierkorb
+- Volltextsuche
+- Sichere Dateifreigaben
+
+### Zusammenarbeit
+
+- Messenger
+- Direktnachrichten
+- Kanäle
+- Reaktionen
+- Videokonferenzen
+- Benachrichtigungen in Echtzeit
+
+### Plattform
+
+- Plugin-System
+- REST API mit JWT
+- WebSockets
+- Automatische Updates
+- Rollen- und Berechtigungssystem
+
+## Self Hosting
+
+CloudShare kann vollständig auf eigener Infrastruktur betrieben werden.
+
+Dadurch behalten Unternehmen die volle Kontrolle über ihre Daten und vermeiden Vendor-Lock-in sowie laufende Lizenzkosten für die Plattform.
+
+## Roadmap
+
+CloudShare entwickelt sich kontinuierlich zur zentralen Unternehmensplattform.
+
+Geplante Erweiterungen:
+
+- KI-Assistent
+- Workflow-Engine
+- Aufgabenverwaltung
+- CRM
+- Ticketsystem
+- Kalender
+- Wissensdatenbank
+- Plugin Marketplace
+- Mobile Apps
+
+## Live Demo
+
+https://cloudshare.aborosoft.com/
+
+## GitHub
+
+https://github.com/aboro72/Cloude
 
 ---
 
-## Changelog / Projektbereinigung
-
-### Entfernte Bestandteile
-
-| Entfernt | Grund |
-|---|---|
-| `Dockerfile` | Docker wird nicht mehr unterstützt |
-| `docker-compose.yml` | Docker wird nicht mehr unterstützt |
-| `unified-install/` | Docker-basiertes Setup-Wizard entfernt |
-| `README_MIGRATION.md` | Veraltete Migrationsdokumentation |
-| `MIGRATION_GUIDE_HELPDESK.md` | Nicht projektrelevant |
-| `cloudservice/storage/*.bak.*` | Automatisch erstellte Backup-Dateien |
-
-### Hinzugefügte Bestandteile
-
-| Datei | Beschreibung |
-|---|---|
-| `auto-update.sh` | Automatisches Update-Skript (GitHub → Server) |
-| `auto-update.service` | Systemd Service für das Update-Skript |
-| `auto-update.timer` | Systemd Timer (alle 5 Minuten) |
-| `auto-update.sudoers` | Optionale Sudoers-Regel für manuelle Ausführung |
-
----
-
-## Features
-
-- **Dateiverwaltung** – Upload, Download, Verschieben, Umbenennen, Versionen
-- **Ordnerstruktur** – Hierarchische Ordner mit Breadcrumb-Navigation
-- **Dateivorschau** – Bilder, Videos, Audio, PDFs direkt im Browser
-- **Papierkorb** – Soft-Delete mit Wiederherstellung
-- **Freigaben** – Öffentliche Links mit Passwortschutz und Ablaufdatum
-- **Messenger** – Echtzeit-Chat mit Kanälen, Direktnachrichten, Reaktionen und Einladungslinks
-- **Video-Call** – P2P-Videoanrufe direkt im DM-Fenster (Jitsi Meet, austauschbar)
-- **Plugin-System** – Erweiterbar durch Hook-basierte Plugins
-- **WebSocket** – Echtzeit-Benachrichtigungen über Daphne/Channels
-- **REST-API** – Vollständige API mit JWT-Authentifizierung
-- **Auto-Update** – Automatische Aktualisierung vom GitHub Master-Branch
-
----
+# Technische Informationen
 
 ## Projektstruktur
 
